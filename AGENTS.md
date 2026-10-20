@@ -24,4 +24,5 @@ changing behaviour.
 ## Tasks (inside `nix develop`)
 
 `bb setup` · `bb dev` (http://localhost:8080) · `bb test` · `bb lint` · `bb fmt` ·
-`bb fmt:check` · `bb build`
+`bb fmt:check` · `bb build` · `bb e2e` (browser check; needs `bb dev` running or
+`URL=…`, uses the real Radio Browser API and real streams)

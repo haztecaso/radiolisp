@@ -2601,3 +2601,31 @@ Run: `(cd frontend/resources/public && python3 -m http.server 8090 --bind 127.0.
 - [ ] **Step 3: Nothing to commit**
 
 The build output is ignored by git. `git status --short` must be empty.
+
+---
+
+## Deviations found while executing (2026-10-20)
+
+The code blocks above are the plan as written. These changes were made during
+execution; the repository is the source of truth.
+
+- **Task 2, `bb.edn`:** `lint`, `fmt` and `fmt:check` pass only the source folders
+  that exist (`fs/exists?`), so they work before `common/src` exists.
+- **Task 3, common tests:** `common/deps.edn` has `:paths ["src" "test"]` and the
+  frontend `:test` alias only adds `"test"`. shadow-cljs deprecates
+  `:extra-paths` outside the module (`../common/test`).
+- **Tasks 4, 8, 10, `shadowed-var`:** locals named `name`, `key` and `country`
+  shadowed vars. They are `station-name`, `{k :key}` and the function
+  `country-code`.
+- **Task 12, startup:** the Google Fonts stylesheet blocked script execution (8 s on
+  the dev machine). DM Sans is self-hosted in `resources/public/fonts` (SIL OFL).
+- **Task 12, network:** the server list falls back after 3 s, and station requests
+  fail after 15 s so the core retries; a hung request used to leave "Searching…"
+  forever.
+- **Task 12, streams:** plain-http streams never delivered a body on the dev
+  machine's network. `audio.cljs` tries the `https://` form first (8 s), then the
+  original. The connect timeout is 15 s (it was 10).
+- **Task 12, verification:** the manual checklist became `frontend/e2e/check.mjs`
+  (`bb e2e`, 47 checks), driving Chromium over CDP with the design skill's helper.
+  It runs Chromium with IPv6 and async DNS off: on the dev machine both stall the
+  first request to a host for several seconds.
