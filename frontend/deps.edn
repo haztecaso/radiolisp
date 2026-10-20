@@ -5,4 +5,4 @@
 
  :aliases
  {:dev  {:extra-deps {thheller/shadow-cljs {:mvn/version "3.5.7"}}}
-  :test {:extra-paths ["test" "../common/test"]}}}
+  :test {:extra-paths ["test"]}}}

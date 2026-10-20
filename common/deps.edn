@@ -1,2 +1,4 @@
-{:paths ["src"]
+;; test/ is on the classpath so the frontend's :test build can find the
+;; common tests without reaching outside its own module.
+{:paths ["src" "test"]
  :deps  {}}
