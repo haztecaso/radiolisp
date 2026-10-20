@@ -5,7 +5,10 @@
  {:app  {:target     :browser
          :output-dir "resources/public/js"
          :asset-path "/js"
-         :modules    {:main {:init-fn radiolisp.frontend.main/init}}
+         :modules    {:main {:init-fn radiolisp.frontend.main/init}
+                      ;; hls.js only downloads when an HLS station needs it.
+                      :hls  {:entries    [radiolisp.frontend.hls]
+                             :depends-on #{:main}}}
          :devtools   {:watch-dir "resources/public"}}
 
   :test {:target    :node-test

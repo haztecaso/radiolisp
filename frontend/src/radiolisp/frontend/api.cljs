@@ -1,6 +1,7 @@
 (ns radiolisp.frontend.api
   "Radio Browser over HTTP. Returns promises of plain Clojure data."
-  (:require [radiolisp.common.station :as station]))
+  (:require [clojure.string :as str]
+            [radiolisp.common.station :as station]))
 
 (def app-id "radiolisp/0.1.0")
 (def servers-url "https://all.api.radio-browser.info/json/servers")
@@ -31,6 +32,15 @@
                  (if (seq names) (shuffle names) fallback-servers))))
       (.catch (fn [_] fallback-servers))))
 
+(defn- base-url [server path]
+  (str "https://" server "/json/" path))
+
+(defn- normalize-all [stations]
+  (mapv station/normalize (js->clj stations)))
+
+(defn- timeout-signal []
+  (js/AbortSignal.timeout request-timeout-ms))
+
 (defn stations-url
   "Search by name when `query` is given, otherwise today's most played."
   [server query]
@@ -51,7 +61,50 @@
     (-> (get-json (stations-url server query)
                   (js/AbortSignal.any #js [(.-signal controller)
                                            (js/AbortSignal.timeout request-timeout-ms)]))
-        (.then (fn [stations] (mapv station/normalize (js->clj stations)))))))
+        (.then normalize-all))))
+
+(defn fetch-by-ids
+  "Promise of the normalized stations with these uuids, in one request.
+  Unknown uuids are simply absent from the answer."
+  [server ids]
+  (-> (get-json (base-url server (str "stations/byuuid?" (js/URLSearchParams. #js {:uuids (str/join "," ids)})))
+                (timeout-signal))
+      (.then normalize-all)))
+
+(defn click!
+  "Tells Radio Browser that the station is being played (counts a click).
+  Fire and forget."
+  [server id]
+  (-> (get-json (base-url server (str "url/" (js/encodeURIComponent id))) (timeout-signal))
+      (.catch (fn [_] nil))))
+
+(defn vote
+  "Promise of true when Radio Browser accepted the vote."
+  [server id]
+  (-> (get-json (base-url server (str "vote/" (js/encodeURIComponent id))) (timeout-signal))
+      (.then (fn [^js answer] (true? (.-ok answer))))))
+
+(defn lookup-url
+  "Promise of the station that streams `url` (the most voted one when there
+  are several), or nil."
+  [server url]
+  (-> (get-json (base-url server (str "stations/byurl?" (js/URLSearchParams. #js {:url url})))
+                (timeout-signal))
+      (.then (fn [stations]
+               (let [found (normalize-all stations)]
+                 (when (seq found) (apply max-key :votes found)))))))
+
+(defn resolve-import
+  "Promise of `{:stations [...] :missing n}` for the uuids and stream URLs of
+  an imported playlist."
+  [server ids urls]
+  (-> (js/Promise.all
+       #js [(if (seq ids) (fetch-by-ids server ids) (js/Promise.resolve []))
+            (js/Promise.all (into-array (map #(-> (lookup-url server %) (.catch (fn [_] nil))) urls)))])
+      (.then (fn [[by-id by-url]]
+               (let [by-url (remove nil? by-url)]
+                 {:stations (vec (concat by-id by-url))
+                  :missing  (+ (- (count ids) (count by-id)) (- (count urls) (count by-url)))})))))
 
 (defn aborted?
   "True when the request was cancelled on purpose (a newer one replaced it).
