@@ -7,6 +7,8 @@
 (def fallback-servers ["de1.api.radio-browser.info" "de2.api.radio-browser.info"])
 (def search-limit 50)
 (def top-limit 20)
+(def servers-timeout-ms 3000)
+(def request-timeout-ms 8000)
 
 (defonce ^:private in-flight (atom nil))
 
@@ -21,9 +23,9 @@
 
 (defn fetch-servers
   "Promise of a shuffled vector of server host names. Never rejects: on any
-  failure it resolves to `fallback-servers`."
+  failure, or after `servers-timeout-ms`, it resolves to `fallback-servers`."
   []
-  (-> (get-json servers-url nil)
+  (-> (get-json servers-url (js/AbortSignal.timeout servers-timeout-ms))
       (.then (fn [servers]
                (let [names (->> (js->clj servers) (map #(get % "name")) distinct vec)]
                  (if (seq names) (shuffle names) fallback-servers))))
@@ -39,13 +41,20 @@
     (str "https://" server "/json/stations/topclick/" top-limit "?hidebroken=true")))
 
 (defn fetch-stations
-  "Promise of normalized stations. Aborts the previous request still in flight."
+  "Promise of normalized stations. Aborts the previous request still in flight.
+  A request that hangs fails after `request-timeout-ms`, so the caller can
+  retry on another server instead of waiting forever."
   [server query]
   (some-> ^js @in-flight .abort)
   (let [controller (js/AbortController.)]
     (reset! in-flight controller)
-    (-> (get-json (stations-url server query) (.-signal controller))
+    (-> (get-json (stations-url server query)
+                  (js/AbortSignal.any #js [(.-signal controller)
+                                           (js/AbortSignal.timeout request-timeout-ms)]))
         (.then (fn [stations] (mapv station/normalize (js->clj stations)))))))
 
-(defn aborted? [^js error]
+(defn aborted?
+  "True when the request was cancelled on purpose (a newer one replaced it).
+  A timeout is a \"TimeoutError\" and counts as a failure."
+  [^js error]
   (= "AbortError" (.-name error)))
