@@ -17,17 +17,19 @@
       (is (public? ip) ip))))
 
 (defn- reason [url opts]
-  (try (guard/check! url opts) nil
+  (try (guard/check! url opts) :ok
        (catch clojure.lang.ExceptionInfo e (:reason (ex-data e)))))
 
 (deftest check
+  (is (= (InetAddress/getByName "8.8.8.8") (guard/check! "http://8.8.8.8/" {}))
+      "returns the address to connect to")
   (is (= :forbidden (reason "http://127.0.0.1:8000/stream" {})))
   (is (= :forbidden (reason "http://[::1]/" {})))
   (is (= :forbidden (reason "http://localhost/" {})))
   (is (= :forbidden (reason "ftp://8.8.8.8/x" {})))
   (is (= :forbidden (reason "file:///etc/passwd" {})))
   (is (= :forbidden (reason "not a url" {})))
-  (is (nil? (reason "http://8.8.8.8:8000/live" {})))
+  (is (= :ok (reason "http://8.8.8.8:8000/live" {})))
   (testing "allow-private? lets loopback through, but not other schemes"
-    (is (nil? (reason "http://127.0.0.1:8000/stream" {:allow-private? true})))
+    (is (= :ok (reason "http://127.0.0.1:8000/stream" {:allow-private? true})))
     (is (= :forbidden (reason "ftp://127.0.0.1/" {:allow-private? true})))))
