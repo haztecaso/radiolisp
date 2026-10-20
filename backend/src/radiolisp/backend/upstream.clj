@@ -6,6 +6,7 @@
   and follows redirects itself, checking each one. The socket's read
   timeout ends a stalled stream."
   (:require [clojure.string :as str]
+            [clojure.tools.logging :as log]
             [radiolisp.backend.config :as config]
             [radiolisp.backend.guard :as guard])
   (:import (java.io BufferedInputStream InputStream)
@@ -109,7 +110,8 @@
     (let [{:keys [status headers ^Socket socket] :as response} (open-once url opts)]
       (cond
         (and (#{301 302 303 307 308} status) (get headers "location"))
-        (do (close! response)
+        (do (log/debugf "%s redirects (%d) to %s" url status (get headers "location"))
+            (close! response)
             (when (>= hops max-redirects) (fail "Too many redirects" :unreachable))
             (recur (str (.resolve (URI. url) (str/trim (get headers "location")))) (inc hops)))
 

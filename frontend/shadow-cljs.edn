@@ -10,7 +10,9 @@
                          ;; hls.js only downloads when an HLS station needs it.
                          :hls  {:entries    [radiolisp.frontend.hls]
                                 :depends-on #{:main}}}
-         :devtools      {:watch-dir "resources/public"}}
+         :devtools      {:watch-dir "resources/public"}
+         ;; In development the page on :8080 talks to `bb backend` on :8090.
+         :dev           {:closure-defines {radiolisp.frontend.socket/backend-origin "http://localhost:8090"}}}
 
   :test {:target    :node-test
          :output-to "target/test/node-tests.js"

@@ -1,7 +1,8 @@
 (ns radiolisp.backend.socket
   "`/api/ws`: titles of the station a browser is playing. Each socket
   follows at most one station; a new subscription replaces the old one."
-  (:require [radiolisp.backend.limits :as limits]
+  (:require [clojure.tools.logging :as log]
+            [radiolisp.backend.limits :as limits]
             [radiolisp.backend.relay :as relay]
             [radiolisp.common.protocol :as protocol]
             [ring.websocket :as ws]))
@@ -32,23 +33,25 @@
   "The WebSocket response for a browser at `ip`, or 429 when it has too many open."
   [{:keys [limits config sockets] :as system} ip]
   (if (limits/acquire! limits :sockets ip config)
-    {:status 429 :headers {"Content-Type" "text/plain"} :body "Too many connections"}
+    (do (log/warn "websocket refused: too many from one client")
+        {:status 429 :headers {"Content-Type" "text/plain"} :body "Too many connections"})
     ;; The state atom is also this socket's key in the relay.
     (let [state (atom {:id nil})]
       {::ws/listener
        {:on-open    (fn [socket]
-                      (swap! sockets conj socket))
+                      (log/debugf "websocket opened (%d open)" (count (swap! sockets conj socket))))
         :on-message (fn [socket text]
                       (let [message (protocol/decode (str text) protocol/client-message?)]
                         (case (first message)
                           :now-playing/subscribe   (subscribe! system state socket (:id (second message)))
                           :now-playing/unsubscribe (unsubscribe! system state)
-                          ((sender socket) (protocol/rejected :malformed)))))
-        :on-close   (fn [socket _ _]
-                      (swap! sockets disj socket)
+                          (do (log/warnf "websocket: rejected a malformed message (%d chars)" (count (str text)))
+                              ((sender socket) (protocol/rejected :malformed))))))
+        :on-close   (fn [socket status _]
+                      (log/debugf "websocket closed with %s (%d open)" status (count (swap! sockets disj socket)))
                       (unsubscribe! system state)
                       (limits/release! limits :sockets ip))
-        :on-error   (fn [_ _] nil)}})))
+        :on-error   (fn [_ e] (log/debugf "websocket error: %s" (or (ex-message e) (.getSimpleName (class e)))))}})))
 
 (defn ping-all!
   "Pings every open socket, so proxies and Jetty's idle timeout keep them."

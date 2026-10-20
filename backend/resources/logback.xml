@@ -1,0 +1,15 @@
+<!-- Logs go to the console. LOG_LEVEL (debug, info, warn) sets radiolisp's own
+     level; Jetty and the rest only say something when it is a warning.
+     Client IPs are never logged. -->
+<configuration>
+  <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
+  <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) backend %cyan(%logger{0}) %msg%n</pattern>
+    </encoder>
+  </appender>
+  <logger name="radiolisp" level="${LOG_LEVEL:-info}"/>
+  <root level="warn">
+    <appender-ref ref="console"/>
+  </root>
+</configuration>

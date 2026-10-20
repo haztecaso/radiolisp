@@ -1,0 +1,13 @@
+<!-- Tests stay quiet unless something goes wrong. -->
+<configuration>
+  <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
+  <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} %-5level %logger{0} %msg%n</pattern>
+    </encoder>
+  </appender>
+  <logger name="radiolisp" level="${LOG_LEVEL:-error}"/>
+  <root level="error">
+    <appender-ref ref="console"/>
+  </root>
+</configuration>

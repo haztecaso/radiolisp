@@ -59,6 +59,13 @@
 (defn- native-hls? []
   (not= "" (.canPlayType (element) "application/vnd.apple.mpegurl")))
 
+(defn- play-element!
+  "Starts the element. Failures arrive through the \"error\" event, so the
+  promise's rejection adds nothing. `play` may also return no promise at all
+  (old browsers, or an extension that replaces it)."
+  [^js audio]
+  (some-> (.play audio) (.catch (fn [_] nil))))
+
 (declare fail-attempt!)
 
 (defn- load-hls! [url attempt]
@@ -80,8 +87,7 @@
     (if (and (:hls? @state) (not (native-hls?)))
       (load-hls! url attempt)
       (do (set! (.-src audio) url)
-          ;; Failures arrive through the "error" event; the rejection adds nothing.
-          (-> (.play audio) (.catch (fn [_] nil)))))))
+          (play-element! audio)))))
 
 (defn- start-attempt! [url]
   (clear-attempt!)
@@ -154,7 +160,7 @@
              (nil? (.-error audio))
              (or (:hls @state) (not= "" (.-src audio))))
       ;; Resuming the station already loaded and healthy.
-      (-> (.play audio) (.catch (fn [_] nil)))
+      (play-element! audio)
       (let [[first-url & fallbacks] (stream-url/candidates url id hls? (https-page?))]
         (swap! state assoc :url url :id id :hls? (boolean hls?) :fallbacks (vec fallbacks)
                :http-only? (and (stream-url/http? url) (https-page?) (empty? fallbacks)))

@@ -2,6 +2,7 @@
   "`GET /api/stream/<uuid>`: the station's audio through the relay, for
   https pages that cannot play an `http://` stream themselves."
   (:require [clojure.core.async :as async]
+            [clojure.tools.logging :as log]
             [radiolisp.backend.limits :as limits]
             [radiolisp.backend.relay :as relay]
             [radiolisp.common.protocol :as protocol]
@@ -48,14 +49,17 @@
     (text 400 "Not a station uuid")
 
     (not (limits/request! limits ip (System/currentTimeMillis) config))
-    (text 429 "Too many requests")
+    (do (log/warnf "stream %s: 429, too many requests from one client" id)
+        (text 429 "Too many requests"))
 
     :else
     (if-let [denied (limits/acquire! limits :listeners ip config)]
-      (text (if (= :per-ip denied) 429 503) "Too many listeners")
+      (do (log/warnf "stream %s: listener limit (%s)" id (name denied))
+          (text (if (= :per-ip denied) 429 503) "Too many listeners"))
       (let [joined (relay/join-listener! relay id)]
         (if-let [error (:error joined)]
-          (do (limits/release! limits :listeners ip)
+          (do (log/infof "stream %s: %d %s" id (error-status error 502) (name error))
+              (limits/release! limits :listeners ip)
               (text (error-status error 502) (name error)))
           {:status  200
            :headers {"Content-Type"           (or (:content-type joined) "audio/mpeg")

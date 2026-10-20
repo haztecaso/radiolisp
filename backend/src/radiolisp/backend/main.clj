@@ -2,7 +2,8 @@
   "Starts the backend: Jetty on virtual threads, the relay, the limits and
   the WebSocket pings."
   (:gen-class)
-  (:require [radiolisp.backend.config :as config]
+  (:require [clojure.tools.logging :as log]
+            [radiolisp.backend.config :as config]
             [radiolisp.backend.http :as http]
             [radiolisp.backend.limits :as limits]
             [radiolisp.backend.radio-browser :as radio-browser]
@@ -49,6 +50,7 @@
   (.getLocalPort ^ServerConnector (first (.getConnectors server))))
 
 (defn stop! [{:keys [^Server server ^ScheduledExecutorService pinger relay]}]
+  (log/info "stopping")
   (.stop server)
   (.shutdownNow pinger)
   (relay/stop! relay))
@@ -56,7 +58,11 @@
 (defn -main [& _]
   (let [config (config/from-env (System/getenv))
         system (start! config)]
-    (println (str "radiolisp backend on http://" (:host config) ":" (port system)
-                  ", serving " (:public-dir config)))
+    (log/infof "radiolisp backend %s on http://%s:%d, serving %s" config/version
+               (:host config) (port system) (:public-dir config))
+    (log/infof "limits: %d sessions, %d listeners (%d per client), %d sockets per client, %d stream requests per minute%s"
+               (:max-sessions config) (:max-listeners config) (:max-listeners-per-ip config)
+               (:max-sockets-per-ip config) (:stream-requests-per-minute config)
+               (if (:trust-proxy? config) ", client address from X-Forwarded-For" ""))
     (.addShutdownHook (Runtime/getRuntime) (Thread. #(stop! system)))
     (.join ^Server (:server system))))

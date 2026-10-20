@@ -9,9 +9,12 @@
   setup      {:doc  "Install the npm dependencies of the frontend"
               :task (shell frontend "npm install")}
 
-  dev        {:doc  "Watch ClojureScript and SCSS; serves http://localhost:8080"
+  dev        {:doc  "Watch ClojureScript and SCSS (http://localhost:8080) and run the backend (http://localhost:8090)"
               :task (run '-dev {:parallel true})}
-  -dev       {:depends [dev:cljs dev:css]}
+  -dev       {:depends [dev:cljs dev:css dev:backend]}
+  ;; Debug logs in development, unless LOG_LEVEL says otherwise.
+  dev:backend (shell (assoc backend :extra-env {"LOG_LEVEL" (or (System/getenv "LOG_LEVEL") "debug")})
+                     "clojure -M -m radiolisp.backend.main")
   dev:cljs   (shell frontend "npx shadow-cljs watch app")
   dev:css    (shell frontend "sass --watch --no-source-map resources/styles/main.scss:resources/public/css/main.css")
 

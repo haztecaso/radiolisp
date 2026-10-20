@@ -13,6 +13,7 @@
   slow one never holds up the others. A session with nobody left closes
   after `idle-session-ms`."
   (:require [clojure.core.async :as async]
+            [clojure.tools.logging :as log]
             [radiolisp.backend.config :as config]
             [radiolisp.backend.icy :as icy]
             [radiolisp.backend.upstream :as upstream]
@@ -67,6 +68,11 @@
 
 (def ^:private empty-burst {:chunks clojure.lang.PersistentQueue/EMPTY :size 0})
 
+(defn- label
+  "How a session shows in the logs: the station's name and its uuid."
+  [session id]
+  (str "\"" (:name @session) "\" (" id ")"))
+
 ;; ---------------------------------------------------------------- closing
 
 (defn- close-session!
@@ -80,7 +86,9 @@
                                    (dissoc sessions id)
                                    sessions)))
       (run! async/close! (:listeners old))
-      (upstream/close! (:conn old)))))
+      (upstream/close! (:conn old))
+      (log/infof "closed %s after %ds" (label session id)
+                 (quot (- (System/currentTimeMillis) (:opened-at old)) 1000)))))
 
 (defn- close-if-idle!
   "Schedules a check: if nobody is in `session` after `idle-session-ms`, it closes."
@@ -104,13 +112,15 @@
         slow  (remove #(async/offer! % audio) (:listeners s))]
     (when (seq slow)
       (swap! session update :listeners #(reduce disj % slow))
-      (run! async/close! slow))))
+      (run! async/close! slow)
+      (log/infof "dropped %d slow listener(s) of \"%s\"" (count slow) (:name s)))))
 
 (defn- publish-title! [id session raw]
   (when-some [title (icy/stream-title raw)]
     (let [title     (not-empty title)
           [before after] (swap-vals! session assoc :title title :titled? true)]
       (when (or (not= title (:title before)) (not (:titled? before)))
+        (log/debugf "title %s: %s" (label session id) (or title "(none)"))
         (send-all! (:subscribers after) (protocol/title id title))))))
 
 ;; ---------------------------------------------------------------- reading
@@ -119,12 +129,16 @@
   "The station cannot be reached: waiting joiners get `reason`, subscribers
   are told, listeners' responses end."
   [relay id session reason]
+  (log/warnf "cannot reach %s: %s" (label session id) (name reason))
   (deliver (:ready @session) {:error reason})
   (send-all! (:subscribers @session) (protocol/unavailable id :unreachable))
   (close-session! relay id session))
 
-(defn- connected! [relay id session {:keys [metaint content-type] :as conn}]
+(defn- connected! [relay id session {:keys [metaint content-type url] :as conn}]
   (let [[before after] (swap-vals! session assoc :conn conn :status :live :metaint metaint)]
+    (log/infof "%s %s: %s, %s (%s)" (if (= :retrying (:status before)) "reconnected" "connected")
+               (label session id) (or content-type "no content type")
+               (if metaint (str "metadata every " metaint " bytes") "no metadata") url)
     (deliver (:ready after) {:content-type content-type :metaint metaint})
     (when (= :closed (:status before))
       (upstream/close! conn))
@@ -167,7 +181,8 @@
 
           (:error result)
           (if-let [[delay-ms & more] (and (realized? (:ready @session)) (seq retries))]
-            (do (swap! session assoc :status :retrying)
+            (do (log/warnf "lost %s (%s), retrying in %d ms" (label session id) (name (:error result)) delay-ms)
+                (swap! session assoc :status :retrying)
                 (Thread/sleep (long delay-ms))
                 (recur more))
             (fail-session! relay id session (:error result)))
@@ -177,12 +192,16 @@
             (connected! relay id session conn)
             (let [total (read-stream! id session conn)]
               (upstream/close! conn)
+              (when-not (= :closed (:status @session))
+                (log/infof "%s ended after %d KiB" (label session id) (quot total 1024)))
               (recur (if (>= total reset-retries-after-bytes) config/retry-delays-ms retries)))))))))
 
 ;; ---------------------------------------------------------------- joining
 
-(defn- new-session []
-  (atom {:status      :connecting
+(defn- new-session [station-name]
+  (atom {:name        station-name
+         :opened-at   (System/currentTimeMillis)
+         :status      :connecting
          :ready       (promise)
          :conn        nil
          :metaint     nil
@@ -197,7 +216,7 @@
   "The session for `id` with `f` applied to it, creating and starting the
   session when there is none. Returns the session, or :busy when a new one
   would pass `:max-sessions`."
-  [relay id url f]
+  [relay id {:keys [url] station-name :name :as station} f]
   (let [created (volatile! nil)
         result  (swap! (:sessions relay)
                        (fn [sessions]
@@ -205,29 +224,31 @@
                          (cond
                            (contains? sessions id) sessions
                            (>= (count sessions) (get-in relay [:config :max-sessions])) sessions
-                           :else (let [s (new-session)]
+                           :else (let [s (new-session station-name)]
                                    (vreset! created s)
                                    (assoc sessions id s)))))]
     (if-let [session (get result id)]
       (let [entered (swap! session f)]
         (when-let [s @created]
+          (log/infof "opening %s" (label s id))
           (Thread/startVirtualThread #(run-session! relay id s url)))
         (if (= :closed (:status entered))
           ;; It closed (idle) between the lookup and the entry; closed
           ;; sessions leave the map, so the next try starts a new one.
-          (recur relay id url f)
+          (recur relay id station f)
           session))
-      :busy)))
+      (do (log/warnf "session limit reached (%d): refusing \"%s\"" (get-in relay [:config :max-sessions]) station-name)
+          :busy))))
 
 (defn- station-url
-  "`{:url u}` for a station the relay can read, else `{:error reason}`."
+  "`{:url u :name n}` for a station the relay can read, else `{:error reason}`."
   [relay id]
   (let [{:keys [station error]} ((:resolve-station relay) id)]
     (cond
       error                 {:error error}
       (:hls? station)       {:error :hls}
       (nil? (:url station)) {:error :unknown-station}
-      :else                 {:url (:url station)})))
+      :else                 (select-keys station [:url :name]))))
 
 (defn join-listener!
   "Joins a proxy listener to station `id`, waiting for the station to answer.
@@ -236,10 +257,10 @@
   `{:error reason}`, reason being :unknown-station, :hls, :busy,
   :unreachable or :forbidden."
   [relay id]
-  (let [{:keys [url error]} (station-url relay id)]
+  (let [{:keys [error] :as station} (station-url relay id)]
     (if error
       {:error error}
-      (let [session (enter! relay id url #(update % :pending inc))]
+      (let [session (enter! relay id station #(update % :pending inc))]
         (if (= :busy session)
           {:error :busy}
           (let [ready (deref (:ready @session) (+ config/upstream-connect-ms 2000) {:error :unreachable})]
@@ -253,6 +274,7 @@
                                                     (update :pending dec)
                                                     (update :listeners conj ch))))]
                 (when (= :closed (:status s)) (async/close! ch))
+                (log/debugf "listener joined %s (%d now)" (label session id) (count (:listeners s)))
                 {:chan         ch
                  :burst        (vec (get-in s [:burst :chunks]))
                  :content-type (:content-type ready)}))))))))
@@ -260,7 +282,8 @@
 (defn leave-listener! [relay id ch]
   (async/close! ch)
   (when-let [session (get @(:sessions relay) id)]
-    (swap! session update :listeners disj ch)
+    (let [s (swap! session update :listeners disj ch)]
+      (log/debugf "listener left %s (%d now)" (label session id) (count (:listeners s))))
     (close-if-idle! relay id session)))
 
 (defn subscribe!
@@ -268,20 +291,22 @@
   under `sub-key`, until `unsubscribe!`. The current title, if any, goes at once.
   When the station has no titles, `send!` gets `unavailable` instead."
   [relay id sub-key send!]
-  (let [{:keys [url error]} (station-url relay id)]
+  (let [{:keys [error] :as station} (station-url relay id)]
     (if error
       (send! (protocol/unavailable id (case error
                                         (:unknown-station :hls) error
                                         :unreachable)))
-      (let [session (enter! relay id url #(assoc-in % [:subscribers sub-key] send!))]
+      (let [session (enter! relay id station #(assoc-in % [:subscribers sub-key] send!))]
         (if (= :busy session)
           (send! (protocol/unavailable id :busy))
-          (let [{:keys [status metaint title titled?]} @session]
+          (let [{:keys [status metaint title titled? subscribers]} @session]
+            (log/debugf "subscriber joined %s (%d now)" (label session id) (count subscribers))
             (cond
               (and (= :live status) (nil? metaint)) (send! (protocol/unavailable id :no-metadata))
               titled?                               (send! (protocol/title id title)))))))))
 
 (defn unsubscribe! [relay id sub-key]
   (when-let [session (get @(:sessions relay) id)]
-    (swap! session update :subscribers dissoc sub-key)
+    (let [s (swap! session update :subscribers dissoc sub-key)]
+      (log/debugf "subscriber left %s (%d now)" (label session id) (count (:subscribers s))))
     (close-if-idle! relay id session)))

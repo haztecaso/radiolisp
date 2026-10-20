@@ -8,7 +8,12 @@
 
   Messages from the server are dispatched as actions, but only the ones
   `protocol/server-message?` accepts."
-  (:require [radiolisp.common.protocol :as protocol]))
+  (:require [clojure.string :as str]
+            [radiolisp.common.protocol :as protocol]))
+
+(goog-define backend-origin "")
+;; Where the backend is. Empty means this page's origin, as in production;
+;; the dev build points it at `bb backend` so the :8080 page uses it too.
 
 (def path "/api/ws")
 (def first-retry-ms 2000)
@@ -22,8 +27,10 @@
          :timer    nil}))
 
 (defn- url []
-  (let [location js/window.location]
-    (str (if (= "https:" (.-protocol location)) "wss:" "ws:") "//" (.-host location) path)))
+  (if (seq backend-origin)
+    (str (str/replace-first backend-origin #"^http" "ws") path)
+    (let [location js/window.location]
+      (str (if (= "https:" (.-protocol location)) "wss:" "ws:") "//" (.-host location) path))))
 
 (defn- open? [^js socket]
   (and socket (= 1 (.-readyState socket))))
