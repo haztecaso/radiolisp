@@ -1,64 +1,47 @@
 (ns radiolisp.frontend.actions-player-test
   (:require [cljs.test :refer [deftest is testing]]
             [radiolisp.frontend.actions :as a]
-            [radiolisp.frontend.store :as store]))
-
-(def jazz {:id "j1" :name "Jazz Radio" :url "http://jazz.example/stream" :hls? false})
-(def blues {:id "b1" :name "Blues FM" :url "http://blues.example/stream" :hls? false})
-(def hls-fm {:id "h1" :name "HLS FM" :url "https://hls.example/live.m3u8" :hls? true})
-
-(def searching
-  (-> store/initial-state
-      (assoc :api {:servers ["s1"] :current 0})
-      (update :search assoc :status :done :results [jazz blues hls-fm] :top [jazz blues hls-fm])))
-
-(defn- run-all [state & actions]
-  (reduce (fn [{:keys [state effects]} action]
-            (let [r (a/handle state action)]
-              {:state (:state r) :effects (into effects (:effects r))}))
-          {:state state :effects []}
-          actions))
+            [radiolisp.frontend.fixtures :as f :refer [blues hls-fm jazz ready run-all]]))
 
 (def playing-jazz
-  (:state (run-all searching [:search/choose 0] [:audio/playing 1000])))
+  (:state (run-all ready [:favorites/play "j1"] [:audio/playing])))
 
-(deftest choosing-a-station-plays-it-and-closes-search
-  (let [{:keys [state effects]} (a/handle searching [:search/choose 1])]
+(deftest playing-a-favourite
+  (let [{:keys [state effects]} (a/handle ready [:favorites/play "b1"])]
     (is (= blues (get-in state [:player :station])))
     (is (= :connecting (get-in state [:player :status])))
-    (is (false? (get-in state [:search :open?])))
-    (is (= [[:audio/play "http://blues.example/stream"]
+    (is (= [[:audio/play "http://blues.example/stream" false]
             [:timer/start :connect a/connect-timeout-ms [:audio/timeout]]
-            [:dom/focus :toggle]]
+            [:api/click {:server "s1" :id "b1"}]
+            [:media/update {:title "Blues FM" :artwork nil}]]
            effects))))
 
-(deftest choose-without-index-uses-the-highlight
-  (let [{:keys [state]} (run-all searching [:search/move 1] [:search/choose])]
-    (is (= blues (get-in state [:player :station])))))
+(deftest playing-the-station-that-plays-pauses-it
+  (let [{:keys [state effects]} (a/handle playing-jazz [:favorites/play "j1"])]
+    (is (= :paused (get-in state [:player :status])))
+    (is (= [[:audio/pause] [:timer/cancel :connect]] effects))
+    (testing "and again resumes it without counting another click"
+      (let [{:keys [effects]} (a/handle state [:favorites/play "j1"])]
+        (is (= [:audio/play "http://jazz.example/stream" false] (first effects)))
+        (is (nil? (f/find-effect effects :api/click)))))))
 
-(deftest choosing-the-station-that-plays-only-closes-search
-  (let [state (assoc-in playing-jazz [:search :open?] true)
-        {:keys [state effects]} (a/handle state [:search/choose 0])]
-    (is (= :playing (get-in state [:player :status])))
-    (is (false? (get-in state [:search :open?])))
-    (is (= [[:dom/focus :toggle]] effects))))
+(deftest unknown-favourites-do-nothing
+  (is (= {:state ready :effects []} (a/handle ready [:favorites/play "zz"]))))
 
-(deftest hls-stations-are-refused
-  (let [{:keys [state effects]} (a/handle searching [:search/choose 2])]
-    (is (= :error (get-in state [:player :status])))
-    (is (= [:error/unsupported {}] (get-in state [:player :error])))
-    (is (some #{[:audio/stop]} effects))))
+(deftest hls-goes-to-the-audio-layer
+  (let [{:keys [effects]} (a/handle (assoc-in ready [:stations "h1"] hls-fm)
+                                    [:favorites/play "h1"])]
+    (is (= [:audio/play "https://hls.example/live.m3u8" true] (first effects)))))
 
-(deftest enter-chooses-when-results-are-shown
-  (let [{:keys [state]} (a/handle searching [:search/enter])]
-    (is (= jazz (get-in state [:player :station])))))
+(deftest assigned-keys-play-their-favourite
+  (is (= jazz (get-in (:state (a/handle ready [:favorites/play-key "1"])) [:player :station])))
+  (is (= ready (:state (a/handle ready [:favorites/play-key "9"])))))
 
-(deftest playing-event-starts-the-clock-once
-  (is (= :playing (get-in playing-jazz [:player :status])))
-  (is (= 1000 (get-in playing-jazz [:player :started-at])))
-  (is (= 1000 (:now playing-jazz)))
-  (let [{:keys [state]} (run-all playing-jazz [:player/toggle] [:player/toggle] [:audio/playing 9000])]
-    (is (= 1000 (get-in state [:player :started-at])) "resuming keeps the clock")))
+(deftest next-and-previous-cycle-through-the-favourites
+  (is (= blues (get-in (:state (a/handle playing-jazz [:favorites/play-next 1])) [:player :station])))
+  (is (= blues (get-in (:state (a/handle playing-jazz [:favorites/play-next -1])) [:player :station])))
+  (testing "with nothing playing it starts with the first"
+    (is (= jazz (get-in (:state (a/handle ready [:favorites/play-next 1])) [:player :station])))))
 
 (deftest toggle-pauses-and-resumes
   (let [{:keys [state effects]} (a/handle playing-jazz [:player/toggle])]
@@ -66,21 +49,21 @@
     (is (= [[:audio/pause] [:timer/cancel :connect]] effects))
     (let [{:keys [state effects]} (a/handle state [:player/toggle])]
       (is (= :connecting (get-in state [:player :status])))
-      (is (= [:audio/play "http://jazz.example/stream"] (first effects))))))
+      (is (= [:audio/play "http://jazz.example/stream" false] (first effects))))))
 
 (deftest toggle-does-nothing-without-a-station
-  (is (= {:state searching :effects []} (a/handle searching [:player/toggle]))))
+  (is (= {:state ready :effects []} (a/handle ready [:player/toggle]))))
 
 (deftest volume-is-clamped-and-unmutes
-  (let [{:keys [state effects]} (a/handle (assoc-in searching [:player :muted?] true) [:player/volume 140])]
+  (let [{:keys [state effects]} (a/handle (assoc-in ready [:player :muted?] true) [:player/volume 140])]
     (is (= 100 (get-in state [:player :volume])))
     (is (false? (get-in state [:player :muted?])))
     (is (= [[:audio/volume 1]] effects)))
-  (is (= 0 (get-in (:state (a/handle searching [:player/volume -3])) [:player :volume])))
-  (is (= 95 (get-in (:state (a/handle searching [:player/volume-step -5])) [:player :volume]))))
+  (is (= 0 (get-in (:state (a/handle ready [:player/volume -3])) [:player :volume])))
+  (is (= 95 (get-in (:state (a/handle ready [:player/volume-step -5])) [:player :volume]))))
 
 (deftest mute-toggles-the-audio-volume
-  (let [{:keys [state effects]} (a/handle searching [:player/mute])]
+  (let [{:keys [state effects]} (a/handle ready [:player/mute])]
     (is (true? (get-in state [:player :muted?])))
     (is (= [[:audio/volume 0]] effects))
     (is (= [[:audio/volume 1]] (:effects (a/handle state [:player/mute]))))))
@@ -96,20 +79,24 @@
     (let [state (:state (a/handle playing-jazz [:audio/failed]))]
       (is (= :error (get-in state [:player :status])))
       (is (= [:error/stream {}] (get-in state [:player :error])))))
+  (testing "a format the browser cannot play"
+    (let [connecting (:state (a/handle ready [:favorites/play "j1"]))
+          {:keys [state effects]} (a/handle connecting [:audio/unsupported])]
+      (is (= [:error/unsupported {}] (get-in state [:player :error])))
+      (is (some #{[:audio/stop]} effects))
+      (is (= [:error/unsupported {}]
+             (get-in (:state (a/handle state [:audio/failed])) [:player :error]))
+          "later errors do not overwrite it")))
   (testing "the timeout only fires while connecting"
     (is (= :playing (get-in (:state (a/handle playing-jazz [:audio/timeout])) [:player :status])))
-    (let [connecting (:state (a/handle searching [:search/choose 0]))]
-      (is (= :error (get-in (:state (a/handle connecting [:audio/timeout])) [:player :status])))))
-  (testing "errors never overwrite an unsupported station"
-    (let [unsupported (:state (a/handle searching [:search/choose 2]))]
-      (is (= [:error/unsupported {}] (get-in (:state (a/handle unsupported [:audio/failed])) [:player :error]))))))
+    (let [connecting (:state (a/handle ready [:favorites/play "j1"]))]
+      (is (= :error (get-in (:state (a/handle connecting [:audio/timeout])) [:player :status]))))))
 
 (deftest misc-actions
-  (is (= 42 (:now (:state (a/handle searching [:clock/tick 42])))))
-  (let [{:keys [state effects]} (a/handle searching [:i18n/set :es])]
+  (let [{:keys [state effects]} (a/handle ready [:i18n/set :es])]
     (is (= :es (:locale state)))
     (is (= [[:dom/lang :es]] effects)))
-  (let [{:keys [state effects]} (a/handle searching [:help/open])]
+  (let [{:keys [state effects]} (a/handle ready [:help/open])]
     (is (true? (:help? state)))
-    (is (= [[:dom/show-help]] effects))
+    (is (= [[:dom/show-dialog "help"]] effects))
     (is (false? (:help? (:state (a/handle state [:help/close])))))))
