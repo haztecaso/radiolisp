@@ -1,0 +1,12 @@
+.taste-skill/
+.shadow-cljs/
+.cpcache/
+node_modules/
+frontend/resources/public/js/
+frontend/resources/public/css/
+.clj-kondo/.cache/
+.lsp/
+.direnv/
+result
+.superpowers/
+target/

@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>radiolisp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+/* Style: accent-ladder (taste skill, seed 396668359), hue raspberry, radius 0 (user constraint).
+   Layout v2: the player is the screen. One centred column, max 560px.
+     closed: the player card centred in the viewport
+     search: the column moves to the top; the panel (input + list) hangs from the player's bottom edge,
+             sharing its borders, and the list scrolls inside the remaining height.
+   Phone (< 640px): the player keeps the column; searching turns into a full-screen sheet with a compact
+   player strip on top, the input under it and the list filling the rest. */
+:root {
+  --accent:#b8336a; --accent-soft:#fdf2f7; --accent-track:#f8dbe8; --accent-ink:#6b1d3e;
+  --ground:#fbf8f9; --surface:#ffffff; --raised:#f5f1f3; --active:#f1ebee;
+  --border:#ebe4e7; --rule:#f3eef0; --control:#d8cfd3;
+  --text:#181214; --muted:#665a5f; --faint:#72656b;
+  --negative:#c4242a;
+  --col: 560px; --edge: 24px; --pad: 32px;
+  --font: "DM Sans", Inter, system-ui, sans-serif;
+  --ease: cubic-bezier(.2,.7,.2,1);
+}
+*, *::before, *::after { box-sizing: border-box; border-radius: 0; }
+html, body { margin: 0; }
+body { background: var(--ground); color: var(--text); font: 400 14px/20px var(--font); -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; color: inherit; }
+.num { font-variant-numeric: tabular-nums; }
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+kbd { display: inline-block; min-width: 20px; padding: 0 5px; border: 1px solid var(--control); background: var(--surface); font: 500 12px/18px var(--font); text-align: center; color: var(--muted); }
+
+/* ---------- corners: brand top-left, help + language bottom-right ---------- */
+.brand { position: fixed; top: var(--edge); left: var(--edge); display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; letter-spacing: -0.01em; color: var(--text); text-decoration: none; z-index: 1; }
+.mark { width: 28px; height: 20px; color: var(--accent); }
+.corner { position: fixed; right: var(--edge); top: calc(var(--edge) + 2px); display: flex; gap: 16px; align-items: center; color: var(--muted); font-size: 13px; }
+.corner button { padding: 0; border: 0; background: none; cursor: pointer; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.corner button[aria-pressed="true"] { color: var(--text); font-weight: 600; text-decoration: none; }
+
+/* ---------- the column ---------- */
+.stage { min-height: 100svh; display: grid; justify-items: center; align-content: center; padding: 88px var(--edge); transition: padding-top 280ms var(--ease); }
+.searching .stage { align-content: start; padding-top: max(72px, 9vh); }
+.col { width: 100%; max-width: var(--col); }
+
+/* ---------- player card ---------- */
+.player { background: var(--surface); border: 1px solid var(--border); padding: var(--pad); }
+.status { display: flex; align-items: center; gap: 10px; height: 18px; color: var(--muted); font-size: 13px; }
+.status .live { color: var(--accent-ink); font-weight: 600; }
+.status.err { color: #831c1e; }
+.waves { width: 22px; height: 16px; flex: none; color: var(--accent); }
+.waves .w1, .waves .w2 { opacity: .25; }
+.is-playing .waves .w1 { animation: wave 1.6s ease-in-out infinite; }
+.is-playing .waves .w2 { animation: wave 1.6s ease-in-out .3s infinite; }
+@keyframes wave { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
+h1 { margin: 12px 0 0; font-size: 28px; line-height: 34px; font-weight: 700; letter-spacing: -0.02em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.player.empty h1 { color: var(--muted); font-weight: 600; }
+.player.empty h1 { margin-top: 0; }
+.facts { margin: 6px 0 0; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.facts .unit { font-size: 12px; }
+.controls { display: grid; grid-template-columns: 56px 40px minmax(0, 1fr) 40px; align-items: center; gap: 12px; margin-top: 28px; }
+.toggle { display: grid; place-items: center; width: 56px; height: 56px; border: 0; background: var(--accent); color: #fff; cursor: pointer; transition: transform 90ms var(--ease); }
+.toggle:active { transform: scale(.94); }
+.toggle:disabled { background: var(--raised); color: var(--faint); cursor: not-allowed; }
+.toggle svg { width: 22px; height: 22px; }
+.icon-btn { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer; }
+.icon-btn:hover { border-color: var(--control); color: var(--text); }
+.icon-btn[aria-expanded="true"] { border-color: var(--control); background: var(--raised); color: var(--text); }
+.icon-btn svg { width: 18px; height: 18px; }
+.slider { position: relative; height: 24px; }
+.slider .track { position: absolute; left: 0; right: 0; top: 10px; height: 4px; background: var(--accent-track); }
+.slider .fill { position: absolute; left: 0; top: 10px; height: 4px; width: var(--v); background: var(--accent); }
+.slider .thumb { position: absolute; top: 6px; left: calc(var(--v) - 6px); width: 12px; height: 12px; background: var(--accent-ink); }
+.slider input { position: absolute; inset: 0; width: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.slider:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 4px; }
+.vol-val { width: 40px; text-align: right; color: var(--muted); font-size: 13px; }
+
+/* ---------- search panel: hangs from the player ---------- */
+.opener { display: flex; align-items: center; gap: 12px; width: 100%; height: 48px; margin-top: 8px; padding: 0 var(--pad); border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; text-align: left; transition: border-color 120ms, color 120ms; }
+.opener:hover { border-color: var(--control); color: var(--text); }
+.opener svg { width: 16px; height: 16px; }
+.searching .opener { display: none; }
+.panel { display: none; margin-top: 8px; background: var(--surface); border: 1px solid var(--border); }
+.searching .panel { display: block; animation: drop 200ms var(--ease); }
+@keyframes drop { from { opacity: 0; transform: translateY(-8px); } }
+.field { position: relative; }
+.field > svg { position: absolute; left: var(--pad); top: 16px; width: 16px; height: 16px; color: var(--muted); }
+.field input { width: 100%; height: 48px; padding: 0 56px 0 calc(var(--pad) + 28px); border: 0; background: var(--surface); }
+.field input::-webkit-search-cancel-button { display: none; }
+.field input { border-bottom: 2px solid transparent; }
+.field input:focus { outline: none; background: var(--surface); border-bottom-color: var(--accent); }
+.field input::placeholder { color: var(--faint); }
+.field .close { position: absolute; right: 4px; top: 4px; }
+.list-head { display: flex; justify-content: space-between; padding: 14px var(--pad) 6px; color: var(--muted); font-size: 13px; }
+.list-head .mode { color: var(--faint); }
+.results { list-style: none; margin: 0; padding: 0 0 8px; overflow-y: auto; max-height: calc(100svh - max(72px, 9vh) - var(--player-h, 230px) - 48px - 40px - 24px); }
+.results:focus { outline: none; }
+.st { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 16px; padding: 10px var(--pad); cursor: pointer; border-top: 1px solid var(--rule); border-left: 3px solid transparent; padding-left: calc(var(--pad) - 3px); }
+.st:first-child { border-top-color: transparent; }
+.st:hover { outline: 1px solid var(--control); outline-offset: -1px; }
+.st.hl { background: var(--active); }
+.normal .st.hl { border-left-color: var(--accent); }
+.st .n { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st .f { text-align: right; white-space: nowrap; color: var(--text); }
+.st .f .unit { color: var(--muted); font-size: 12px; }
+.st .m { grid-column: 1 / -1; color: var(--muted); font-size: 13px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st.on .n { color: var(--accent-ink); }
+.st.on .n::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; background: var(--accent); vertical-align: 1px; }
+.dash { color: var(--faint); }
+.note { margin: 8px var(--pad) 16px; padding: 14px 16px; border: 1px dashed var(--control); color: var(--muted); }
+.note.error { border: 1px solid var(--border); color: var(--text); display: flex; justify-content: space-between; gap: 16px; }
+.note.error .dot { display: inline-block; width: 8px; height: 8px; margin-right: 10px; background: var(--negative); }
+.text-btn { padding: 0; border: 0; background: none; font-weight: 500; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; white-space: nowrap; }
+.skel { display: block; height: 12px; background: var(--raised); margin: 4px 0; }
+
+/* ---------- help dialog ---------- */
+dialog { width: min(480px, calc(100vw - 32px)); padding: var(--pad); border: 1px solid var(--border); background: var(--surface); color: var(--text); box-shadow: 0 12px 32px rgba(24, 18, 20, .12); }
+dialog::backdrop { background: rgba(24, 18, 20, .24); }
+dialog h2 { margin: 0 0 16px; font-size: 18px; line-height: 24px; }
+dialog h3 { margin: 20px 0 8px; font-size: 14px; font-weight: 600; }
+dialog dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; align-items: center; }
+dialog dt { display: flex; gap: 4px; flex-wrap: wrap; } dialog dd { margin: 0; color: var(--muted); }
+dialog .close { position: absolute; top: 16px; right: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .is-playing .waves .w1, .is-playing .waves .w2 { animation: none; opacity: 1; }
+  .stage { transition: none; } .searching .panel { animation: none; }
+}
+
+/* ---------- tablet: same column, tighter frame ---------- */
+@media (max-width: 1024px) { :root { --edge: 20px; } }
+
+/* ---------- phone ---------- */
+@media (max-width: 639px) {
+  :root { --edge: 16px; --pad: 20px; }
+  .brand b { display: none; }
+  .stage { padding: 64px var(--edge) 72px; }
+  h1 { font-size: 24px; line-height: 30px; }
+  .controls { grid-template-columns: 56px minmax(0, 1fr) 44px; }
+  .controls .slider, .controls .vol-val { display: none; }
+  .controls .mute { grid-column: 3; }
+  .icon-btn { width: 44px; height: 44px; }
+  /* searching: a full-screen sheet with a compact player strip */
+  .searching .stage { padding: 0; align-content: stretch; }
+  .searching .col { max-width: none; display: flex; flex-direction: column; height: 100svh; }
+  .searching .player { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 12px; padding: 8px var(--edge); border-width: 0 0 1px; }
+  .searching .player .status, .searching .player .facts, .searching .controls > :not(.toggle) { display: none; }
+  .searching .controls { display: contents; }
+  .searching .toggle { width: 44px; height: 44px; grid-column: 1; grid-row: 1; }
+  .searching .player h1 { grid-column: 2; grid-row: 1; margin: 0; font-size: 16px; line-height: 22px; -webkit-line-clamp: 1; }
+  .searching .panel { flex: 1; display: flex; flex-direction: column; min-height: 0; margin-top: 0; border: 0; animation: none; }
+  .searching .field { border-bottom: 1px solid var(--border); }
+  .searching .field { border-top: 0; }
+  .field input { font-size: 16px; } /* 16px: no zoom on iOS */
+  .searching .results { max-height: none; flex: 1; }
+  .st { padding: 12px var(--edge) 12px calc(var(--edge) - 3px); min-height: 56px; }
+  .searching .brand, .searching .corner { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<audio id="audio" preload="none"></audio>
+<script src="data.js"></script>
+<script>
+/* ---------- i18n: the state holds keys and data; only the view turns them into words ---------- */
+const MESSAGES = {
+  es: {
+    'brand': 'radiolisp',
+    'player.idle.title': 'Nada sonando',
+    'player.idle.hint': 'Busca una emisora para empezar',
+    'player.live': 'En directo',
+    'player.paused': 'En pausa',
+    'player.play': 'Reproducir {name}', 'player.pause': 'Pausar {name}',
+    'player.mute': 'Silenciar', 'player.unmute': 'Activar sonido', 'player.volume': 'Volumen',
+    'player.search': 'Buscar emisora', 'player.close-search': 'Cerrar la búsqueda',
+    'search.label': 'Buscar emisoras por nombre',
+    'search.placeholder': 'Nombre de la emisora',
+    'search.top': 'Más escuchadas hoy',
+    'search.results': { one: '{count} emisora', other: '{count} emisoras' },
+    'search.order': 'por escuchas en 24 h',
+    'search.mode.insert': 'escribiendo', 'search.mode.normal': 'navegando',
+    'search.loading': 'Buscando…',
+    'search.empty': 'Ninguna emisora se llama «{query}». Prueba con una parte del nombre.',
+    'station.no-tags': 'sin etiquetas',
+    'station.listens': { one: '{count} escucha', other: '{count} escuchas' },
+    'error.network': 'No se pudo conectar con Radio Browser a las {time}.',
+    'error.stream': 'No se pudo reproducir: el stream no responde.',
+    'error.retry': 'Reintentar',
+    'help.open': 'Atajos', 'help.title': 'Atajos de teclado', 'help.close': 'Cerrar',
+    'help.global': 'En cualquier momento', 'help.search': 'En la búsqueda',
+    'help.k.search': 'Abrir la búsqueda', 'help.k.toggle': 'Reproducir o pausar', 'help.k.volume': 'Bajar o subir el volumen',
+    'help.k.mute': 'Silenciar', 'help.k.help': 'Mostrar esta ayuda', 'help.k.move': 'Emisora siguiente o anterior',
+    'help.k.edges': 'Primera o última emisora', 'help.k.choose': 'Escuchar la emisora marcada',
+    'help.k.normal': 'Dejar de escribir y navegar; otra vez, cerrar', 'help.k.insert': 'Volver a escribir',
+  },
+  en: {
+    'brand': 'radiolisp',
+    'player.idle.title': 'Nothing playing',
+    'player.idle.hint': 'Search for a station to start',
+    'player.live': 'Live',
+    'player.paused': 'Paused',
+    'player.play': 'Play {name}', 'player.pause': 'Pause {name}',
+    'player.mute': 'Mute', 'player.unmute': 'Unmute', 'player.volume': 'Volume',
+    'player.search': 'Search stations', 'player.close-search': 'Close search',
+    'search.label': 'Search stations by name',
+    'search.placeholder': 'Station name',
+    'search.top': 'Most played today',
+    'search.results': { one: '{count} station', other: '{count} stations' },
+    'search.order': 'by plays in 24 h',
+    'search.mode.insert': 'typing', 'search.mode.normal': 'browsing',
+    'search.loading': 'Searching…',
+    'search.empty': 'No station is called “{query}”. Try part of the name.',
+    'station.no-tags': 'no tags',
+    'station.listens': { one: '{count} play', other: '{count} plays' },
+    'error.network': 'Could not reach Radio Browser at {time}.',
+    'error.stream': 'Could not play: the stream is not responding.',
+    'error.retry': 'Retry',
+    'help.open': 'Shortcuts', 'help.title': 'Keyboard shortcuts', 'help.close': 'Close',
+    'help.global': 'Anywhere', 'help.search': 'In search',
+    'help.k.search': 'Open search', 'help.k.toggle': 'Play or pause', 'help.k.volume': 'Volume down or up',
+    'help.k.mute': 'Mute', 'help.k.help': 'Show this help', 'help.k.move': 'Next or previous station',
+    'help.k.edges': 'First or last station', 'help.k.choose': 'Play the marked station',
+    'help.k.normal': 'Stop typing and browse; again, close', 'help.k.insert': 'Back to typing',
+  },
+};
+const params = new URLSearchParams(location.search);
+let LOCALE = params.get('lang') || ((navigator.language || 'es').startsWith('es') ? 'es' : 'en');
+const fmtN = n => new Intl.NumberFormat(LOCALE).format(n);
+function t(key, vars = {}) {
+  let m = (MESSAGES[LOCALE] || MESSAGES.es)[key] ?? key;
+  if (typeof m === 'object') m = m[new Intl.PluralRules(LOCALE).select(vars.count)] ?? m.other;
+  return m.replace(/\{(\w+)\}/g, (_, k) => k === 'count' ? fmtN(vars.count) : vars[k]);
+}
+
+/* ---------- view helpers ---------- */
+const ICON = {
+  play:  '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 2.5v11l9-5.5z"/></svg>',
+  pause: '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3.5" y="2.5" width="3" height="11"/><rect x="9.5" y="2.5" width="3" height="11"/></svg>',
+  vol:   '<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 7h3l4-3v10l-4-3H3z"/><path d="M13 6.5a3.5 3.5 0 010 5M15 4.5a6.5 6.5 0 010 9"/></svg>',
+  mute:  '<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 7h3l4-3v10l-4-3H3z"/><path d="M13 7l4 4M17 7l-4 4"/></svg>',
+  search:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>',
+  close: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"/></svg>',
+};
+const MARK = '<svg class="mark" viewBox="0 0 28 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 2 Q1 10 6 18"/><path d="M10 5 Q7 10 10 15"/><rect x="12" y="8" width="4" height="4" fill="currentColor" stroke="none"/><path d="M18 5 Q21 10 18 15"/><path d="M22 2 Q27 10 22 18"/></svg>';
+const WAVES = '<svg class="waves" viewBox="0 0 22 16" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path class="w2" d="M4 1.5 Q0 8 4 14.5"/><path class="w1" d="M7.5 4 Q5 8 7.5 12"/><rect x="9.5" y="6.5" width="3" height="3" fill="currentColor" stroke="none"/><path class="w1" d="M14.5 4 Q17 8 14.5 12"/><path class="w2" d="M18 1.5 Q22 8 18 14.5"/></svg>';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtFormat = s => (!s.bitrate || s.codec === 'UNKNOWN') ? '<span class="dash">—</span>'
+  : `<span class="codec">${esc(s.codec)}</span> <span class="num">${s.bitrate}</span> <span class="unit">kbps</span>`;
+const fmtClock = sec => [Math.floor(sec / 3600), Math.floor(sec / 60) % 60, sec % 60].map(n => String(n).padStart(2, '0')).join(':');
+const tags = s => s.tags.length ? esc(s.tags.join(' · ')) : `<span class="dash">${t('station.no-tags')}</span>`;
+
+/* ---------- state ---------- */
+const S = {
+  station: null, status: 'stopped',        // stopped | playing | paused | error
+  started: 0, volume: 70, muted: false,
+  searching: true, query: '', view: 'top',  // top | results | loading | empty | error
+  hl: 0, mode: 'insert',                    // insert (typing in the input) | normal (browsing the list)
+};
+if (params.has('playing')) { S.station = RL_DATA.results[Number(params.get('playing'))]; S.status = 'playing'; S.started = Date.now() - 754e3; S.searching = false; }
+if (params.get('player') === 'error') { S.station = RL_DATA.results[3]; S.status = 'error'; S.searching = false; }
+if (params.get('player') === 'paused') { S.station = RL_DATA.results[1]; S.status = 'paused'; S.searching = false; }
+if (params.has('search')) { S.searching = true; S.query = params.get('search'); S.view = params.get('view') || 'results'; }
+if (params.get('mode') === 'normal') S.mode = 'normal';
+if (params.has('hl')) S.hl = Number(params.get('hl'));
+const list = () => S.view === 'top' ? RL_DATA.top : S.view === 'results' ? RL_DATA.results : [];
+const audio = () => document.getElementById('audio');
+
+/* ---------- actions ---------- */
+const A = {
+  openSearch() { S.searching = true; S.mode = 'insert'; render(); focusInput(); },
+  closeSearch() { if (!S.station) return; S.searching = false; render(); document.querySelector('.opener')?.focus(); },
+  typed(q) {
+    S.query = q; S.hl = 0;
+    clearTimeout(A._deb);
+    if (q.trim().length < 2) { S.view = 'top'; renderPanel(); return; }
+    S.view = 'loading'; renderPanel();
+    A._deb = setTimeout(() => { S.view = /jaz/i.test(q) ? 'results' : 'empty'; renderPanel(); }, 300);
+  },
+  move(d) { const n = list().length; if (!n) return; S.hl = Math.max(0, Math.min(n - 1, S.hl + d)); renderPanel(); },
+  edge(end) { const n = list().length; if (!n) return; S.hl = end ? n - 1 : 0; renderPanel(); },
+  choose(i = S.hl) {
+    const s = list()[i]; if (!s) return;
+    if (S.station !== s) { audio().src = s.url; S.started = Date.now(); }
+    S.station = s; S.status = 'playing'; S.searching = false;
+    audio().volume = S.muted ? 0 : S.volume / 100;
+    audio().play().catch(() => { S.status = 'error'; renderPlayer(); });
+    render(); document.querySelector('.toggle')?.focus();
+  },
+  toggle() {
+    if (!S.station) return;
+    if (S.status === 'playing') { audio().pause(); S.status = 'paused'; }
+    else { audio().play().catch(() => { S.status = 'error'; renderPlayer(); }); S.status = 'playing'; }
+    renderPlayer();
+  },
+  volume(v) {
+    S.volume = Math.max(0, Math.min(100, Number(v)));
+    audio().volume = S.muted ? 0 : S.volume / 100;
+    if (S.muted) { S.muted = false; audio().volume = S.volume / 100; return renderPlayer(); }
+    const sl = document.querySelector('.slider'); if (sl) { sl.style.setProperty('--v', S.volume + '%'); sl.querySelector('input').value = S.volume; }
+    const vv = document.querySelector('.vol-val'); if (vv) vv.textContent = S.volume + ' %';
+  },
+  mute() { S.muted = !S.muted; audio().volume = S.muted ? 0 : S.volume / 100; renderPlayer(); },
+  lang(l) { LOCALE = l; document.documentElement.lang = l; render(); },
+  help() { renderHelp(); document.getElementById('help').showModal(); },
+  insert() { S.mode = 'insert'; renderPanel(); focusInput(); },
+  normal() { S.mode = 'normal'; renderPanel(); document.querySelector('.results')?.focus(); },
+};
+
+/* ---------- keyboard: insert mode in the input, normal mode in the list, globals elsewhere ---------- */
+let lastG = 0;
+document.addEventListener('keydown', e => {
+  if (document.getElementById('help')?.open) return;
+  const inInput = e.target.matches('.field input');
+  if (S.searching && e.ctrlKey && /^[jnkp]$/.test(e.key)) { e.preventDefault(); return A.move(/[jn]/.test(e.key) ? 1 : -1); }
+  if (inInput) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); A.move(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); A.move(-1); }
+    else if (e.key === 'Enter') { e.preventDefault(); A.choose(); }
+    else if (e.key === 'Escape') { e.preventDefault(); A.normal(); }
+    return;
+  }
+  if (e.target.matches('input')) return;            // the volume slider keeps its own arrows
+  if (S.searching && S.mode === 'normal') {
+    if (e.key === 'j' || e.key === 'ArrowDown') { e.preventDefault(); return A.move(1); }
+    if (e.key === 'k' || e.key === 'ArrowUp') { e.preventDefault(); return A.move(-1); }
+    if (e.key === 'G') return A.edge(true);
+    if (e.key === 'g') { if (Date.now() - lastG < 500) { lastG = 0; return A.edge(false); } lastG = Date.now(); return; }
+    if (e.key === 'Enter') { e.preventDefault(); return A.choose(); }
+    if (e.key === 'i') { e.preventDefault(); return A.insert(); }
+    if (e.key === 'Escape') return A.closeSearch();
+  }
+  if (e.key === '/') { e.preventDefault(); return S.searching ? A.insert() : A.openSearch(); }
+  if (e.key === ' ' && !e.target.matches('button')) { e.preventDefault(); return A.toggle(); }
+  if (e.key === 'h') return A.volume(S.volume - 5);
+  if (e.key === 'l') return A.volume(S.volume + 5);
+  if (e.key === 'm') return A.mute();
+  if (e.key === '?') return A.help();
+  if (e.key === 'Escape' && S.searching) return A.closeSearch();
+});
+function focusInput() { const i = document.querySelector('.field input'); i?.focus(); i?.select(); }
+
+/* ---------- render ---------- */
+function render() {
+  document.getElementById('app').innerHTML = `
+    <a class="brand" href="./">${MARK}<b>${t('brand')}</b></a>
+    <main class="stage"><div class="col"><section class="player" id="player" aria-live="polite"></section>
+      <button class="opener" onclick="A.openSearch()">${ICON.search}<span>${t('player.search')}</span></button>
+      <section class="panel" id="panel" aria-label="${esc(t('search.label'))}"></section></div></main>
+    <div class="corner"><button onclick="A.help()">${t('help.open')} <kbd>?</kbd></button>
+      <span><button aria-pressed="${LOCALE === 'es'}" onclick="A.lang('es')">ES</button> · <button aria-pressed="${LOCALE === 'en'}" onclick="A.lang('en')">EN</button></span></div>
+    <dialog id="help"></dialog>`;
+  document.body.classList.toggle('searching', S.searching);
+  renderPlayer(); renderPanel();
+}
+function renderPlayer() {
+  const p = document.getElementById('player'), s = S.station, vol = S.muted ? 0 : S.volume;
+  p.classList.toggle('is-playing', S.status === 'playing');
+  p.classList.toggle('empty', !s);
+  const status = !s ? ''
+    : S.status === 'error' ? `<div class="status err">${t('error.stream')}</div>`
+    : `<div class="status">${WAVES}${S.status === 'playing'
+        ? `<span class="live">${t('player.live')}</span> <span class="num clock">${fmtClock(Math.floor((Date.now() - S.started) / 1000))}</span>`
+        : `<span>${t('player.paused')}</span>`}</div>`;
+  p.innerHTML = `${status}
+    <h1 title="${s ? esc(s.name) : ''}">${s ? esc(s.name.trim()) : t('player.idle.title')}</h1>
+    <p class="facts">${s ? `${esc(s.country)} · ${fmtFormat(s)} · ${tags(s)}` : t('player.idle.hint')}</p>
+    <div class="controls">
+      <button class="toggle" ${s ? '' : 'disabled'} aria-label="${esc(t(S.status === 'playing' ? 'player.pause' : 'player.play', { name: s ? s.name : '' }))}" onclick="A.toggle()">${S.status === 'playing' ? ICON.pause : ICON.play}</button>
+      <button class="icon-btn mute" aria-label="${t(S.muted ? 'player.unmute' : 'player.mute')}" onclick="A.mute()">${S.muted ? ICON.mute : ICON.vol}</button>
+      <div class="slider" style="--v:${vol}%"><span class="track"></span><span class="fill"></span><span class="thumb"></span>
+        <input type="range" min="0" max="100" value="${vol}" aria-label="${t('player.volume')}" oninput="A.volume(this.value)"></div>
+      <span class="vol-val num">${vol} %</span>
+    </div>`;
+  document.documentElement.style.setProperty('--player-h', p.offsetHeight + 'px');
+}
+function renderPanel() {
+  const el = document.getElementById('panel'); if (!el) return;
+  el.classList.toggle('normal', S.mode === 'normal');
+  const items = list();
+  let body;
+  if (S.view === 'loading') body = `<div class="list-head"><span>${t('search.loading')}</span></div><ul class="results">${'<li class="st"><span class="skel" style="width:55%"></span><span class="skel" style="width:56px"></span><span class="m"><span class="skel" style="width:35%"></span></span></li>'.repeat(5)}</ul>`;
+  else if (S.view === 'empty') body = `<p class="note">${esc(t('search.empty', { query: S.query.trim() }))}</p>`;
+  else if (S.view === 'error') body = `<div class="note error"><span><span class="dot"></span>${t('error.network', { time: '11:52' })}</span><button class="text-btn" onclick="S.view='results';renderPanel()">${t('error.retry')}</button></div>`;
+  else body = `<div class="list-head"><span>${S.view === 'top' ? t('search.top') : `${t('search.results', { count: items.length })} · ${t('search.order')}`}</span><span class="mode">${t('search.mode.' + S.mode)}</span></div>
+    <ul class="results" role="listbox" tabindex="-1" aria-label="${esc(t('search.label'))}" aria-activedescendant="st-${S.hl}">${items.map((s, i) => `
+      <li id="st-${i}" role="option" aria-selected="${i === S.hl}" class="st${i === S.hl ? ' hl' : ''}${S.station === s ? ' on' : ''}" onclick="A.choose(${i})">
+        <span class="n" title="${esc(s.name)}">${esc(s.name.trim())}</span><span class="f">${fmtFormat(s)}</span>
+        <span class="m">${esc(s.country)} · ${t('station.listens', { count: s.clicks })} · ${tags(s)}</span></li>`).join('')}</ul>`;
+  const hadFocus = document.activeElement?.matches('.field input');
+  const caret = hadFocus ? document.activeElement.selectionStart : null;
+  el.innerHTML = `<div class="field"><label class="vh" for="q">${t('search.label')}</label>${ICON.search}
+      <input id="q" type="search" value="${esc(S.query)}" placeholder="${esc(t('search.placeholder'))}" autocomplete="off" oninput="A.typed(this.value)" onfocus="if(S.mode!=='insert'){S.mode='insert';renderPanel()}">
+      ${S.station ? `<button class="icon-btn close" aria-label="${t('player.close-search')}" onclick="A.closeSearch()">${ICON.close}</button>` : ''}</div>${body}`;
+  if (hadFocus) { const i = el.querySelector('input'); i.focus(); i.setSelectionRange(caret, caret); }
+  else if (S.mode === 'normal') el.querySelector('.results')?.focus();
+  el.querySelector('.st.hl')?.scrollIntoView({ block: 'nearest' });
+}
+function renderHelp() {
+  const row = (keys, k) => `<dt>${keys.map(x => `<kbd>${x}</kbd>`).join('')}</dt><dd>${t(k)}</dd>`;
+  document.getElementById('help').innerHTML = `<h2>${t('help.title')}</h2>
+    <form method="dialog"><button class="icon-btn close" aria-label="${t('help.close')}">${ICON.close}</button></form>
+    <h3>${t('help.global')}</h3><dl>${row(['/'], 'help.k.search')}${row(['space'], 'help.k.toggle')}${row(['h', 'l'], 'help.k.volume')}${row(['m'], 'help.k.mute')}${row(['?'], 'help.k.help')}</dl>
+    <h3>${t('help.search')}</h3><dl>${row(['↓', '↑'], 'help.k.move')}${row(['j', 'k'], 'help.k.move')}${row(['ctrl j', 'ctrl k'], 'help.k.move')}${row(['gg', 'G'], 'help.k.edges')}${row(['enter'], 'help.k.choose')}${row(['esc'], 'help.k.normal')}${row(['i', '/'], 'help.k.insert')}</dl>`;
+}
+setInterval(() => { const c = document.querySelector('.clock'); if (c && S.status === 'playing') c.textContent = fmtClock(Math.floor((Date.now() - S.started) / 1000)); }, 1000);
+document.documentElement.lang = LOCALE;
+render();
+if (S.searching && S.mode === 'insert' && !params.has('search')) focusInput();
+if (params.has('help')) A.help();
+</script>
+</body>
+</html>
