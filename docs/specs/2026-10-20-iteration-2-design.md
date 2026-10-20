@@ -47,7 +47,7 @@ arranque, de modo que el stream, la imagen y la salud estén siempre al día.
 Se amplía con `:homepage`, `:favicon`, `:votes`, `:check-ok?` (de `lastcheckok`),
 `:last-check-at` y `:last-ok-at` (ISO 8601). Las cadenas vacías pasan a `nil`.
 
-## 3. Exportar e importar (M3U extendido)
+## 3. Exportar e importar (M3U, `.list` y Radiolise)
 
 ```
 #EXTM3U
@@ -56,9 +56,16 @@ https://icecast.radiofrance.fr/franceinfo-midfi.mp3
 ```
 
 - Es válido en VLC y otros reproductores; los atributos que no entienden se ignoran.
-  Se descarga como `radiolisp-favoritas.m3u`.
-- **Importar:** se elige un `.m3u` o `.m3u8`.
-  - Las entradas con `radiobrowser-uuid` se añaden por id.
+- **Lista de uuids (`.list`):** un uuid de Radio Browser por línea, todas las
+  favoritas (también las que ya no tienen stream). Al importar se ignoran las
+  líneas vacías, los comentarios `#` y lo que no sea un uuid.
+- **Exportar:** un diálogo elige el formato (M3U o `.list`) y el nombre del
+  fichero (por defecto `radiolisp-favoritas`; la extensión la pone el formato).
+- **Importar:** se elige un `.m3u`, `.m3u8`, `.list` o el `.txt` que exporta
+  Radiolise (YAML con `name`, `url` e `id` por emisora). El formato sale de la
+  extensión; cualquier otra se rechaza con un aviso.
+  - Las entradas con uuid (`radiobrowser-uuid`, `id` o la línea del `.list`) se
+    añaden por id.
   - Las demás se buscan por URL (`/json/stations/byurl`). Si hay duplicados se
     elige el de más votos, y las que no se encuentran se descartan.
   - Las que ya son favoritas no se duplican.
@@ -72,7 +79,7 @@ https://icecast.radiofrance.fr/franceinfo-midfi.mp3
 - Marca.
 - Campo «Filtrar favoritas» (`/`).
 - Botón «+ Añadir emisora» (`a`).
-- Menú ⋯ de la lista: exportar e importar M3U.
+- Menú ⋯ de la lista: «Exportar…» (diálogo) e «Importar…».
 - «Atajos ?» e idioma ES · EN.
 
 ### Cuadrícula
@@ -182,7 +189,8 @@ Se mantiene el flujo acción → `handle` (puro) → efectos. Lo nuevo:
   - `assign-key`, `clear-key`, `key-owner`, `reserved-key?`.
   - `matching` (filtro).
   - `serialize`, `deserialize`.
-  - `->m3u`, `parse-m3u`.
+  - `->m3u`, `parse-m3u`, `->list`, `parse-list`, `parse-radiolise`.
+  - `file-format`, `export-filename`.
 - **`common/station.cljc`:** nuevos campos (§2).
 - **`frontend/views/art.cljs`:** `fit` (puro: anchura y altura → `:cover`,
   `:contain` o `:small`) y la vista de la imagen.

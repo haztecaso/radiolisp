@@ -12,7 +12,8 @@ para aprender Clojure.
   no hay búsqueda.
 - Reproductor fijo abajo: reproducir y pausar, volumen y silencio. Suena MP3, AAC,
   Ogg y HLS; las teclas multimedia del sistema también funcionan.
-- Exportar e importar las favoritas en M3U, votar emisoras y copiar su stream.
+- Exportar las favoritas en M3U o como lista de uuids (`.list`), importar esos
+  ficheros y los `.txt` que exporta Radiolise, votar emisoras y copiar su stream.
 - Todo se maneja con teclado, con flechas o con atajos estilo vim (pulsa `?`).
 - Interfaz en español e inglés.
 
@@ -80,7 +81,7 @@ Está organizado por módulos, como [Penpot](https://github.com/penpot/penpot):
 radiolisp/
 ├── flake.nix  bb.edn  deps.edn   # entorno, tareas y deps.edn raíz (solo para clojure-lsp)
 ├── common/                        # .cljc puro, compartido con el futuro backend
-│   ├── src/radiolisp/common/      #   station (normaliza Radio Browser), favorites (lista, M3U)
+│   ├── src/radiolisp/common/      #   station (normaliza Radio Browser), favorites (lista, M3U, .list, Radiolise)
 │   └── test/
 ├── frontend/
 │   ├── deps.edn  shadow-cljs.edn  package.json
@@ -181,13 +182,13 @@ Para curiosear el estado en vivo:
 
 - **`bb test`**: tests unitarios con `cljs.test`, compilados con el target
   `:node-test` de shadow-cljs. Cubren la lógica pura: normalización de emisoras,
-  la lista de favoritas (orden, teclas, filtro, EDN y M3U), el encaje de las
+  la lista de favoritas (orden, teclas, filtro, EDN, M3U, `.list` y Radiolise), el encaje de las
   imágenes, i18n, todas las acciones y el mapa de teclas. Cualquier namespace que
   acabe en `-test`, en `common/test` o `frontend/test`, entra solo.
 - **`bb e2e`**: maneja Chromium por CDP contra la app en marcha y comprueba unas 80
   cosas: añadir desde la paleta, una sola petición `byuuid` al recargar,
   reproducción real, teclas asignadas, menús, arrastrar y soltar, filtro, quitar con
-  confirmación, exportar e importar M3U, HLS con hls.js, ayuda, idioma y el layout
+  confirmación, exportar (M3U y `.list`) e importar (M3U, `.list` y Radiolise), HLS con hls.js, ayuda, idioma y el layout
   de móvil. Siembra `localStorage` y bloquea `/json/url` y `/json/vote`, así que no
   altera las estadísticas de Radio Browser. Hay que
   tener `bb dev` corriendo; para otra dirección, por ejemplo un build de release,
@@ -219,7 +220,7 @@ cd frontend/resources/public && python3 -m http.server 8090
   solo se descarga la primera vez que hace falta. Sin Media Source Extensions, la
   app avisa de "formato no soportado".
 - **Las favoritas viven en este navegador** (`localStorage`). Para llevarlas a otro,
-  exporta e importa el M3U; los atajos no viajan.
+  exporta e importa el M3U o el `.list`; los atajos no viajan.
 - **Lo que suena** (metadatos ICY) necesita backend, y llegará con él.
 - Sin modo oscuro, y con dos idiomas.
 
