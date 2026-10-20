@@ -24,6 +24,9 @@
               :task (do (shell frontend "npx shadow-cljs compile test")
                         (shell frontend "node target/test/node-tests.js"))}
 
+  e2e        {:doc  "Browser end-to-end check; needs `bb dev` running (or URL=…)"
+              :task (shell frontend "node e2e/check.mjs")}
+
   lint       {:doc  "Lint with clj-kondo"
               :task (apply shell "clj-kondo --lint" clj-dirs)}
 
