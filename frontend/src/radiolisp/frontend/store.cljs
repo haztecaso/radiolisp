@@ -8,7 +8,7 @@
             :status     :stopped   ; :stopped :connecting :playing :paused :error
             :error      nil        ; [:error/stream {}] | [:error/unsupported {}]
             :started-at nil
-            :volume     70
+            :volume     100
             :muted?     false}
    :search {:open?     true
             :query     ""

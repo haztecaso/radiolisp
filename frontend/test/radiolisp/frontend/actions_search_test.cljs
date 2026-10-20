@@ -29,7 +29,7 @@
 (deftest init-sets-locale-and-asks-for-servers
   (let [{:keys [state effects]} (a/handle store/initial-state [:app/init {:locale :es}])]
     (is (= :es (:locale state)))
-    (is (= [[:dom/lang :es] [:audio/volume 0.7] [:api/servers] [:dom/focus :search-input]] effects))))
+    (is (= [[:dom/lang :es] [:audio/volume 1] [:api/servers] [:dom/focus :search-input]] effects))))
 
 (deftest servers-loaded-runs-the-first-fetch
   (let [{:keys [state effects]} (a/handle store/initial-state [:api/servers-loaded ["s1" "s2"]])]

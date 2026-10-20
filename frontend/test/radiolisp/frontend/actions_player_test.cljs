@@ -77,13 +77,13 @@
     (is (false? (get-in state [:player :muted?])))
     (is (= [[:audio/volume 1]] effects)))
   (is (= 0 (get-in (:state (a/handle searching [:player/volume -3])) [:player :volume])))
-  (is (= 65 (get-in (:state (a/handle searching [:player/volume-step -5])) [:player :volume]))))
+  (is (= 95 (get-in (:state (a/handle searching [:player/volume-step -5])) [:player :volume]))))
 
 (deftest mute-toggles-the-audio-volume
   (let [{:keys [state effects]} (a/handle searching [:player/mute])]
     (is (true? (get-in state [:player :muted?])))
     (is (= [[:audio/volume 0]] effects))
-    (is (= [[:audio/volume 0.7]] (:effects (a/handle state [:player/mute]))))))
+    (is (= [[:audio/volume 1]] (:effects (a/handle state [:player/mute]))))))
 
 (deftest audio-events
   (testing "an outside pause (media keys) is reflected"
