@@ -28,7 +28,7 @@
     (is (= :connecting (get-in state [:player :status])))
     (is (false? (get-in state [:search :open?])))
     (is (= [[:audio/play "http://blues.example/stream"]
-            [:timer/start :connect 10000 [:audio/timeout]]
+            [:timer/start :connect a/connect-timeout-ms [:audio/timeout]]
             [:dom/focus :toggle]]
            effects))))
 
@@ -91,7 +91,7 @@
   (testing "buffering goes back to connecting and arms the timeout"
     (let [{:keys [state effects]} (a/handle playing-jazz [:audio/waiting])]
       (is (= :connecting (get-in state [:player :status])))
-      (is (= [[:timer/start :connect 10000 [:audio/timeout]]] effects))))
+      (is (= [[:timer/start :connect a/connect-timeout-ms [:audio/timeout]]] effects))))
   (testing "a stream error is shown"
     (let [state (:state (a/handle playing-jazz [:audio/failed]))]
       (is (= :error (get-in state [:player :status])))

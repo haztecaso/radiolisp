@@ -6,7 +6,7 @@
 
 (def min-query-length 2)
 (def debounce-ms 300)
-(def connect-timeout-ms 10000)
+(def connect-timeout-ms 15000)
 
 (defn query-active?
   "True when `query` is long enough to search for."

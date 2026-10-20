@@ -164,7 +164,7 @@ El estado **nunca contiene textos traducidos**: guarda claves y datos (§8).
 | `[:search/choose i]` | `:player/station`, `:status :connecting`, `:open? false` | `[:audio/play url]` `[:dom/focus :toggle]` |
 | `[:player/toggle]` | `:playing` ↔ `:paused` | `[:audio/pause]` / `[:audio/play url]` |
 | `[:player/volume v]` / `[:player/volume-step ±5]` / `[:player/mute]` | `:volume`, `:muted?` | `[:audio/volume 0.7]` |
-| `[:audio/playing]` `[:audio/paused]` `[:audio/waiting]` `[:audio/failed kind]` | `:status`, `:started-at`, `:error` | `[:timer/start :connect-timeout 10000 …]` mientras está en `:connecting` |
+| `[:audio/playing]` `[:audio/paused]` `[:audio/waiting]` `[:audio/failed kind]` | `:status`, `:started-at`, `:error` | `[:timer/start :connect 15000 …]` mientras está en `:connecting` |
 | `[:i18n/set :en]` | `:locale` | `[:dom/lang :en]` |
 | `[:help/open]` / `[:help/close]` | `:help?` | — |
 
@@ -322,11 +322,14 @@ El teclado es modal, como vim. **Insertar** significa escribir en el input. **No
 | Buscando | Lista | "Buscando…" y 5 filas esqueleto con la geometría real, sin shimmer |
 | Sin resultados | Lista | Caja discontinua: "Ninguna emisora se llama «q». Prueba con una parte del nombre." |
 | Radio Browser caído (tras reintentar con otro servidor) | Lista | Caja con un punto rojo: "No se pudo conectar con Radio Browser a las HH:MM." y "Reintentar" |
-| Conectando con el stream | Reproductor | "Conectando…", sin reloj; a los 10 s pasa a error |
+| Conectando con el stream | Reproductor | "Conectando…", sin reloj; a los 15 s pasa a error |
 | El stream falla (`error` del `<audio>`, CORS o 404) | Reproductor | "No se pudo reproducir: el stream no responde." y el play vuelve a ▶ |
 | Emisora HLS (`:hls? true` o `.m3u8`) | Reproductor | "Esta emisora usa un formato que aún no se puede reproducir." Se sigue mostrando en los resultados |
 | Contenido mixto (`http://` en una página `https://`) | Reproductor | Se trata como error del stream |
 
+- **Streams `http://`**: la capa de audio prueba primero la URL en `https://` y, si da error o no arranca en 8 s, vuelve a la original. Así funcionan las emisoras que aceptan ambas en redes donde el puerto 80 no entrega streams infinitos, y se adelanta trabajo para servir la app por https.
+- **Peticiones colgadas**: la lista de servidores pasa al respaldo a los 3 s, y cada búsqueda falla a los 15 s, lo que dispara el reintento con otro servidor.
+- **Fuente autoalojada**: DM Sans se sirve desde `/fonts` (SIL OFL), para que ninguna CDN bloquee el primer render.
 - **Limitación conocida**: muchas emisoras emiten por `http://`. En `http://localhost` funcionan, pero desplegado en `https` el navegador las bloqueará. Se resolverá con un proxy en el backend (§11).
 - **Valores ausentes**: un bitrate o un codec desconocido se muestra como "—", y una emisora sin tags muestra "sin etiquetas".
 

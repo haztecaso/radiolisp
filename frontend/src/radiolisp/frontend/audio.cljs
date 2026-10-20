@@ -8,7 +8,7 @@
   original when that errors or does not start within `https-attempt-ms`."
   (:require [clojure.string :as str]))
 
-(def https-attempt-ms 4000)
+(def https-attempt-ms 8000)
 
 (defonce ^:private state (atom {:element nil :fallbacks [] :timer nil}))
 
