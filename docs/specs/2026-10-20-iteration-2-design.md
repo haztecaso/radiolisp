@@ -1,0 +1,219 @@
+# radiolisp — iteración 2: favoritas
+
+- Fecha: 2026-10-20
+- Estado: aprobado (el usuario delegó la aprobación; revisión al final)
+- Parte de: el MVP (`2026-10-20-mvp-design.md`). Esta iteración cambia el layout y
+  añade la gestión de favoritas. Lo que no se dice aquí sigue como en el MVP:
+  arquitectura, i18n y teclado vim.
+- Referencia visual: `docs/design/prototype-2/index.html` (variantes elegidas:
+  búsqueda **A · paleta**, nombre **superpuesto**, salud **etiqueta**).
+
+## 1. Qué cambia
+
+- La pantalla principal pasa a ser una **cuadrícula de favoritas** a todo el ancho,
+  sin huecos entre casillas.
+- El reproductor pasa a ser una **barra fija abajo**.
+- **`/` filtra las favoritas.** **`a`** (o «+ Añadir emisora») abre una **paleta**
+  que busca en todo Radio Browser.
+- Nuevo: favoritas persistentes, reordenables, con atajos de teclado asignados a
+  mano. Exportar e importar M3U. Votar. Contar clics. HLS. Media Session.
+
+## 2. Datos guardados
+
+Solo lo imprescindible. Todo lo demás se pide fresco a Radio Browser en cada
+arranque, de modo que el stream, la imagen y la salud estén siempre al día.
+
+```clojure
+{:version   1
+ :favorites [{:id   "960e57c5-…"   ; stationuuid: estable entre servidores
+              :name "France Info"  ; respaldo, si la API falla o la emisora desaparece
+              :key  "f"}           ; atajo opcional (nil)
+             …]}                   ; el orden del vector es el orden de la cuadrícula
+```
+
+- **Dónde:** `localStorage`, clave `radiolisp/favorites`, serializado en EDN. Se
+  escribe tras cada cambio. Al arrancar se pide `navigator.storage.persist()`.
+- **Lectura defensiva:** un valor ilegible o con otra `:version` no rompe la app.
+  Se trata como lista vacía y se avisa en la consola.
+- **Al arrancar:** `GET /json/stations/byuuid?uuids=a,b,…` (una sola petición) llena
+  un mapa `:stations` (id → emisora normalizada). Un id que no vuelve se marca como
+  desaparecido y la casilla muestra el nombre guardado con «Ya no está en Radio
+  Browser».
+- **Al reproducir:** `GET /json/url/{id}`, sin esperar la respuesta. Así se cuenta el
+  clic, como pide Radio Browser.
+
+### Emisora normalizada (`common/station.cljc`)
+
+Se amplía con `:homepage`, `:favicon`, `:votes`, `:check-ok?` (de `lastcheckok`),
+`:last-check-at` y `:last-ok-at` (ISO 8601). Las cadenas vacías pasan a `nil`.
+
+## 3. Exportar e importar (M3U extendido)
+
+```
+#EXTM3U
+#EXTINF:-1 radiobrowser-uuid="960e57c5-…" tvg-logo="https://…",France Info
+https://icecast.radiofrance.fr/franceinfo-midfi.mp3
+```
+
+- Es válido en VLC y otros reproductores; los atributos que no entienden se ignoran.
+  Se descarga como `radiolisp-favoritas.m3u`.
+- **Importar:** se elige un `.m3u` o `.m3u8`.
+  - Las entradas con `radiobrowser-uuid` se añaden por id.
+  - Las demás se buscan por URL (`/json/stations/byurl`). Si hay duplicados se
+    elige el de más votos, y las que no se encuentran se descartan.
+  - Las que ya son favoritas no se duplican.
+  - Un aviso resume el resultado: «Importadas 7 · 2 no encontradas».
+- Los atajos no se exportan: son personales del navegador.
+
+## 4. Layout
+
+### Barra superior (56 px, a todo el ancho)
+
+- Marca.
+- Campo «Filtrar favoritas» (`/`).
+- Botón «+ Añadir emisora» (`a`).
+- Menú ⋯ de la lista: exportar e importar M3U.
+- «Atajos ?» e idioma ES · EN.
+
+### Cuadrícula
+
+- `repeat(auto-fill, minmax(180px, 1fr))`, sin huecos ni bordes. En móvil, 2
+  columnas. No hay título visible; el `h1` «Favoritas» existe pero está oculto
+  visualmente.
+- **Casilla:** imagen cuadrada con el nombre superpuesto en una banda blanca al
+  pie.
+  - **Imagen grande y cuadrada** (lado menor ≥ 150 px, proporción entre 0,8 y 1,25):
+    ocupa toda la casilla (`cover`).
+  - **Imagen pequeña o apaisada:** centrada y contenida sobre un tinte del matiz.
+  - **Sin imagen o rota:** monograma con las iniciales sobre un tinte estable
+    derivado del id.
+- **Esquina superior izquierda:** el cuadradito del atajo. Muestra la tecla
+  asignada; si no hay, aparece «+» punteado al pasar el ratón. Al pulsarlo se abre
+  el diálogo del atajo.
+- **Esquina superior derecha:** ⋯ (visible al pasar el ratón o con foco; siempre
+  visible en móvil). Abre el menú de la emisora:
+  - Visitar la web.
+  - Votar (con el número de votos).
+  - Asignar o cambiar el atajo.
+  - Mover al principio.
+  - Copiar el enlace del stream.
+  - Editar en radio-browser.info (`https://www.radio-browser.info/history/{id}`).
+  - Una línea de salud.
+  - Quitar de favoritas.
+- **Salud:** si `:check-ok?` es falso, la etiqueta «Sin señal» aparece sobre la
+  imagen. El menú detalla el último fallo y el último OK.
+- **Sonando:** contorno interior de 3 px en el color de acento. **Hover:** contorno
+  de 2 px.
+- **Reordenar:** arrastrar y soltar. Una barra de acento indica dónde caerá.
+  También «Mover al principio» desde el menú.
+- **Última casilla:** «+ Añadir emisora», oculta mientras se filtra.
+- **Clic en una casilla:** la reproduce, o la pausa si ya suena.
+- **Vacía:** «Todavía no tienes favoritas», con un botón para añadir.
+- **Filtro sin coincidencias:** «Ninguna favorita se llama «x»» y un enlace «Buscar
+  «x» en Radio Browser» que abre la paleta con esa búsqueda.
+
+### Barra del reproductor (72 px, fija abajo)
+
+- Miniatura (con la misma lógica de imagen que las casillas), nombre y ondas
+  animadas mientras suena.
+- **Línea de datos:** la calidad en una chapa con borde (`MP3 128 kbps`, o `HLS`) y
+  los tags aparte, en gris. Sin país ni «En directo».
+- **Controles, de izquierda a derecha:**
+  - Web de la emisora ↗.
+  - ♥: añade o quita. Quitar pide confirmación.
+  - Volumen: un icono; el slider se despliega al pasar el ratón o con foco.
+  - Play/pausa (48 px, en el color de acento).
+- **Errores:** sustituyen a la línea de datos.
+
+### Paleta (buscar en Radio Browser)
+
+- Un modal de 680 px, arriba y centrado, sobre la cuadrícula atenuada. Se cierra
+  con Esc o clicando fuera.
+- Arriba el campo; debajo los resultados, o «Más escuchadas hoy» si la búsqueda
+  está vacía.
+- **Cada resultado:** miniatura de 40 px, nombre, chapa de calidad, país y tags, y
+  los botones ▶ y ♥.
+- **Reproducir no cierra la paleta**, para poder escuchar varias antes de elegir.
+
+### Diálogos (nativos, minimalistas)
+
+- **Quitar de favoritas:** «¿Quitar de favoritas?», el nombre y si libera un atajo.
+  Botones «Cancelar» y «Quitar».
+- **Atajo:** «Atajo para «X»». Se pulsa una tecla y se previsualiza.
+  - **Teclas reservadas:** `/ ? a h j k l m g i G f`, espacio, Enter, Esc y Tab.
+    Si se pulsa una, lo indica.
+  - Si la tecla ya es de otra emisora, avisa de que pasará a esta.
+  - Botones: «Quitar atajo» (si tenía uno), «Cancelar» y «Guardar».
+
+### Avisos (toast)
+
+Una línea abajo a la derecha, encima de la barra, durante 2,5 s. Por ejemplo:
+«Añadida a favoritas», «Voto enviado», «Enlace copiado», «Exportadas 12».
+
+## 5. Teclado
+
+| Contexto | Teclas |
+|---|---|
+| Global | `/` filtrar · `a` añadir (paleta) · espacio play/pausa · `h` `l` volumen · `m` silencio · `?` ayuda · **teclas asignadas**: reproducir esa favorita |
+| Campo de filtro | Enter reproduce la primera coincidencia · Esc vacía el filtro y sale |
+| Paleta, escribiendo | ↓ ↑ · `ctrl-j`/`ctrl-k`/`ctrl-n`/`ctrl-p` mover · Enter reproducir · Shift+Enter añadir o quitar de favoritas · Esc pasar a navegar |
+| Paleta, navegando | `j` `k` · `gg` `G` · Enter reproducir · `f` añadir o quitar · `i` o `/` volver a escribir · Esc cerrar |
+| Diálogo de atajo | cualquier tecla la propone · Esc cancelar |
+
+Media Session: las teclas multimedia del sistema hacen play/pausa, y siguiente o
+anterior saltan a la favorita siguiente o anterior.
+
+## 6. Audio
+
+- **HLS:** hls.js 1.7, cargado bajo demanda en un módulo aparte de shadow-cljs
+  (`:hls`). Solo se descarga al reproducir una emisora HLS en un navegador sin HLS
+  nativo; Safari usa el nativo. Si el navegador no tiene MSE, se muestra «formato
+  no soportado».
+- Se mantienen el intento `https://` primero y los timeouts del MVP.
+- **Media Session:** título (nombre de la emisora), artista «radiolisp», la imagen
+  como artwork y el estado reproduciendo o en pausa.
+
+## 7. Arquitectura
+
+Se mantiene el flujo acción → `handle` (puro) → efectos. Lo nuevo:
+
+- **`common/favorites.cljc`** (puro, con tests):
+  - `add`, `remove`, `move-before`, `move-to-front`.
+  - `assign-key`, `clear-key`, `key-owner`, `reserved-key?`.
+  - `matching` (filtro).
+  - `serialize`, `deserialize`.
+  - `->m3u`, `parse-m3u`.
+- **`common/station.cljc`:** nuevos campos (§2).
+- **`frontend/views/art.cljs`:** `fit` (puro: anchura y altura → `:cover`,
+  `:contain` o `:small`) y la vista de la imagen.
+- **Estado:**
+  - Nuevas claves: `:favorites` (lista y estado de carga), `:stations` (id →
+    emisora), `:art` (id → encaje o `:broken`), `:filter`, `:menu`, `:dialog` y
+    `:toast`.
+  - `:search` empieza cerrado.
+- **Efectos nuevos:**
+  - `:storage/load`, `:storage/save`, `:storage/persist`.
+  - `:api/stations-by-id`, `:api/click`, `:api/vote`, `:api/lookup-urls`.
+  - `:file/download`, `:file/pick`, `:clipboard/write`.
+  - `:media/update`.
+  - `:dom/show-dialog`, `:dom/close-dialog`.
+- **Imágenes:** `:on {:load [[:art/sized id :event.target/natural-width
+  :event.target/natural-height]] :error [[:art/failed id]]}`.
+
+## 8. Fuera de esta iteración
+
+Recientes, compartir por enlace, temporizador, modo oscuro, PWA y "lo que suena"
+(necesita backend).
+
+## 9. Hecho cuando
+
+1. Añadir, quitar (con confirmación), reordenar y asignar atajos persiste entre
+   recargas.
+2. Al recargar, los datos de las emisoras llegan en una sola petición `byuuid`.
+3. Exportar e importar M3U da la misma lista (sin los atajos).
+4. Una emisora HLS suena en Chromium (con hls.js).
+5. El teclado de §5 funciona, y las teclas asignadas cambian de emisora.
+6. `bb test`, `bb lint` y `bb fmt:check` pasan. `bb e2e`, adaptado al nuevo layout,
+   pasa. El inspector del skill da 0 FAIL.
+7. El e2e no altera las estadísticas de Radio Browser: bloquea `/json/url` y
+   `/json/vote`.
