@@ -12,7 +12,13 @@
    "bitrate"      320
    "clickcount"   445
    "tags"         "avant-garde,bebop,big band,bop,combos"
-   "hls"          0})
+   "hls"          0
+   "homepage"     "https://walmradio.com/jazz"
+   "favicon"      "https://icecast.walmradio.com:8443/jazz.jpg"
+   "votes"        184141
+   "lastcheckok"  1
+   "lastchecktime_iso8601"   "2026-10-17T15:03:57Z"
+   "lastcheckoktime_iso8601" "2026-10-17T15:03:57Z"})
 
 (def france-inter
   {"stationuuid"  "f1"
@@ -24,7 +30,13 @@
    "bitrate"      0
    "clickcount"   734
    "tags"         ""
-   "hls"          0})
+   "hls"          0
+   "homepage"     ""
+   "favicon"      ""
+   "votes"        0
+   "lastcheckok"  0
+   "lastchecktime_iso8601"   "2026-10-17T08:30:40Z"
+   "lastcheckoktime_iso8601" "2026-01-15T07:55:30Z"})
 
 (deftest normalize-keeps-what-the-app-shows
   (is (= {:id      "a1b2"
@@ -35,7 +47,13 @@
           :bitrate 320
           :clicks  445
           :tags    ["avant-garde" "bebop" "big band"]
-          :hls?    false}
+          :hls?    false
+          :homepage      "https://walmradio.com/jazz"
+          :favicon       "https://icecast.walmradio.com:8443/jazz.jpg"
+          :votes         184141
+          :check-ok?     true
+          :last-check-at "2026-10-17T15:03:57Z"
+          :last-ok-at    "2026-10-17T15:03:57Z"}
          (station/normalize adroit))))
 
 (deftest normalize-turns-unknown-values-into-nil
@@ -56,3 +74,11 @@
 
 (deftest normalize-cleans-tags
   (is (= ["jazz" "soul"] (:tags (station/normalize (assoc adroit "tags" " jazz, ,soul,jazz"))))))
+
+(deftest normalize-keeps-health-and-links
+  (let [s (station/normalize france-inter)]
+    (is (false? (:check-ok? s)))
+    (is (= "2026-01-15T07:55:30Z" (:last-ok-at s)))
+    (is (nil? (:homepage s)) "empty homepage becomes nil")
+    (is (nil? (:favicon s)))
+    (is (= 0 (:votes s)))))

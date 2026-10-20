@@ -22,11 +22,15 @@
 
 (defn normalize
   "Takes one station as decoded from Radio Browser JSON (string keys) and
-  returns `{:id :name :url :country :codec :bitrate :clicks :tags :hls?}`.
+  returns `{:id :name :url :country :codec :bitrate :clicks :tags :hls?
+  :homepage :favicon :votes :check-ok? :last-check-at :last-ok-at}`.
   Values Radio Browser does not know (codec \"UNKNOWN\", bitrate 0, empty
   strings) become nil."
-  [{:strs [stationuuid url url_resolved countrycode codec bitrate clickcount tags hls]
-    station-name "name"}]
+  [{:strs [stationuuid url url_resolved countrycode codec bitrate clickcount tags hls
+           homepage favicon votes lastcheckok]
+    station-name  "name"
+    last-check-at "lastchecktime_iso8601"
+    last-ok-at    "lastcheckoktime_iso8601"}]
   (let [stream (or (blank->nil url_resolved) (blank->nil url))
         codec  (blank->nil codec)]
     {:id      stationuuid
@@ -37,4 +41,10 @@
      :bitrate (when (and (number? bitrate) (pos? bitrate)) bitrate)
      :clicks  (or clickcount 0)
      :tags    (parse-tags tags)
-     :hls?    (or (= 1 hls) (hls-url? stream))}))
+     :hls?    (or (= 1 hls) (hls-url? stream))
+     :homepage      (blank->nil homepage)
+     :favicon       (blank->nil favicon)
+     :votes         (or votes 0)
+     :check-ok?     (= 1 lastcheckok)
+     :last-check-at (blank->nil last-check-at)
+     :last-ok-at    (blank->nil last-ok-at)}))
