@@ -1,0 +1,7 @@
+{
+  "name": "radiolisp-frontend",
+  "private": true,
+  "devDependencies": {
+    "shadow-cljs": "3.5.7"
+  }
+}

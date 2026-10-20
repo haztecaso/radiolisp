@@ -1,0 +1,4 @@
+;; This file only exists so clojure-lsp sees every module of the repository.
+{:deps
+ {radiolisp/common   {:local/root "common"}
+  radiolisp/frontend {:local/root "frontend"}}}

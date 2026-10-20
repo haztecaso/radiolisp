@@ -1,0 +1,34 @@
+{:tasks
+ {:requires  ([babashka.fs :as fs])
+  :init      (do (def frontend {:dir "frontend"})
+                 ;; Only the source folders that exist, so lint and fmt work from day one.
+                 (def clj-dirs (filterv fs/exists? ["common/src" "common/test" "frontend/src" "frontend/test"])))
+
+  setup      {:doc  "Install the npm dependencies of the frontend"
+              :task (shell frontend "npm install")}
+
+  dev        {:doc  "Watch ClojureScript and SCSS; serves http://localhost:8080"
+              :task (run '-dev {:parallel true})}
+  -dev       {:depends [dev:cljs dev:css]}
+  dev:cljs   (shell frontend "npx shadow-cljs watch app")
+  dev:css    (shell frontend "sass --watch --no-source-map resources/styles/main.scss:resources/public/css/main.css")
+
+  css        {:doc  "Compile the SCSS once, compressed"
+              :task (shell frontend "sass --no-source-map --style=compressed resources/styles/main.scss resources/public/css/main.css")}
+
+  build      {:doc     "Release build into frontend/resources/public"
+              :depends [css]
+              :task    (shell frontend "npx shadow-cljs release app")}
+
+  test       {:doc  "Run every test (common and frontend) on Node"
+              :task (do (shell frontend "npx shadow-cljs compile test")
+                        (shell frontend "node target/test/node-tests.js"))}
+
+  lint       {:doc  "Lint with clj-kondo"
+              :task (apply shell "clj-kondo --lint" clj-dirs)}
+
+  fmt        {:doc  "Format every Clojure file"
+              :task (apply shell "cljfmt fix" clj-dirs)}
+
+  fmt:check  {:doc  "Fail if any Clojure file is not formatted"
+              :task (apply shell "cljfmt check" clj-dirs)}}}
