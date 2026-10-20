@@ -1,7 +1,7 @@
 # radiolisp — backend: proxy http y lo que suena
 
 - Fecha: 2026-10-20
-- Estado: borrador para revisión
+- Estado: aprobado e implementado (rama `feat/backend`); desviaciones en §13
 - Parte de: `2026-10-20-mvp-design.md` §11 y `docs/ideas/backend.md` (§1 «Proxy para
   emisoras http» y §2 «Metadatos ICY por WebSocket»). Compartir y persistir (§3 de
   las ideas) queda fuera: no hay base de datos ni cuentas.
@@ -73,7 +73,7 @@ WebSocket ─ /api/ws ──────────────────▶ 
 - **Stack:** Clojure 1.12 en JDK 21. Ring 1.15 con `ring-jetty-adapter` (Jetty 12)
   y `ring.websocket`. El pool de Jetty usa virtual threads, así que cada oyente
   ocupa un hilo virtual que escribe bloqueando y la contrapresión sale sola.
-  Conexión de subida con `java.net.http.HttpClient`. core.async para la cola de
+  Conexión de subida con un cliente HTTP/1.0 propio sobre socket (§5.2). core.async para la cola de
   cada oyente. Sin router: cuatro rutas en un `case`.
 - **Módulo nuevo `backend/`** (`radiolisp.backend.*`), con `deps.edn` propio y
   `common/` como dependencia local, como el frontend.
@@ -100,6 +100,7 @@ En el frontend:
 | ns | Cambio |
 |---|---|
 | `radiolisp.frontend.socket` (nuevo) | El WebSocket: conexión perezosa, reconexión, resuscripción. Impuro, como `audio` |
+| `radiolisp.frontend.stream-url` (nuevo) | Qué URLs probar, en orden (puro) |
 | `radiolisp.frontend.audio` | El proxy como último candidato en páginas https |
 | `radiolisp.frontend.actions` | `:now-playing/*`; suscribir al sonar, darse de baja al parar |
 | `radiolisp.frontend.effects` | `:socket/subscribe`, `:socket/unsubscribe`; `:media/update` con artista |
@@ -167,11 +168,15 @@ o un 5xx de Radio Browser no se guarda y responde 502.
 
 ### 5.2 Conexión de subida
 
-`upstream/open!` hace `GET <url>` con `Icy-MetaData: 1` y el `User-Agent`, con
-`HttpClient` en HTTP/1.1, `connectTimeout` de `upstream-connect-ms`. Las
-redirecciones se siguen a mano (hasta 5) para pasar cada destino por `guard`. Una
-respuesta que no es 2xx es un fallo. Devuelve `{:content-type :metaint :headers
-:body InputStream}`.
+`upstream/open!` hace `GET <url>` con `Icy-MetaData: 1` y el `User-Agent` con un
+cliente **HTTP/1.0 propio sobre socket** (TLS con verificación del nombre para
+`https`). `java.net.http.HttpClient` no sirve: SHOUTcast v1, muy común en las
+emisoras solo http del puerto 8000, contesta `ICY 200 OK`, que ese cliente rechaza.
+HTTP/1.0 además descarta los cuerpos `chunked`. Conecta en `upstream-connect-ms` a
+la dirección que devolvió `guard`; las redirecciones se siguen a mano (hasta 5),
+cada una por `guard`. Una respuesta que no es 2xx es un fallo. Devuelve `{:url
+:status :headers :content-type :metaint :body :socket}`, con el tiempo de lectura
+del socket en `upstream-stall-ms`.
 
 ### 5.3 Guardia (SSRF)
 
@@ -183,8 +188,9 @@ Antes de conectar, y en cada redirección:
   (169.254/16, fe80::/10), ni CGNAT (100.64/10), ni `0.0.0.0`, ni multicast;
 - los tests la desactivan con `:allow-private? true` (servidor de pruebas local).
 
-Queda un hueco conocido: el DNS puede cambiar entre la comprobación y la conexión
-(DNS rebinding). Se acepta para esta iteración y se anota.
+`guard/check!` devuelve la dirección comprobada y el cliente conecta a esa misma,
+así que el DNS no puede cambiar entre la comprobación y la conexión (DNS
+rebinding).
 
 ## 6. Metadatos por WebSocket
 
@@ -335,8 +341,8 @@ IP en los logs** (privacidad: datos de escucha).
   8 KiB, pasa cada trozo por `icy/feed` (o lo deja entero sin `metaint`), añade el
   audio a la ráfaga, lo ofrece (`offer!`) a la cola de cada oyente y publica los
   títulos nuevos a los suscritos con `ring.websocket/send` asíncrono.
-- **Atasco:** un vigilante cierra el `InputStream` si no llega nada en
-  `upstream-stall-ms`; el lector lo ve como fin del stream.
+- **Atasco:** el socket tiene `upstream-stall-ms` de tiempo de lectura; si no llega
+  nada, la lectura falla y el lector lo trata como fin del stream.
 - **Fin o error de la conexión con miembros:** `:retrying`, reintento tras 1, 2 y
   4 s. Los oyentes siguen conectados mientras tanto (el navegador espera con
   `waiting`). Tras el tercer fallo: `:failed`, se cierran las colas de los oyentes
@@ -405,4 +411,18 @@ IP en los logs** (privacidad: datos de escucha).
 - Transcodificación, caché de Radio Browser para el frontend, proxy de imágenes.
 - Historial, scrobbling, carátulas y demás cosas que se construyen sobre los títulos.
 - Empaquetado y despliegue.
-- DNS rebinding (§5.3).
+
+## 13. Desviaciones al implementar
+
+- **Cliente de subida propio** (HTTP/1.0 sobre socket) en lugar de
+  `java.net.http.HttpClient`, por las respuestas `ICY 200 OK` (§5.2). Con él se
+  cierra también el hueco de DNS rebinding (§5.3), y el tiempo de lectura del
+  socket sustituye al vigilante de atascos (§8).
+- **`radiolisp.frontend.stream-url`**: `candidates` sale de `audio` a un
+  espacio de nombres puro, porque `audio` usa `shadow.lazy` y no compila en el build
+  de tests. El efecto `[:audio/play url hls? id]` lleva ahora el uuid.
+- **Media Session** recibe `:artist` (la emisora cuando hay título, «radiolisp» si no).
+- **Jetty** cierra el WebSocket tras `ws-idle-timeout-ms` (60 s) sin tráfico; el
+  servidor hace ping cada 20 s, y el navegador contesta solo.
+- **Rutas** con método distinto de GET o HEAD: 405. Jetty rechaza con 400 rutas
+  ambiguas como `/../x` antes de llegar al handler.

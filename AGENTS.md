@@ -3,7 +3,8 @@
 radiolisp is a minimal web radio player written in ClojureScript, built to learn
 Clojure. The design specs are `docs/specs/2026-10-20-mvp-design.md` and
 `docs/specs/2026-10-20-iteration-2-design.md` (favourites; it supersedes the MVP
-layout); read them before changing behaviour.
+layout) and `docs/specs/2026-10-20-backend-design.md` (the backend: http proxy
+and now playing); read them before changing behaviour.
 Ideas that need a backend are collected in `docs/ideas/backend.md`.
 
 ## Hard rules
@@ -22,15 +23,25 @@ Ideas that need a backend are collected in `docs/ideas/backend.md`.
   `/json/vote` blocked in `frontend/e2e/check.mjs`.
 - `radiolisp.frontend.hls` is only loaded through `shadow.lazy`; never require it
   from another namespace, or hls.js moves into the main module.
+- The backend never logs client IPs, and never connects to a URL that did not
+  come from Radio Browser through a station uuid; every connection goes through
+  `radiolisp.backend.guard`.
+- Backend tests must not touch the network: use `radiolisp.backend.fake-station`
+  and pass `:resolve-station` to `main/start!`.
 
 ## Modules
 
-- `common/`: pure `.cljc` shared with a future backend (`radiolisp.common.*`).
+- `common/`: pure `.cljc` shared by frontend and backend (`radiolisp.common.*`),
+  including the WebSocket messages (`radiolisp.common.protocol`).
 - `frontend/`: shadow-cljs + Replicant SPA (`radiolisp.frontend.*`), SCSS in
   `resources/styles/`.
+- `backend/`: Clojure on the JVM (`radiolisp.backend.*`): Ring + Jetty 12 on
+  virtual threads, one relay session per station for the stream proxy and the
+  ICY titles.
 
 ## Tasks (inside `nix develop`)
 
-`bb setup` · `bb dev` (http://localhost:8080) · `bb test` · `bb lint` · `bb fmt` ·
+`bb setup` · `bb dev` (http://localhost:8080) · `bb backend` (http://localhost:8090,
+serves the `bb dev` output too) · `bb test` (Node and JVM) · `bb lint` · `bb fmt` ·
 `bb fmt:check` · `bb build` · `bb e2e` (browser check; needs `bb dev` running or
 `URL=…`, uses the real Radio Browser API and real streams)

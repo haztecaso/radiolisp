@@ -123,6 +123,8 @@ async function newApp(browser, { width, height, mobile = false, seed = null, noN
 const count = (page, re) => page.requests.filter((u) => re.test(u)).length;
 const playing = (page) => waitFor(page, `window.__audio && !window.__audio.paused && window.__audio.readyState >= 3`, 15000);
 
+// With the backend in front (bb backend), titles arrive over its WebSocket.
+const backend = await fetch(`${URL.replace(/\/$/, '')}/api/health`).then((r) => r.ok).catch(() => false);
 const browser = await Browser.launch({ width: 1440, height: 900, extraArgs: ['--disable-ipv6', '--disable-features=AsyncDns'] });
 try {
   // ---------------------------------------------------------------- empty start, adding from the palette
@@ -204,6 +206,11 @@ try {
   await grid.eval(`document.activeElement.blur()`);
   await press(grid, ' ');
   check('space resumes', await playing(grid));
+  if (backend) {
+    check('the backend sends what is playing', await waitFor(grid, `!!document.querySelector('.bar .now-title')`, 30000), await text(grid, '.bar .meta-line'));
+  } else {
+    console.log(`SKIP  what is playing: no backend at ${URL}`);
+  }
 
   // keys: assign with the dialog, then play with it
   await click(grid, '.tile:nth-child(2) .keycap');

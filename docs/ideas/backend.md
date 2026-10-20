@@ -10,7 +10,9 @@ datos), **alto** (ancho de banda o CPU por oyente).
 
 ## 1. Reproducción
 
-### Proxy para emisoras http · alto
+### Proxy para emisoras http · alto · **hecho**
+
+Implementado según `docs/specs/2026-10-20-backend-design.md`, con fan-out.
 
 Servida por https, la app no puede cargar un stream `http://`: el navegador lo
 bloquea o lo pasa a https, y en los puertos que solo hablan HTTP (`:8000`,
@@ -58,7 +60,9 @@ directamente.
 
 ## 2. Metadatos y "lo que suena"
 
-### Metadatos ICY por WebSocket · medio
+### Metadatos ICY por WebSocket · medio · **hecho**
+
+Implementado según `docs/specs/2026-10-20-backend-design.md` (sin ID3 de HLS).
 
 Como `packages/api` de radiolise: el backend abre el stream con
 `Icy-MetaData: 1`, lee los `StreamTitle` y los empuja por WebSocket a los
