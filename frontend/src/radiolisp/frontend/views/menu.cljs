@@ -31,7 +31,7 @@
         shortcut (:key (first (filter #(= id (:id %)) (:items favorites))))]
     (list
      (when-let [homepage (:homepage station)]
-       (link icons/external (t :menu/homepage) homepage))
+       (link icons/globe (t :menu/homepage) homepage))
      (when station
        (item icons/thumb (t :menu/vote) [[:station/vote id]]
              [:span.meta.num (i18n/format-number locale (:votes station))]))
@@ -50,7 +50,9 @@
 (defn- list-items [t]
   (list
    (item icons/download (t :menu/export) [[:favorites/export]])
-   (item icons/upload (t :menu/import) [[:favorites/import-pick]])))
+   (item icons/upload (t :menu/import) [[:favorites/import-pick]])
+   [:hr]
+   (item icons/key-icon (t :help/title) [[:help/open]] [:span.meta "?"])))
 
 (defn view [{:keys [menu] :as state} t]
   (when-let [{:keys [kind id]} menu]

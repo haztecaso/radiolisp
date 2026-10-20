@@ -17,8 +17,12 @@
   @media (max-width: $phone) { b { display: none; } }
 }
 
+.tools { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+
+// The filter field unfolds from its funnel button.
 .filter {
   position: relative; display: block; flex: 1; max-width: 420px;
+  animation: unfold 180ms var(--ease);
   svg { position: absolute; left: 12px; top: 10px; width: 16px; height: 16px; color: var(--muted); }
   input {
     width: 100%; height: 36px; padding: 0 12px 0 36px;
@@ -30,15 +34,13 @@
   @media (max-width: $phone) { max-width: none; min-width: 0; }
 }
 
+@keyframes unfold { from { max-width: 40px; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .filter { animation: none; } }
+
 .top-actions {
-  margin-left: auto; display: flex; align-items: center; gap: 16px;
-  .sep { width: 1px; height: 20px; background: var(--border); }
+  margin-left: auto; display: flex; align-items: center; gap: 12px;
   .lang { color: var(--muted); font-size: 13px; }
-  @media (max-width: $phone) {
-    gap: 4px;
-    .hide-s, .add-label { display: none; }
-    .btn { width: 44px; height: 44px; padding: 0; justify-content: center; }
-  }
+  @media (max-width: $phone) { gap: 4px; .hide-s { display: none; } }
 }
 
 main { padding-bottom: var(--bar); }

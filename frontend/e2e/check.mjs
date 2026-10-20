@@ -231,7 +231,8 @@ try {
   check('drag before a tile', (await tileNames(grid))[0] === 'Gone FM', JSON.stringify(await tileNames(grid)));
   check('drag order persisted', (await storedIds(grid))[0] === '00000000-dead-beef-0000-000000000000');
 
-  // filter
+  // filter: a funnel button until it is used
+  check('filter folded at rest', !(await exists(grid, '#filter-input')));
   await press(grid, '/');
   check('/ focuses the filter', (await activeId(grid)) === 'filter-input');
   await type(grid, 'jazz');
@@ -240,7 +241,7 @@ try {
   await press(grid, 'Enter');
   check('enter plays the first match', (await barName(grid)) === '101 SMOOTH JAZZ', await barName(grid));
   await press(grid, 'Escape');
-  check('esc clears the filter and leaves', (await grid.eval(`document.getElementById('filter-input').value`)) === '' && (await activeId(grid)) !== 'filter-input');
+  check('esc clears the filter and folds it', !(await exists(grid, '#filter-input')));
   await press(grid, '/');
   await type(grid, 'qzxq');
   check('no match offers a Radio Browser search', /Buscar «qzxq» en Radio Browser/.test((await text(grid, '.empty-state .text-btn')) || ''));
@@ -248,7 +249,7 @@ try {
   await click(grid, '.empty-state .text-btn');
   check('the link opens the palette with the query', (await grid.eval(`document.getElementById('search-input')?.value`)) === 'qzxq');
   await press(grid, 'Escape'); await press(grid, 'Escape');
-  await grid.eval(`document.getElementById('filter-input').focus()`);
+  await grid.eval(`document.getElementById('filter-input')?.focus()`);
   await press(grid, 'Escape');
 
   // removing asks first
@@ -294,8 +295,14 @@ try {
   await press(grid, 'Escape');
   await sleep(200);
   check('esc closes help', !(await grid.eval(`document.getElementById('help').open`)));
+  await click(grid, '#list-menu');
+  await grid.eval(`[...document.querySelectorAll('#menu [role=menuitem]')].find(e => /Atajos/.test(e.textContent)).click()`);
+  await sleep(150);
+  check('the list menu opens the shortcuts', await grid.eval(`document.getElementById('help').open`));
+  await press(grid, 'Escape');
+  await sleep(200);
   await click(grid, '.top button[lang=en]');
-  check('EN switches texts', (await text(grid, '.top .btn .add-label')) === 'Add station', await text(grid, '.top .btn .add-label'));
+  check('EN switches texts', (await grid.eval(`document.querySelector('.top .add').getAttribute('aria-label')`)) === 'Add station');
   check('html lang updated', (await grid.eval(`document.documentElement.lang`)) === 'en');
   await click(grid, '.top button[lang=es]');
 
@@ -325,7 +332,7 @@ try {
   await sleep(500);
   await phone.screenshot({ path: `${OUT}/11-playing-phone.jpg` });
   check('phone hides the volume slider', await phone.eval(`getComputedStyle(document.querySelector('.vol .slider')).display === 'none'`));
-  await click(phone, '.top .btn');
+  await click(phone, '.top .add');
   await waitFor(phone, `document.querySelectorAll('#search-list [role=option]').length > 0`);
   await phone.screenshot({ path: `${OUT}/12-palette-phone.jpg` });
   const box = await phone.eval(`(() => { const r = document.querySelector('.palette .box').getBoundingClientRect(); return { w: r.width, h: r.height }; })()`);

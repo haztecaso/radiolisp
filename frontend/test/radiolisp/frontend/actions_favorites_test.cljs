@@ -127,10 +127,16 @@
 
 (deftest filtering
   (is (= "blu" (:filter (:state (a/handle ready [:filter/changed "blu"])))))
-  (is (= [[:dom/focus :filter-input]] (:effects (a/handle ready [:filter/focus]))))
-  (let [{:keys [state effects]} (a/handle (assoc ready :filter "x") [:filter/clear])]
+  (let [{:keys [state effects]} (a/handle ready [:filter/focus])]
+    (is (true? (:filter-open? state)) "the field unfolds")
+    (is (= [[:dom/focus :filter-input]] effects)))
+  (let [{:keys [state effects]} (a/handle (assoc ready :filter "x" :filter-open? true) [:filter/clear])]
     (is (= "" (:filter state)))
+    (is (false? (:filter-open? state)))
     (is (= [[:dom/blur :filter-input]] effects)))
+  (testing "leaving the field folds it only when empty"
+    (is (false? (:filter-open? (:state (a/handle (assoc ready :filter-open? true) [:filter/blurred])))))
+    (is (true? (:filter-open? (:state (a/handle (assoc ready :filter "x" :filter-open? true) [:filter/blurred]))))))
   (is (= ["b1"] (mapv :id (a/filtered-favorites (assoc ready :filter "BLUES")))))
   (testing "enter plays the first match"
     (is (= blues (get-in (:state (a/handle (assoc ready :filter "blu") [:filter/play-first]))

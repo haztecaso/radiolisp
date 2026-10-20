@@ -51,7 +51,7 @@
         [:a.icon-btn.hide-s {:href       homepage :target "_blank" :rel "noopener"
                              :aria-label (t :player/homepage {:name station-name})
                              :title      (t :menu/homepage)}
-         icons/external])
+         icons/globe])
       (when station
         [:button.icon-btn.fav {:class        (when favorite? "on")
                                :aria-pressed (str favorite?)

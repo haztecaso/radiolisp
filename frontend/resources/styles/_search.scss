@@ -47,7 +47,7 @@
   &.hl { background: var(--active); }
   &.playing b { color: var(--accent-ink); }
   &.skeleton { cursor: default; &:hover { background: none; } }
-  .thumb { width: 40px; height: 40px; .mono { font-size: 15px; } }
+  .thumb { width: 40px; height: 40px; .mono { font-size: 19px; } }
   .info { min-width: 0; }
   b { display: block; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .meta-line { margin-top: 2px; }

@@ -68,7 +68,6 @@
   [:svg {:viewBox "0 0 18 18" :fill "currentColor" :stroke "currentColor" :stroke-width "1.5" :aria-hidden "true"}
    [:path {:d heart-path}]])
 
-(def external (stroke "0 0 16 16" "M9 2.5h4.5V7M13.5 2.5L7 9M11.5 9.5v4h-9v-9h4"))
 (def edit (stroke "0 0 16 16" "M10.5 2.5l3 3L6 13H3v-3z"))
 (def up (stroke "0 0 16 16" "M8 13V3M3.5 7.5L8 3l4.5 4.5"))
 (def thumb (stroke "0 0 16 16" "M5 7v6.5H2.5V7zM5 7l3-4.5c1 0 1.6.8 1.4 1.8L9 6.5h3.6c.9 0 1.5.8 1.3 1.7l-1 4.2c-.2.6-.7 1.1-1.4 1.1H5"))
@@ -82,3 +81,11 @@
   [:svg {:viewBox "0 0 16 16" :fill "none" :stroke "currentColor" :stroke-width "1.5" :aria-hidden "true"}
    [:rect {:x "1.5" :y "4" :width "13" :height "8"}]
    [:path {:d "M4 7h1M7 7h2M11 7h1M5 9.5h6"}]])
+
+(def globe
+  [:svg {:viewBox "0 0 16 16" :fill "none" :stroke "currentColor" :stroke-width "1.5" :aria-hidden "true"}
+   [:circle {:cx "8" :cy "8" :r "6.25"}]
+   [:path {:d "M1.75 8h12.5M8 1.75c-1.9 1.7-2.75 3.8-2.75 6.25S6.1 12.55 8 14.25M8 1.75c1.9 1.7 2.75 3.8 2.75 6.25S9.9 12.55 8 14.25"}]])
+
+(def funnel (stroke "0 0 16 16" "M2 3h12l-4.75 5.5v4.5l-2.5 1V8.5z"))
+

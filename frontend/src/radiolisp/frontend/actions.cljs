@@ -310,10 +310,15 @@
   (ok (assoc state :filter text)))
 
 (defmethod handle :filter/focus [state _]
-  (ok state [[:dom/focus :filter-input]]))
+  (ok (assoc state :filter-open? true) [[:dom/focus :filter-input]]))
 
 (defmethod handle :filter/clear [state _]
-  (ok (assoc state :filter "") [[:dom/blur :filter-input]]))
+  (ok (assoc state :filter "" :filter-open? false) [[:dom/blur :filter-input]]))
+
+(defmethod handle :filter/blurred [state _]
+  (if (str/blank? (:filter state))
+    (ok (assoc state :filter-open? false))
+    (ok state)))
 
 (defmethod handle :filter/play-first [state _]
   (if-let [{:keys [id]} (first (filtered-favorites state))]

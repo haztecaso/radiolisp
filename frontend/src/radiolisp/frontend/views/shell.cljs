@@ -22,29 +22,43 @@
                      :on           {:click [[:i18n/set locale]]}}
    (str/upper-case (name locale))])
 
-(defn- top-bar [{:keys [locale menu] text :filter} t]
+(defn- filter-field
+  "A funnel button that unfolds into the filter field, which folds back once
+  it is left empty."
+  [{text :filter :keys [filter-open?]} t]
+  (if filter-open?
+    [:label.filter
+     [:span.vh (t :filter/label)]
+     icons/funnel
+     [:input#filter-input {:type         "search"
+                           :value        text
+                           :placeholder  (t :filter/label)
+                           :autocomplete "off"
+                           :spellcheck   "false"
+                           :on           {:input [[:filter/changed :event.target/value]]
+                                          :blur  [[:filter/blurred]]}}]]
+    [:button.icon-btn {:aria-label (t :filter/label)
+                       :title      (str (t :filter/label) " (/)")
+                       :on         {:click [[:filter/focus]]}}
+     icons/funnel]))
+
+(defn- top-bar [{:keys [locale menu] :as state} t]
   [:header.top
    [:a.brand {:href "/"} icons/mark [:b (t :brand/name)]]
-   [:label.filter
-    [:span.vh (t :filter/label)]
-    icons/search
-    [:input#filter-input {:type         "search"
-                          :value        text
-                          :placeholder  (t :filter/label)
-                          :autocomplete "off"
-                          :spellcheck   "false"
-                          :on           {:input [[:filter/changed :event.target/value]]}}]]
+   [:div.tools
+    [:button.icon-btn.add {:aria-label (t :search/open)
+                           :title      (str (t :search/open) " (a)")
+                           :on         {:click [[:search/open]]}}
+     icons/plus]
+    (filter-field state t)]
    [:div.top-actions
-    [:button.btn {:on {:click [[:search/open]]}} icons/plus [:span.add-label (t :search/open)]]
+    [:span.lang.hide-s {:role "group" :aria-label (t :lang/label)}
+     (language-button :es locale) " · " (language-button :en locale)]
     [:button#list-menu.icon-btn {:aria-label    (t :menu/list)
                                  :aria-haspopup "menu"
                                  :aria-expanded (str (= "list-menu" (:anchor menu)))
                                  :on            {:click [[:menu/open {:kind :list :anchor "list-menu"}]]}}
-     icons/dots]
-    [:span.sep.hide-s]
-    [:button.text-btn.hide-s {:on {:click [[:help/open]]}} (t :help/open) " " [:kbd "?"]]
-    [:span.lang.hide-s {:role "group" :aria-label (t :lang/label)}
-     (language-button :es locale) " · " (language-button :en locale)]]])
+     icons/dots]]])
 
 (defn- toast [{messages :toast} t]
   [:div.toast {:role "status" :class (when messages "show")}

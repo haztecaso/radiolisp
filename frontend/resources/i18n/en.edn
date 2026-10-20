@@ -87,7 +87,6 @@
  :toast/import-empty  "The file has no stations"
  :toast/import-failed "Could not import the file"
 
- :help/open           "Shortcuts"
  :help/title          "Keyboard shortcuts"
  :help/close          "Close"
  :help/global         "Anywhere"

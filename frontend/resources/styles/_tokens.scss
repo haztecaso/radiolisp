@@ -45,6 +45,7 @@ $tablet: 1024px;
   --top: 56px;
   --bar: 72px;
   --font: "DM Sans", Inter, system-ui, sans-serif;
+  --display: "DM Serif Display", Georgia, serif; // monograms only
   --ease: cubic-bezier(.2, .7, .2, 1);
 
   @media (max-width: $tablet) { --edge: 20px; }

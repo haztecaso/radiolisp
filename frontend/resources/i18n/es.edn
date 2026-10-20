@@ -87,7 +87,6 @@
  :toast/import-empty  "El fichero no tiene emisoras"
  :toast/import-failed "No se pudo importar el fichero"
 
- :help/open           "Atajos"
  :help/title          "Atajos de teclado"
  :help/close          "Cerrar"
  :help/global         "En cualquier momento"
