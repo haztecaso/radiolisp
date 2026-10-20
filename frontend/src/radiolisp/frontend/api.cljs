@@ -8,7 +8,7 @@
 (def search-limit 50)
 (def top-limit 20)
 (def servers-timeout-ms 3000)
-(def request-timeout-ms 8000)
+(def request-timeout-ms 15000)
 
 (defonce ^:private in-flight (atom nil))
 
