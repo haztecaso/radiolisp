@@ -55,20 +55,18 @@ bb dev           # compila en modo watch y sirve la app
 ```
 
 Abre <http://localhost:8080>. La primera compilación descarga las dependencias y
-tarda unos minutos; las siguientes, segundos.
+tarda unos minutos; las siguientes, segundos. `bb dev` arranca también el backend
+en <http://localhost:8090>, y sus logs salen en la misma terminal (en nivel
+`debug`; `LOG_LEVEL=info bb dev` para menos).
 
 `bb dev` vigila a la vez el ClojureScript (shadow-cljs) y el SCSS (sass). Al guardar
 un `.cljs`, un `.scss` o un diccionario `.edn`, el navegador se recarga en caliente
 sin perder el estado.
 
-Para probar con el backend, deja `bb dev` en marcha y, en otra terminal:
-
-```sh
-bb backend       # API, WebSocket y la salida de bb dev en http://localhost:8090
-```
-
-y abre <http://localhost:8090>: la misma app, ya con lo que suena, y la recarga en
-caliente sigue funcionando. El `:8080` sigue siendo el frontend solo.
+En desarrollo la página del `:8080` habla con el backend del `:8090` (lo fija el
+build de dev con `radiolisp.frontend.socket/backend-origin`). El `:8090` sirve
+también la app, como en producción, y la recarga en caliente funciona en los dos.
+Para el backend solo: `bb backend`.
 
 ## Tareas
 
@@ -78,7 +76,7 @@ lista.
 | Tarea | Qué hace |
 |---|---|
 | `bb setup` | `npm install` en `frontend/` |
-| `bb dev` | watch de ClojureScript y SCSS, sirve en `:8080` |
+| `bb dev` | watch de ClojureScript y SCSS en `:8080`, y el backend en `:8090` con sus logs |
 | `bb backend` | el backend en `:8090` (variables en [Backend](#backend)) |
 | `bb test` | todos los tests: `common` y `frontend` en Node; `common` y `backend` en la JVM |
 | `bb lint` | clj-kondo |
@@ -282,10 +280,14 @@ Se configura con variables de entorno:
 | `PORT` / `HOST` | `8090` / `127.0.0.1` | dónde escucha; en producción, detrás de un proxy con TLS |
 | `PUBLIC_DIR` | `../frontend/resources/public` | el build del frontend |
 | `TRUST_PROXY` | `false` | `true` para tomar la IP de `X-Forwarded-For` |
+| `LOG_LEVEL` | `info` | `debug` añade cada petición a `/api`, los títulos y los oyentes |
 | `MAX_SESSIONS` | `32` | emisoras abiertas a la vez |
 | `MAX_LISTENERS` / `MAX_LISTENERS_PER_IP` | `200` / `2` | oyentes del proxy |
 | `MAX_SOCKETS_PER_IP` | `4` | WebSockets por IP |
 | `STREAM_REQUESTS_PER_MINUTE` | `20` | peticiones a `/api/stream` por IP |
+
+Los logs salen por la consola (logback, `backend/resources/logback.xml`): qué
+emisoras se abren, conectan, se cortan o se cierran, y los errores. Nunca IPs.
 
 En producción: `bb build` y `bb backend` (o `clojure -M -m radiolisp.backend.main`
 en `backend/`) detrás de Caddy o nginx con TLS.

@@ -424,5 +424,14 @@ IP en los logs** (privacidad: datos de escucha).
 - **Media Session** recibe `:artist` (la emisora cuando hay título, «radiolisp» si no).
 - **Jetty** cierra el WebSocket tras `ws-idle-timeout-ms` (60 s) sin tráfico; el
   servidor hace ping cada 20 s, y el navegador contesta solo.
+- **Logs** (añadidos tras la primera entrega): logback por consola con
+  `clojure.tools.logging`, nivel con `LOG_LEVEL`. Sesiones abiertas, conectadas,
+  cortadas y cerradas en `info`; títulos, oyentes, sockets y cada petición a `/api`
+  en `debug`. Nunca IPs.
+- **Desarrollo:** `bb dev` arranca también el backend (en `debug`), y el build de dev
+  apunta el WebSocket a `http://localhost:8090` (`goog-define backend-origin`), así
+  que la página del 8080 también recibe títulos (§9 decía abrir el 8090).
+- **`play()` sin promesa:** algunos navegadores o extensiones devuelven `undefined`;
+  `audio` lo tolera.
 - **Rutas** con método distinto de GET o HEAD: 405. Jetty rechaza con 400 rutas
   ambiguas como `/../x` antes de llegar al handler.

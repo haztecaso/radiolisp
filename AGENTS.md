@@ -41,7 +41,7 @@ Ideas that need a backend are collected in `docs/ideas/backend.md`.
 
 ## Tasks (inside `nix develop`)
 
-`bb setup` · `bb dev` (http://localhost:8080) · `bb backend` (http://localhost:8090,
-serves the `bb dev` output too) · `bb test` (Node and JVM) · `bb lint` · `bb fmt` ·
+`bb setup` · `bb dev` (http://localhost:8080, plus the backend on :8090 with debug
+logs) · `bb backend` (http://localhost:8090 alone, serves the frontend build too) · `bb test` (Node and JVM) · `bb lint` · `bb fmt` ·
 `bb fmt:check` · `bb build` · `bb e2e` (browser check; needs `bb dev` running or
 `URL=…`, uses the real Radio Browser API and real streams)
