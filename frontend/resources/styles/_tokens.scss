@@ -1,0 +1,49 @@
+// accent-ladder, hue raspberry (design-taste-frontend, seed 396668359).
+// The full hue only on small marks; its tints carry the areas.
+$accent: #b8336a;
+$accent-soft: #fdf2f7;
+$accent-track: #f8dbe8;
+$accent-ink: #6b1d3e;
+$ground: #fbf8f9;
+$surface: #ffffff;
+$raised: #f5f1f3;
+$active: #f1ebee;
+$border: #ebe4e7;
+$rule: #f3eef0;
+$control: #d8cfd3;
+$text: #181214;
+$muted: #665a5f;
+$faint: #72656b;
+$negative: #c4242a;
+$negative-ink: #831c1e;
+
+$phone: 639px;
+$tablet: 1024px;
+
+:root {
+  --accent: #{$accent};
+  --accent-soft: #{$accent-soft};
+  --accent-track: #{$accent-track};
+  --accent-ink: #{$accent-ink};
+  --ground: #{$ground};
+  --surface: #{$surface};
+  --raised: #{$raised};
+  --active: #{$active};
+  --border: #{$border};
+  --rule: #{$rule};
+  --control: #{$control};
+  --text: #{$text};
+  --muted: #{$muted};
+  --faint: #{$faint};
+  --negative: #{$negative};
+  --negative-ink: #{$negative-ink};
+
+  --col: 560px;
+  --edge: 24px;
+  --pad: 32px;
+  --font: "DM Sans", Inter, system-ui, sans-serif;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+
+  @media (max-width: $tablet) { --edge: 20px; }
+  @media (max-width: $phone) { --edge: 16px; --pad: 20px; }
+}

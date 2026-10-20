@@ -1,0 +1,35 @@
+@use "tokens" as *;
+
+*, *::before, *::after { box-sizing: border-box; border-radius: 0; }
+html, body { margin: 0; }
+body {
+  background: var(--ground);
+  color: var(--text);
+  font: 400 14px/20px var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.num { font-variant-numeric: tabular-nums; }
+.dash { color: var(--faint); }
+.vh {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+kbd {
+  display: inline-block; min-width: 20px; padding: 0 5px;
+  border: 1px solid var(--control); background: var(--surface);
+  font: 500 12px/18px var(--font); text-align: center; color: var(--muted);
+}
+.icon-btn {
+  display: grid; place-items: center; width: 40px; height: 40px;
+  border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer;
+  &:hover { border-color: var(--control); color: var(--text); }
+  svg { width: 18px; height: 18px; }
+  @media (max-width: $phone) { width: 44px; height: 44px; }
+}
+.text-btn {
+  padding: 0; border: 0; background: none; font-weight: 500; white-space: nowrap;
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}

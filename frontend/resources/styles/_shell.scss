@@ -1,0 +1,46 @@
+@use "tokens" as *;
+
+.brand {
+  position: fixed; top: var(--edge); left: var(--edge); z-index: 1;
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 600; font-size: 16px; letter-spacing: -0.01em;
+  color: var(--text); text-decoration: none;
+  .mark { width: 28px; height: 20px; color: var(--accent); }
+  @media (max-width: $phone) { b { display: none; } }
+}
+
+.corner {
+  position: fixed; top: calc(var(--edge) + 2px); right: var(--edge);
+  display: flex; gap: 16px; align-items: center;
+  color: var(--muted); font-size: 13px;
+  button {
+    padding: 0; border: 0; background: none; cursor: pointer; color: inherit;
+    text-decoration: underline; text-underline-offset: 3px;
+    &[aria-pressed="true"] { color: var(--text); font-weight: 600; text-decoration: none; }
+  }
+}
+
+// The column: centred when only the player shows, at the top while searching.
+.stage {
+  min-height: 100svh;
+  display: grid; justify-items: center; align-content: center;
+  padding: 88px var(--edge);
+  transition: padding-top 280ms var(--ease);
+  @media (max-width: $phone) { padding: 64px var(--edge) 72px; }
+}
+.col { width: 100%; max-width: var(--col); }
+
+.app.searching {
+  .stage { align-content: start; padding-top: max(72px, 9vh); }
+
+  // Phone: searching becomes a full-screen sheet.
+  @media (max-width: $phone) {
+    .brand, .corner { display: none; }
+    .stage { padding: 0; align-content: stretch; }
+    .col { max-width: none; display: flex; flex-direction: column; height: 100svh; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage { transition: none; }
+}
