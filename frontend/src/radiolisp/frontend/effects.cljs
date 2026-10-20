@@ -6,6 +6,7 @@
             [radiolisp.frontend.audio :as audio]))
 
 (def storage-key "radiolisp/favorites")
+(def cache-key "radiolisp/station-cache")
 (def theme-key "radiolisp/theme") ; also read by the script in index.html
 
 (def dark-query "(prefers-color-scheme: dark)")
@@ -59,6 +60,21 @@
 (defmethod execute! :storage/save [_ [_ favorites]]
   (try (js/localStorage.setItem storage-key (favs/serialize favorites))
        (catch :default e (js/console.warn "radiolisp: could not save the favourites" e))))
+
+(defn- cache-entry [[id {:strs [favicon] station-name "name"}]]
+  (when (and (string? id) (string? station-name))
+    [id {:name station-name :favicon (when (string? favicon) favicon)}]))
+
+(defmethod execute! :cache/load [dispatch _]
+  ;; Only a speed-up: anything unreadable is simply an empty cache.
+  (let [raw   (try (js/localStorage.getItem cache-key) (catch :default _ nil))
+        data  (try (js->clj (js/JSON.parse raw)) (catch :default _ nil))
+        cache (when (map? data) (into {} (keep cache-entry) data))]
+    (dispatch [:cache/loaded (or cache {})])))
+
+(defmethod execute! :cache/save [_ [_ cache]]
+  (try (js/localStorage.setItem cache-key (js/JSON.stringify (clj->js cache)))
+       (catch :default _ nil)))
 
 (defmethod execute! :theme/save [_ [_ theme]]
   (try (js/localStorage.setItem theme-key (name theme))

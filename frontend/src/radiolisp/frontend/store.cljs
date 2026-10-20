@@ -16,6 +16,7 @@
                   :retried? false
                   :missing  #{}}        ; ids Radio Browser no longer knows
    :stations     {}                     ; id → normalized station
+   :cache        {}                     ; id → {:name :favicon}: favourites as last seen, drawn until :stations has them
    :art          {}                     ; id → :cover :contain :small or :broken
    :filter       ""
    :filter-open? false                  ; the filter field shows only while in use

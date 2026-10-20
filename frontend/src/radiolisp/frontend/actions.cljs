@@ -53,10 +53,31 @@
 (defn- add-effects [result & effects]
   (update result :effects into effects))
 
+(defn- station-cache
+  "What the grid needs to draw each favourite before Radio Browser answers:
+  name and artwork, never the stream (that always comes from the API)."
+  [{:keys [stations cache] :as state}]
+  (into {}
+        (keep (fn [{:keys [id]}]
+                (when-let [station (or (get stations id) (get cache id))]
+                  [id (select-keys station [:name :favicon])])))
+        (get-in state [:favorites :items])))
+
+(defn- update-cache
+  "Stores `cache` in the state of `result`, and writes it when it changed."
+  [result cache]
+  (if (= cache (get-in result [:state :cache]))
+    result
+    (-> result
+        (assoc-in [:state :cache] cache)
+        (add-effects [:cache/save cache]))))
+
 (defn- save
-  "Writes the favourites of `result` to storage."
+  "Writes the favourites of `result` to storage, and the cache to match."
   [result]
-  (add-effects result [:storage/save (get-in result [:state :favorites :items])]))
+  (-> result
+      (add-effects [:storage/save (get-in result [:state :favorites :items])])
+      (update-cache (station-cache (:state result)))))
 
 (defn- toast [result & messages]
   (then result [:toast/show (vec messages)]))
@@ -88,6 +109,7 @@
       [[:dom/lang locale]
        [:dom/theme (:current theme)]
        (volume-effect (:player state))
+       [:cache/load]
        [:storage/load]
        [:storage/persist]
        [:api/servers]]))
@@ -106,6 +128,9 @@
 
 ;; ---------------------------------------------------------------- favourites: loading
 
+(defmethod handle :cache/loaded [state [_ cache]]
+  (ok (assoc state :cache cache)))
+
 (defmethod handle :favorites/loaded [state [_ loaded]]
   (-> (ok (update state :favorites assoc
                   :items (vec loaded)
@@ -123,13 +148,15 @@
   (zipmap (map :id stations) stations))
 
 (defmethod handle :stations/loaded [state [_ stations]]
-  (let [found (by-id stations)]
-    (ok (-> state
-            (update :stations merge found)
-            (update :favorites assoc
-                    :status :done
-                    :retried? false
-                    :missing (set (remove found (map :id (items state)))))))))
+  (let [found (by-id stations)
+        state (-> state
+                  (update :stations merge found)
+                  (update :favorites assoc
+                          :status :done
+                          :retried? false
+                          :missing (set (remove found (map :id (items state))))))]
+    ;; The answer wins over the cache: what Radio Browser no longer knows goes.
+    (update-cache (ok state) (station-cache (assoc state :cache {})))))
 
 (defmethod handle :stations/failed [state _]
   (if (can-retry? state (get-in state [:favorites :retried?]))

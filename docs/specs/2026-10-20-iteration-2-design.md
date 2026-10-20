@@ -39,6 +39,14 @@ arranque, de modo que el stream, la imagen y la salud estén siempre al día.
   un mapa `:stations` (id → emisora normalizada). Un id que no vuelve se marca como
   desaparecido y la casilla muestra el nombre guardado con «Ya no está en Radio
   Browser».
+- **Caché de emisoras:** `localStorage`, clave `radiolisp/station-cache`, JSON
+  `{id: {name, favicon}}` con las favoritas tal como se vieron por última vez.
+  Se lee antes que las favoritas, así la primera pintura ya tiene nombre e
+  imagen sin esperar a la API. Solo dibuja: la casilla no se puede reproducir
+  hasta que llega `byuuid`, porque la URL del stream sale siempre de la API. La
+  respuesta sustituye a la caché (lo que Radio Browser ya no conoce sale) y se
+  reescribe solo si cambia; añadir, quitar o importar favoritas también la
+  actualiza. Un valor ilegible es una caché vacía.
 - **Al reproducir:** `GET /json/url/{id}`, sin esperar la respuesta. Así se cuenta el
   clic, como pide Radio Browser.
 
@@ -92,8 +100,9 @@ https://icecast.radiofrance.fr/franceinfo-midfi.mp3
 
 ### Cuadrícula
 
-- `repeat(auto-fill, minmax(180px, 1fr))`, sin huecos ni bordes. En móvil, 2
-  columnas. No hay título visible; el `h1` «Favoritas» existe pero está oculto
+- `repeat(auto-fill, minmax(min(180px, 50%), 1fr))`, sin huecos ni bordes. La
+  misma regla en todos los anchos: las columnas bajan de una en una y nunca
+  quedan menos de 2. No hay título visible; el `h1` «Favoritas» existe pero está oculto
   visualmente.
 - **Casilla:** imagen cuadrada con el nombre superpuesto en una banda blanca al
   pie.
@@ -208,7 +217,8 @@ Se mantiene el flujo acción → `handle` (puro) → efectos. Lo nuevo:
     `:toast`.
   - `:search` empieza cerrado.
 - **Efectos nuevos:**
-  - `:storage/load`, `:storage/save`, `:storage/persist`.
+  - `:storage/load`, `:storage/save`, `:storage/persist`, `:cache/load`,
+    `:cache/save`.
   - `:api/stations-by-id`, `:api/click`, `:api/vote`, `:api/lookup-urls`.
   - `:file/download`, `:file/pick`, `:clipboard/write`.
   - `:media/update`.

@@ -1,13 +1,10 @@
 @use "tokens" as *;
 
 // Favourites: square tiles edge to edge, no gaps; the name on a white band.
+// One rule for every width, so columns drop one at a time; never fewer than two.
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-
-  @media (max-width: $phone) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  grid-template-columns: repeat(auto-fill, minmax(min(180px, 50%), 1fr));
 }
 
 .tile {

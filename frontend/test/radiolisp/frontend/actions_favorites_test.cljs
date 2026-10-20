@@ -16,7 +16,7 @@
                                                                           :theme  {:current :dark :chosen? false}}])]
     (is (= :es (:locale state)))
     (is (= {:current :dark :chosen? false} (:theme state)))
-    (is (= [[:dom/lang :es] [:dom/theme :dark] [:audio/volume 1] [:storage/load] [:storage/persist] [:api/servers]]
+    (is (= [[:dom/lang :es] [:dom/theme :dark] [:audio/volume 1] [:cache/load] [:storage/load] [:storage/persist] [:api/servers]]
            effects))))
 
 (deftest stations-are-fetched-once-storage-and-servers-are-known
@@ -263,3 +263,53 @@
 (deftest toast-hides
   (let [{:keys [state]} (run-all ready [:toast/show [[:toast/copied {}]]] [:toast/hide])]
     (is (nil? (:toast state)))))
+
+;; ---------------------------------------------------------------- station cache
+
+(defn- cached [effects]
+  (second (f/find-effect effects :cache/save)))
+
+(deftest the-cache-is-read-before-the-favourites
+  (let [{:keys [effects]} (a/handle store/initial-state [:app/init {:locale :es
+                                                                    :theme  {:current :light :chosen? false}}])
+        types (f/effect-types effects)]
+    (is (< (.indexOf types :cache/load) (.indexOf types :storage/load)))))
+
+(deftest cached-stations-only-show-until-the-api-answers
+  (let [cache {"j1" {:name "Jazz Radio (old)" :favicon "https://jazz.example/old.png"}}
+        {:keys [state effects]} (run-all store/initial-state
+                                         [:cache/loaded cache]
+                                         [:favorites/loaded [{:id "j1" :name "Jazz Radio" :key nil}
+                                                             {:id "zz" :name "Gone FM" :key nil}]]
+                                         [:api/servers-loaded ["s1"]]
+                                         [:stations/loaded [jazz]])]
+    (testing "the answer replaces the cache and drops what Radio Browser no longer knows"
+      (is (= {"j1" {:name "Jazz Radio" :favicon "https://jazz.example/logo.png"}} (:cache state)))
+      (is (= (:cache state) (cached effects))))
+    (testing "the cache never holds a stream"
+      (is (not-any? :url (vals (cached effects)))))))
+
+(deftest an-unchanged-answer-writes-nothing
+  (let [cache {"j1" {:name "Jazz Radio" :favicon "https://jazz.example/logo.png"}}
+        {:keys [effects]} (run-all store/initial-state
+                                   [:cache/loaded cache]
+                                   [:favorites/loaded [{:id "j1" :name "Jazz Radio" :key nil}]]
+                                   [:api/servers-loaded ["s1"]]
+                                   [:stations/loaded [jazz]])]
+    (is (nil? (cached effects)))))
+
+(deftest editing-the-favourites-keeps-the-cache-in-step
+  (let [state (assoc ready :cache {"j1" {:name "Jazz Radio" :favicon "https://jazz.example/logo.png"}
+                                   "b1" {:name "Blues FM" :favicon nil}})]
+    (testing "a new favourite goes in"
+      (is (contains? (cached (:effects (a/handle state [:favorites/toggle "h1"]))) "h1")))
+    (testing "a removed one goes out"
+      (is (= #{"j1"} (set (keys (cached (:effects (a/handle state [:favorites/remove "b1"]))))))))
+    (testing "moving one changes nothing"
+      (is (nil? (cached (:effects (a/handle state [:favorites/move-to-front "b1"]))))))))
+
+(deftest a-cached-station-cannot-play
+  (let [state (-> ready
+                  (assoc :stations {})
+                  (assoc :cache {"j1" {:name "Jazz Radio" :favicon nil}}))]
+    (is (nil? (get-in (:state (a/handle state [:favorites/play "j1"])) [:player :station])))))

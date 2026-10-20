@@ -5,9 +5,10 @@
             [radiolisp.frontend.views.art :as art]
             [radiolisp.frontend.views.icons :as icons]))
 
-(defn- tile [{:keys [stations favorites player drag menu] :as state} t {:keys [id] shortcut :key stored-name :name}]
+(defn- tile [{:keys [stations cache favorites player drag menu] :as state} t {:keys [id] shortcut :key stored-name :name}]
   (let [station      (get stations id)
-        station-name (or (:name station) stored-name)
+        shown        (or station (get cache id)) ; the cache only draws; playing waits for Radio Browser
+        station-name (or (:name shown) stored-name)
         missing?     (contains? (:missing favorites) id)
         sick?        (false? (:check-ok? station))
         current?     (= id (get-in player [:station :id]))
@@ -27,7 +28,7 @@
                                    {:name station-name})
                     :disabled   (nil? station)
                     :on         {:click [[:favorites/play id]]}}
-      (art/view (:art state) {:id id :name station-name :favicon (:favicon station)} "art")
+      (art/view (:art state) {:id id :name station-name :favicon (:favicon shown)} "art")
       [:span.name {:title station-name} station-name]]
      [:button.keycap {:class      (when-not shortcut "empty")
                       :aria-label (if shortcut (t :tile/key {:key shortcut}) (t :tile/assign-key))
