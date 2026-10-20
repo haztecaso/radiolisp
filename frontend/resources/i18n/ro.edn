@@ -64,6 +64,7 @@
  :error/blocked       "Postul îți blochează conexiunea (HTTP 451). Se întâmplă de obicei cu VPN sau în afara regiunii lui."
  :error/refused       "Postul a refuzat conexiunea (HTTP {status})."
  :error/http-only     "Acest post emite doar prin http, iar browserul nu îl lasă să se audă într-o pagină https."
+ :error/busy         "Serverul radiolisp este ocupat. Încearcă din nou peste puțin timp."
  :error/unsupported   "Acest browser nu poate reda formatul acestui post."
  :error/retry         "Reîncearcă"
 

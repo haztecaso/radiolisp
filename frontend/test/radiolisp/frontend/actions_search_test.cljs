@@ -88,7 +88,7 @@
     (is (= blues (get-in state [:player :station])))
     (is (= 1 (get-in state [:search :highlight])))
     (is (true? (get-in state [:search :open?])))
-    (is (= [:audio/play "http://blues.example/stream" false] (first effects)))))
+    (is (= [:audio/play "http://blues.example/stream" false "b1"] (first effects)))))
 
 (deftest enter-chooses-the-highlight
   (let [{:keys [state]} (run-all open [:search/move 1] [:search/enter])]

@@ -64,6 +64,7 @@
  :error/blocked       "La stazione blocca la tua connessione (HTTP 451). Succede spesso con una VPN o fuori dalla sua zona."
  :error/refused       "La stazione ha rifiutato la connessione (HTTP {status})."
  :error/http-only     "Questa stazione trasmette solo via http e il browser non la riproduce in una pagina https."
+ :error/busy         "Il server di radiolisp è occupato. Riprova tra un po'."
  :error/unsupported   "Questo browser non riesce a riprodurre il formato di questa stazione."
  :error/retry         "Riprova"
 

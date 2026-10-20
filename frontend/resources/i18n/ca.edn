@@ -64,6 +64,7 @@
  :error/blocked       "L'emissora bloqueja la teva connexió (HTTP 451). Sol passar amb una VPN o fora de la seva regió."
  :error/refused       "L'emissora ha rebutjat la connexió (HTTP {status})."
  :error/http-only     "Aquesta emissora només emet per http, i el navegador no la deixa sonar en una pàgina https."
+ :error/busy         "El servidor de radiolisp està ocupat. Torna-ho a provar d'aquí a una estona."
  :error/unsupported   "Aquest navegador no pot reproduir el format d'aquesta emissora."
  :error/retry         "Torna-ho a provar"
 

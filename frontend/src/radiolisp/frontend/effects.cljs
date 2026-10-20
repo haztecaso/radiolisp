@@ -3,7 +3,8 @@
   back as actions through `dispatch`."
   (:require [radiolisp.common.favorites :as favs]
             [radiolisp.frontend.api :as api]
-            [radiolisp.frontend.audio :as audio]))
+            [radiolisp.frontend.audio :as audio]
+            [radiolisp.frontend.socket :as socket]))
 
 (def storage-key "radiolisp/favorites")
 (def theme-key "radiolisp/theme") ; also read by the script in index.html
@@ -139,16 +140,21 @@
 
 ;; audio
 
-(defmethod execute! :audio/play [_ [_ url hls?]] (audio/play! url hls?))
+(defmethod execute! :audio/play [_ [_ url hls? id]] (audio/play! url hls? id))
 (defmethod execute! :audio/pause [_ _] (audio/pause!))
 (defmethod execute! :audio/stop [_ _] (audio/stop!))
 (defmethod execute! :audio/volume [_ [_ volume]] (audio/set-volume! volume))
 
-(defmethod execute! :media/update [_ [_ {:keys [title artwork]}]]
+(defmethod execute! :media/update [_ [_ {:keys [title artist artwork]}]]
   (when (and (.-mediaSession js/navigator) (exists? js/MediaMetadata))
     (set! (.. js/navigator -mediaSession -metadata)
-          (js/MediaMetadata. (clj->js (cond-> {:title title :artist "radiolisp"}
+          (js/MediaMetadata. (clj->js (cond-> {:title title :artist (or artist "radiolisp")}
                                         artwork (assoc :artwork [{:src artwork}])))))))
+
+;; now playing, from the backend
+
+(defmethod execute! :socket/subscribe [dispatch [_ id]] (socket/subscribe! dispatch id))
+(defmethod execute! :socket/unsubscribe [_ _] (socket/unsubscribe!))
 
 ;; DOM. The render runs synchronously before effects, so the nodes exist.
 
