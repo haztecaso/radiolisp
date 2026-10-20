@@ -1,6 +1,7 @@
 (ns radiolisp.common.favorites
   "The list of favourite stations: a vector of `{:id :name :key}` whose order
-  is the order of the grid. Pure and shared with the future backend."
+  is the order of the grid, plus `:custom-name` on the favourites the user
+  renamed. Pure and shared with the future backend."
   (:refer-clojure :exclude [remove])
   (:require #?(:clj [clojure.edn :as edn] :cljs [cljs.reader :as edn])
             [clojure.string :as str]))
@@ -17,6 +18,9 @@
 (defn- index-of [favorites id]
   (first (keep-indexed (fn [i fav] (when (= id (:id fav)) i)) favorites)))
 
+(defn find-favorite [favorites id]
+  (some #(when (= id (:id %)) %) favorites))
+
 (defn member? [favorites id]
   (some? (index-of favorites id)))
 
@@ -26,6 +30,44 @@
   (if (member? favorites id)
     favorites
     (conj (vec favorites) {:id id :name station-name :key nil})))
+
+(defn display-name
+  "The name to show for `favorite`: the one the user gave it, else the one
+  Radio Browser gives `station`, else the stored one."
+  [favorite station]
+  (or (:custom-name favorite) (:name station) (:name favorite)))
+
+(defn clean-name
+  "`text` trimmed, with its runs of whitespace (newlines too) made one space;
+  nil when nothing is left."
+  [text]
+  (let [s (str/trim (str/replace (or text "") #"\s+" " "))]
+    (when-not (str/blank? s) s)))
+
+(defn rename
+  "Gives the favourite `id` the name `text`. A blank name, or the one Radio
+  Browser already gives it (`original`), takes the custom name away."
+  [favorites id text original]
+  (let [custom (clean-name text)]
+    (mapv (fn [fav]
+            (cond
+              (not= id (:id fav))                     fav
+              (or (nil? custom) (= custom original))  (dissoc fav :custom-name)
+              :else                                   (assoc fav :custom-name custom)))
+          favorites)))
+
+(defn add-imported
+  "Appends the imported `stations` that are not favourites yet. `names` maps
+  station ids to the name the file gave them; one that differs from Radio
+  Browser's becomes the custom name. Favourites already in the list keep
+  theirs."
+  [favorites stations names]
+  (reduce (fn [favorites {:keys [id] :as station}]
+            (if (member? favorites id)
+              favorites
+              (rename (add favorites station) id (get names id) (:name station))))
+          favorites
+          stations))
 
 (defn remove [favorites id]
   (filterv #(not= id (:id %)) favorites))
@@ -70,16 +112,16 @@
   (mapv #(if (= id (:id %)) (assoc % :key nil) %) favorites))
 
 (defn matching
-  "Favourites whose name or tags contain `query`, ignoring case. `stations`
-  maps ids to normalized stations; unknown ids use the stored name."
+  "Favourites whose name, custom name or tags contain `query`, ignoring case.
+  `stations` maps ids to normalized stations; unknown ids use the stored name."
   [favorites stations query]
   (let [q (str/lower-case (str/trim (or query "")))]
     (if (str/blank? q)
       favorites
-      (filterv (fn [{:keys [id] stored-name :name}]
+      (filterv (fn [{:keys [id custom-name] stored-name :name}]
                  (let [station (get stations id)]
                    (some #(str/includes? (str/lower-case (or % "")) q)
-                         (cons (or (:name station) stored-name) (:tags station)))))
+                         (list* custom-name (or (:name station) stored-name) (:tags station)))))
                favorites))))
 
 ;; ---------------------------------------------------------------- storage
@@ -101,19 +143,23 @@
                  (= version (:version data))
                  (vector? favs)
                  (every? valid-favorite? favs))
-        (mapv #(select-keys (merge {:key nil} %) [:id :name :key]) favs)))))
+        (mapv (fn [fav]
+                (let [custom (when (string? (:custom-name fav)) (clean-name (:custom-name fav)))]
+                  (cond-> (select-keys (merge {:key nil} fav) [:id :name :key])
+                    custom (assoc :custom-name custom))))
+              favs)))))
 
 ;; ---------------------------------------------------------------- M3U
 
-(defn- m3u-entry [{:keys [id] stored-name :name} {:keys [url favicon] station-name :name}]
+(defn- m3u-entry [{:keys [id] :as favorite} {:keys [url favicon] :as station}]
   (when url
     (str "#EXTINF:-1 radiobrowser-uuid=\"" id "\""
          (when favicon (str " tvg-logo=\"" favicon "\""))
-         "," (or station-name stored-name) "\n" url "\n")))
+         "," (display-name favorite station) "\n" url "\n")))
 
 (defn ->m3u
-  "Extended M3U with the favourites whose stream is known. Keys are personal
-  and are not exported."
+  "Extended M3U with the favourites whose stream is known, each titled with
+  the name the grid shows. Keys are personal and are not exported."
   [favorites stations]
   (apply str "#EXTM3U\n"
          (keep #(m3u-entry % (get stations (:id %))) favorites)))
@@ -152,21 +198,29 @@
 (def ^:private uuid-re
   #"(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
+(def ^:private list-line-re
+  #"(?i)^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\s+(.*))?$")
+
 (defn ->list
-  "One Radio Browser uuid per line, every favourite in grid order."
+  "One Radio Browser uuid per line, every favourite in grid order. A renamed
+  favourite carries its custom name after the uuid."
   [favorites]
-  (apply str (map #(str (:id %) "\n") favorites)))
+  (apply str (map (fn [{:keys [id custom-name]}]
+                    (str id (when custom-name (str " " custom-name)) "\n"))
+                  favorites)))
 
 (defn parse-list
-  "The uuids in `text`, one per line, in order and without repeats. Blank
-  lines, `#` comments and anything that is not a uuid are ignored."
+  "`[{:id :name}]` from `text`: a uuid at the start of each line, optionally
+  followed by a name, in order and without repeated uuids. Blank lines, `#`
+  comments and lines that do not start with a uuid are ignored."
   [text]
   (->> (str/split-lines (or text ""))
-       (map str/trim)
-       (filter #(re-find uuid-re %))
-       (map str/lower-case)
-       distinct
-       vec))
+       (keep #(when-let [[_ id station-name] (re-find list-line-re (str/trim %))]
+                {:id (str/lower-case id) :name (clean-name station-name)}))
+       (reduce (fn [[seen entries] {:keys [id] :as entry}]
+                 (if (seen id) [seen entries] [(conj seen id) (conj entries entry)]))
+               [#{} []])
+       second))
 
 ;; ---------------------------------------------------------------- Radiolise
 

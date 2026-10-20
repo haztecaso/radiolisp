@@ -11,7 +11,7 @@
                   :error   nil          ; [:error/stream {}] | [:error/unsupported {}]
                   :volume  100
                   :muted?  false}
-   :favorites    {:items    []          ; [{:id :name :key}], in grid order
+   :favorites    {:items    []          ; [{:id :name :key :custom-name?}], in grid order
                   :status   :idle       ; :idle (storage unread) :pending :loading :done :error
                   :retried? false
                   :missing  #{}}        ; ids Radio Browser no longer knows
@@ -22,6 +22,7 @@
    :filter-open? false                  ; the filter field shows only while in use
    :drag         nil                    ; {:id :over} while a tile is dragged
    :file-drag?   false                  ; true while a file is dragged over the page
+   :rename       nil                    ; {:id :initial :text} while a tile's name is edited in place
    :menu         nil                    ; {:kind :station :id :anchor} | {:kind :list :anchor}
    :dialog       nil                    ; {:kind :remove :id} | {:kind :key :id :pending :message}
    :toast        nil                    ; [[message-key vars] ...]

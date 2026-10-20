@@ -5,8 +5,8 @@
   (:require [radiolisp.common.favorites :as favs]))
 
 (defn- favorite [{:keys [stations favorites]} id]
-  (let [stored (first (filter #(= id (:id %)) (:items favorites)))]
-    (assoc stored :name (or (get-in stations [id :name]) (:name stored)))))
+  (let [stored (favs/find-favorite (:items favorites) id)]
+    (assoc stored :name (favs/display-name stored (get stations id)))))
 
 (defn- remove-body [state t id]
   (let [{station-name :name shortcut :key} (favorite state id)]

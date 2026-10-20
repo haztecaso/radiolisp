@@ -3,7 +3,8 @@
   its tile). The list menu also holds the theme and the language, which opens
   as a second page of the same menu. `effects` places it next to its button;
   a transparent scrim behind it closes it on any outside click."
-  (:require [radiolisp.frontend.i18n :as i18n]
+  (:require [radiolisp.common.favorites :as favs]
+            [radiolisp.frontend.i18n :as i18n]
             [radiolisp.frontend.views.icons :as icons]))
 
 (def edit-url "https://www.radio-browser.info/history/")
@@ -29,7 +30,7 @@
 
 (defn- station-items [{:keys [stations favorites locale] :as state} t id]
   (let [station  (get stations id)
-        shortcut (:key (first (filter #(= id (:id %)) (:items favorites))))]
+        {shortcut :key :keys [custom-name]} (favs/find-favorite (:items favorites) id)]
     (list
      (when-let [homepage (:homepage station)]
        (link icons/globe (t :menu/homepage) homepage))
@@ -38,6 +39,9 @@
              [:span.meta.num (i18n/format-number locale (:votes station))]))
      (item icons/key-icon (t (if shortcut :menu/change-key :tile/assign-key)) [[:dialog/open-key id]]
            (when shortcut [:span.meta shortcut]))
+     (item icons/rename (t :menu/rename) [[:rename/start id]])
+     (when custom-name
+       (item icons/undo (t :menu/reset-name) [[:favorites/reset-name id]]))
      (item icons/up (t :menu/move-to-front) [[:favorites/move-to-front id]])
      (when (:url station)
        (item icons/link (t :menu/copy-url) [[:station/copy-url id]]))
@@ -76,7 +80,7 @@
       [:span (i18n/t l :lang/name)]
       (when (= l locale) [:span.meta icons/check])])))
 
-(defn view [{:keys [menu] :as state} t]
+(defn view [{:keys [menu stations favorites] :as state} t]
   (when-let [{:keys [kind id page]} menu]
     (list
      [:div.menu-scrim {:replicant/key "scrim" :on {:click [[:menu/close]]}}]
@@ -85,7 +89,9 @@
                       :aria-label    (cond
                                        (= :language page) (t :lang/label)
                                        (= :list kind)     (t :menu/list)
-                                       :else              (t :tile/options {:name (get-in state [:stations id :name])}))}
+                                       :else              (t :tile/options {:name (favs/display-name
+                                                                                   (favs/find-favorite (:items favorites) id)
+                                                                                   (get stations id))}))}
       (cond
         (= :language page) (language-items state t)
         (= :list kind)     (list-items state t)

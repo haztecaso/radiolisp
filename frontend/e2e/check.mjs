@@ -58,7 +58,8 @@ async function type(page, s, gap = 60) {
 const text = (page, sel) => page.eval(`document.querySelector(${JSON.stringify(sel)})?.textContent?.trim() ?? null`);
 const exists = (page, sel) => page.eval(`!!document.querySelector(${JSON.stringify(sel)})`);
 const activeId = (page) => page.eval(`document.activeElement?.id || document.activeElement?.tagName`);
-const tileNames = (page) => page.eval(`[...document.querySelectorAll('.tile .name')].map(e => e.textContent)`);
+// A tile names itself on a band over its artwork, or whole and centred without one.
+const tileNames = (page) => page.eval(`[...document.querySelectorAll('.tile')].map(t => t.querySelector('.name, .art .full-name')?.textContent).filter(Boolean)`);
 const stored = (page) => page.eval(`localStorage.getItem(${JSON.stringify(STORAGE_KEY)})`);
 const storedIds = async (page) => [...((await stored(page)) || '').matchAll(/:id "([^"]+)"/g)].map((m) => m[1]);
 const toast = (page) => text(page, '.toast.show');
@@ -164,7 +165,7 @@ try {
     { id: '00000000-dead-beef-0000-000000000000', name: 'Gone FM' },
   ]);
   const grid = await newApp(browser, { width: 1440, height: 900, seed });
-  await waitFor(grid, `document.querySelectorAll('.tile .art img, .tile .art .mono').length >= 4`);
+  await waitFor(grid, `document.querySelectorAll('.tile .art img, .tile .art .full-name').length >= 4`);
   await waitFor(grid, `!!document.querySelector('.flag')`);
   check('one byuuid request loads every favourite', count(grid, /byuuid/) === 1, String(count(grid, /byuuid/)));
   check('no search request on start', count(grid, /stations\/(search|topclick)/) === 0);
@@ -189,7 +190,7 @@ try {
   await grid.goto(URL, { settleMs: 500 });
   check('chosen theme survives a reload', (await theme()) === 'dark', await theme());
   await toggleTheme();
-  await waitFor(grid, `document.querySelectorAll('.tile .art img, .tile .art .mono').length >= 4`);
+  await waitFor(grid, `document.querySelectorAll('.tile .art img, .tile .art .full-name').length >= 4`);
 
   // play: click a tile, counts a click (blocked), pauses on a second click
   await click(grid, '.tile:nth-child(1) .play');
@@ -240,6 +241,36 @@ try {
   await grid.eval(`[...document.querySelectorAll('#menu [role=menuitem]')].find(e => /Votar/.test(e.textContent)).click()`);
   check('vote request sent (blocked here) and reported', await waitFor(grid, `/votar/i.test(document.querySelector('.toast.show')?.textContent || '')`, 5000), await toast(grid));
   check('vote went to /json/vote', count(grid, /\/json\/vote\//) === 1);
+
+  // renaming in place, from the station menu
+  const renameMenu = (re) => grid.eval(`[...document.querySelectorAll('#menu [role=menuitem]')].find(e => ${re}.test(e.textContent)).click()`);
+  const gone = `[...document.querySelectorAll('.tile .art .full-name')].find(e => e.textContent === 'Gone FM')`;
+  check('a tile without artwork shows its whole name', await grid.eval(`!!${gone}`), JSON.stringify(await tileNames(grid)));
+  const fs = await grid.eval(`parseFloat(getComputedStyle(${gone}).fontSize)`);
+  check('its size stays between the bounds', fs >= 14 && fs <= 40, String(fs));
+  await click(grid, '.tile:nth-child(3) .more');
+  await renameMenu('/Cambiar nombre/');
+  await sleep(150);
+  check('rename makes the name editable on the tile', (await activeId(grid)) === 'rename-input');
+  check('the whole name is selected to type over', (await grid.eval('String(getSelection())')) === '101 SMOOTH JAZZ', await grid.eval('String(getSelection())'));
+  await type(grid, 'Jazz suave', 30);
+  check('typing a / or a key does not trigger shortcuts', !(await exists(grid, '#search-input:focus')) && (await activeId(grid)) === 'rename-input');
+  await grid.screenshot({ path: `${OUT}/6b-rename-desktop.jpg` });
+  await press(grid, 'Enter');
+  check('enter saves the new name', (await tileNames(grid))[2] === 'Jazz suave', JSON.stringify(await tileNames(grid)));
+  check('the new name is stored', /:custom-name "Jazz suave"/.test(await stored(grid)), await stored(grid));
+  await grid.goto(URL, { settleMs: 500 });
+  await waitFor(grid, `document.querySelectorAll('.tile .art img, .tile .art .full-name').length >= 4`);
+  check('the new name survives a reload', (await tileNames(grid))[2] === 'Jazz suave', JSON.stringify(await tileNames(grid)));
+  await click(grid, '.tile:nth-child(3) .more');
+  await renameMenu('/Cambiar nombre/');
+  await type(grid, 'xyz', 30);
+  await press(grid, 'Escape');
+  check('esc keeps the name', (await tileNames(grid))[2] === 'Jazz suave' && !(await exists(grid, '#rename-input')));
+  await click(grid, '.tile:nth-child(3) .more');
+  await renameMenu('/nombre original/');
+  await sleep(150);
+  check('the original name comes back', (await tileNames(grid))[2] === '101 SMOOTH JAZZ' && !/:custom-name/.test(await stored(grid)), JSON.stringify(await tileNames(grid)));
 
   // drag and drop
   await drag(grid, '.tile:nth-child(1)', '.add-tile');

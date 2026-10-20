@@ -27,9 +27,17 @@ arranque, de modo que el stream, la imagen y la salud estén siempre al día.
 {:version   1
  :favorites [{:id   "960e57c5-…"   ; stationuuid: estable entre servidores
               :name "France Info"  ; respaldo, si la API falla o la emisora desaparece
-              :key  "f"}           ; atajo opcional (nil)
+              :key  "f"            ; atajo opcional (nil)
+              :custom-name "FI"}   ; opcional: el nombre que le puso el usuario
              …]}                   ; el orden del vector es el orden de la cuadrícula
 ```
+
+- **Nombre propio:** `:custom-name` solo existe si el usuario renombró la
+  emisora. Manda sobre el de Radio Browser en la cuadrícula, el reproductor, los
+  menús, los diálogos, los avisos, Media Session y la exportación. El filtro
+  busca en los dos. La paleta enseña siempre el de Radio Browser. Un nombre
+  vacío o igual al de Radio Browser quita `:custom-name`. Es un campo opcional:
+  la `:version` sigue en 1, y uno vacío o que no sea texto se ignora al leer.
 
 - **Dónde:** `localStorage`, clave `radiolisp/favorites`, serializado en EDN. Se
   escribe tras cada cambio. Al arrancar se pide `navigator.storage.persist()`.
@@ -65,8 +73,13 @@ https://icecast.radiofrance.fr/franceinfo-midfi.mp3
 
 - Es válido en VLC y otros reproductores; los atributos que no entienden se ignoran.
 - **Lista de uuids (`.list`):** un uuid de Radio Browser por línea, todas las
-  favoritas (también las que ya no tienen stream). Al importar se ignoran las
-  líneas vacías, los comentarios `#` y lo que no sea un uuid.
+  favoritas (también las que ya no tienen stream). Si la emisora tiene nombre
+  propio, va detrás del uuid: `960e57c5-… Mi radio`. Al importar se ignoran las
+  líneas vacías, los comentarios `#` y las que no empiecen por un uuid.
+- **Nombres:** el título de M3U es el nombre que enseña la cuadrícula. Al
+  importar, el nombre que trae el fichero (título M3U, `name` de Radiolise o el
+  texto tras el uuid) pasa a nombre propio si no coincide con el de Radio
+  Browser. Las favoritas que ya estaban conservan el suyo.
 - **Exportar:** un diálogo elige el formato (M3U o `.list`) y el nombre del
   fichero (por defecto `radiolisp-favoritas`; la extensión la pone el formato).
 - **Importar:** se elige un `.m3u`, `.m3u8`, `.list` o el `.txt` que exporta
@@ -109,8 +122,12 @@ https://icecast.radiofrance.fr/franceinfo-midfi.mp3
   - **Imagen grande y cuadrada** (lado menor ≥ 150 px, proporción entre 0,8 y 1,25):
     ocupa toda la casilla (`cover`).
   - **Imagen pequeña o apaisada:** centrada y contenida sobre un tinte del matiz.
-  - **Sin imagen o rota:** monograma con las iniciales sobre un tinte estable
-    derivado del id.
+  - **Sin imagen o rota:** el nombre entero, centrado, sobre un tinte estable
+    derivado del id, y sin banda al pie. El tamaño va de 14 a 40 px: es el
+    mayor (en `cqi`, el ancho de la casilla) al que el nombre cabe sin partir
+    palabras (`art/name-size`, puro, con anchos de letra medidos para DM Serif
+    Display). Si ni al mínimo cabe, se parte donde haga falta. La miniatura del
+    reproductor y la paleta siguen con las iniciales.
 - **Esquina superior izquierda:** el cuadradito del atajo. Muestra la tecla
   asignada; si no hay, aparece «+» punteado al pasar el ratón. Al pulsarlo se abre
   el diálogo del atajo.
@@ -119,6 +136,9 @@ https://icecast.radiofrance.fr/franceinfo-midfi.mp3
   - Visitar la web.
   - Votar (con el número de votos).
   - Asignar o cambiar el atajo.
+  - Cambiar nombre: el nombre se vuelve editable sobre la propia casilla, con
+    el texto seleccionado. Enter o salir del campo guarda; Esc cancela.
+  - Recuperar el nombre original (solo si tiene uno propio).
   - Mover al principio.
   - Copiar el enlace del stream.
   - Editar en radio-browser.info (`https://www.radio-browser.info/history/{id}`).
@@ -183,6 +203,7 @@ Una línea abajo a la derecha, encima de la barra, durante 2,5 s. Por ejemplo:
 | Paleta, escribiendo | ↓ ↑ · `ctrl-j`/`ctrl-k`/`ctrl-n`/`ctrl-p` mover · Enter reproducir · Shift+Enter añadir o quitar de favoritas · Esc pasar a navegar |
 | Paleta, navegando | `j` `k` · `gg` `G` · Enter reproducir · `f` añadir o quitar · `i` o `/` volver a escribir · Esc cerrar |
 | Diálogo de atajo | cualquier tecla la propone · Esc cancelar |
+| Cambiando el nombre | Enter guardar · Esc cancelar · el resto se escribe |
 
 Media Session: las teclas multimedia del sistema hacen play/pausa, y siguiente o
 anterior saltan a la favorita siguiente o anterior.

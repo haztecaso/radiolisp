@@ -210,13 +210,16 @@
                  "#EXTINF:-1,Somewhere\nhttp://somewhere.example/s\n")]
     (is (= [[:file/pick {:accept ".m3u,.m3u8,.list,.txt,audio/x-mpegurl,audio/mpegurl" :action :import/read}]]
            (:effects (a/handle ready [:favorites/import-pick]))))
-    (is (= [[:api/import {:server "s1" :ids ["j1" "h1"] :urls ["http://somewhere.example/s"]}]]
+    (is (= [[:api/import {:server "s1" :ids ["j1" "h1"] :urls ["http://somewhere.example/s"]
+                          :names  {:ids  {"j1" "Jazz Radio" "h1" "HLS FM"}
+                                   :urls {"http://somewhere.example/s" "Somewhere"}}}]]
            (:effects (a/handle ready [:import/read m3u "radios.m3u"]))))
     (testing "a list of uuids"
-      (is (= [[:api/import {:server "s1" :ids [uuid-a] :urls []}]]
-             (:effects (a/handle ready [:import/read (str "# mine\n" uuid-a "\n") "radios.list"])))))
+      (is (= [[:api/import {:server "s1" :ids [uuid-a] :urls [] :names {:ids {uuid-a "Mine"} :urls {}}}]]
+             (:effects (a/handle ready [:import/read (str "# mine\n" uuid-a " Mine\n") "radios.list"])))))
     (testing "a Radiolise export"
-      (is (= [[:api/import {:server "s1" :ids [uuid-a] :urls ["http://somewhere.example/s"]}]]
+      (is (= [[:api/import {:server "s1" :ids [uuid-a] :urls ["http://somewhere.example/s"]
+                            :names  {:ids {uuid-a "A"} :urls {"http://somewhere.example/s" "B"}}}]]
              (:effects (a/handle ready [:import/read (str "version: \"2\"\ntype: list\ndata:\n  Favorites:\n"
                                                           "    - name: A\n      url: http://a.example/s\n      id: " uuid-a "\n"
                                                           "    - name: B\n      url: http://somewhere.example/s\n      id: \"\"\n")
@@ -227,6 +230,15 @@
         (is (= hls-fm (get-in state [:stations "h1"])))
         (is (saved effects))
         (is (= [[:toast/imported {:count 1}] [:toast/not-found {:count 1}]] (:toast state)))))
+    (testing "a name from the file that differs from Radio Browser's becomes the custom name"
+      (let [{:keys [state]} (a/handle ready [:import/resolved {:stations [jazz hls-fm (assoc blues :id "x1")]
+                                                               :missing  0
+                                                               :names    {:ids  {"j1" "Other" "h1" "HLS FM"}
+                                                                          :urls {"http://x.example/s" "Found by URL"}}
+                                                               :url-ids  {"http://x.example/s" "x1"}}])
+            items           (get-in state [:favorites :items])]
+        (is (nil? (:custom-name (first items))) "favourites already in the list keep their name")
+        (is (= [nil "Found by URL"] (map :custom-name (drop 2 items))))))
     (testing "a file without stations"
       (is (= [[:toast/import-empty {}]] (:toast (:state (a/handle ready [:import/read "hello" "x.m3u"])))))
       (is (= [[:toast/import-empty {}]] (:toast (:state (a/handle ready [:import/read m3u "x.list"]))))))
@@ -246,7 +258,9 @@
         (let [{:keys [state effects]} (a/handle state [:import-dialog/confirm])]
           (is (nil? (:dialog state)))
           (is (= [[:dom/close-dialog "dialog"]
-                  [:api/import {:server "s1" :ids ["j1" "h1"] :urls ["http://somewhere.example/s"]}]]
+                  [:api/import {:server "s1" :ids ["j1" "h1"] :urls ["http://somewhere.example/s"]
+                                :names  {:ids  {"j1" "Jazz Radio" "h1" "HLS FM"}
+                                         :urls {"http://somewhere.example/s" "Somewhere"}}}]]
                  effects)))))
     (testing "a dropped file that cannot be imported only says so"
       (let [{:keys [state effects]} (a/handle ready [:import/offer nil "photo.png"])]
@@ -313,3 +327,43 @@
                   (assoc :stations {})
                   (assoc :cache {"j1" {:name "Jazz Radio" :favicon nil}}))]
     (is (nil? (get-in (:state (a/handle state [:favorites/play "j1"])) [:player :station])))))
+
+(deftest renaming-in-place
+  (let [{:keys [state effects]} (a/handle ready [:rename/start "j1"])]
+    (is (= {:id "j1" :initial "Jazz Radio" :text "Jazz Radio"} (:rename state)))
+    (is (= [[:dom/select-contents "rename-input"]] effects))
+    (testing "Enter saves the typed name and gives the focus back to the tile"
+      (let [{:keys [state effects]} (run-all state [:rename/typed "  Jazz\nclub "] [:rename/commit])]
+        (is (nil? (:rename state)))
+        (is (= "Jazz club" (:custom-name (first (get-in state [:favorites :items])))))
+        (is (= "Jazz club" (a/favorite-name state "j1")))
+        (is (= "Jazz club" (:custom-name (first (saved effects)))))
+        (is (= [:dom/focus "more-j1"] (last effects)))
+        (testing "the menu brings the original name back"
+          (let [{:keys [state effects]} (a/handle state [:favorites/reset-name "j1"])]
+            (is (nil? (:custom-name (first (get-in state [:favorites :items])))))
+            (is (saved effects))
+            (is (= [[:toast/name-reset {:name "Jazz Radio"}]] (:toast state)))))))
+    (testing "leaving the field saves; an unchanged name writes nothing"
+      (let [{:keys [state effects]} (a/handle state [:rename/save])]
+        (is (nil? (:rename state)))
+        (is (nil? (saved effects)))
+        (is (= [] (:effects (a/handle state [:rename/save]))) "nothing left to save")))
+    (testing "Esc leaves the name as it was"
+      (let [{:keys [state effects]} (run-all state [:rename/typed "X"] [:rename/cancel] [:rename/save])]
+        (is (nil? (:rename state)))
+        (is (= "Jazz Radio" (a/favorite-name state "j1")))
+        (is (= [[:dom/focus "more-j1"]] effects)))))
+  (is (nil? (:rename (:state (a/handle ready [:rename/start "zz"])))) "only favourites"))
+
+(deftest renamed-favourites-show-their-name
+  (let [state (assoc-in ready [:favorites :items 0 :custom-name] "Jazz")]
+    (is (= {:title "Jazz" :artwork (:favicon jazz)}
+           (second (f/find-effect (:effects (a/handle state [:favorites/play "j1"])) :media/update))))
+    (is (= ["j1"] (map :id (a/filtered-favorites (assoc state :filter "jazz"))))))
+  (testing "the M3U export carries it"
+    (let [download (-> (assoc-in ready [:favorites :items 0 :custom-name] "Jazz")
+                       (a/handle [:dialog/open-export]) :state
+                       (a/handle [:export-dialog/save]) :effects
+                       (f/find-effect :file/download))]
+      (is (str/includes? (:text (second download)) ",Jazz\n")))))

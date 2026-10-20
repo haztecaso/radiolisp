@@ -45,6 +45,15 @@
       (is (nil? (press grid "1" in-filter)))
       (is (nil? (press grid " " in-filter))))))
 
+(deftest the-rename-field
+  (let [renaming {:target :rename-input}]
+    (is (= [:rename/commit] (press grid "Enter" renaming)))
+    (is (= [:rename/cancel] (press grid "Escape" renaming)))
+    (testing "everything else is typed"
+      (is (nil? (press grid "a" renaming)))
+      (is (nil? (press grid "/" renaming)))
+      (is (nil? (press grid " " renaming))))))
+
 (deftest typing-in-the-palette
   (let [in-input {:target :search-input}]
     (is (= [:search/move 1] (press typing "ArrowDown" in-input)))

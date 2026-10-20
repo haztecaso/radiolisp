@@ -95,9 +95,11 @@
 (defn- items [state]
   (get-in state [:favorites :items]))
 
-(defn- favorite-name [state id]
-  (or (:name (station-by-id state id))
-      (:name (first (filter #(= id (:id %)) (items state))))))
+(defn favorite-name
+  "The name the grid shows for `id`: the custom one, else Radio Browser's,
+  else the stored one."
+  [state id]
+  (favs/display-name (favs/find-favorite (items state) id) (station-by-id state id)))
 
 ;; ---------------------------------------------------------------- app
 
@@ -206,7 +208,8 @@
     :else
     (-> (start-playback (assoc-in state [:player :station] station))
         (add-effects [:api/click {:server (current-server state) :id (:id station)}]
-                     [:media/update {:title (:name station) :artwork (:favicon station)}]))))
+                     [:media/update {:title (or (favorite-name state (:id station)) (:name station))
+                                     :artwork (:favicon station)}]))))
 
 (defmethod handle :player/volume [state [_ volume]]
   (let [player (assoc (:player state)
@@ -334,6 +337,53 @@
   (-> (ok (update-in state [:favorites :items] favs/move-to-front id))
       save
       (toast [:toast/moved {:name (favorite-name state id)}])))
+
+;; ---------------------------------------------------------------- favourites: renaming
+
+(defn- original-name
+  "The name Radio Browser gives `id`, else the stored one."
+  [state id]
+  (or (:name (station-by-id state id))
+      (:name (favs/find-favorite (items state) id))))
+
+(defn- rename [result id text]
+  (let [state  (:state result)
+        before (items state)
+        after  (favs/rename before id text (original-name state id))]
+    (cond-> (assoc-in result [:state :favorites :items] after)
+      (not= before after) save)))
+
+(defmethod handle :rename/start [state [_ id]]
+  (if (favs/member? (items state) id)
+    (let [current (favorite-name state id)]
+      (ok (assoc state :rename {:id id :initial current :text current})
+          [[:dom/select-contents "rename-input"]]))
+    (ok state)))
+
+(defmethod handle :rename/typed [state [_ text]]
+  (if (:rename state)
+    (ok (assoc-in state [:rename :text] text))
+    (ok state)))
+
+(defmethod handle :rename/save [state _]
+  (if-let [{:keys [id text]} (:rename state)]
+    (rename (ok (assoc state :rename nil)) id text)
+    (ok state)))
+
+(defmethod handle :rename/commit [state _]
+  (if-let [{:keys [id]} (:rename state)]
+    (-> (handle state [:rename/save])
+        (add-effects [:dom/focus (str "more-" id)]))
+    (ok state)))
+
+(defmethod handle :rename/cancel [state _]
+  (if-let [{:keys [id]} (:rename state)]
+    (ok (assoc state :rename nil) [[:dom/focus (str "more-" id)]])
+    (ok state)))
+
+(defmethod handle :favorites/reset-name [state [_ id]]
+  (-> (rename (ok state) id nil)
+      (toast [:toast/name-reset {:name (original-name state id)}])))
 
 ;; ---------------------------------------------------------------- drag and drop
 
@@ -610,23 +660,39 @@
 (defmethod handle :favorites/import-pick [state _]
   (ok state [[:file/pick {:accept import-accept :action :import/read}]]))
 
+(defn- first-names
+  "Map of `(k entry)` to the first name an entry with it carries."
+  [k entries]
+  (reduce (fn [names {entry-name :name :as entry}]
+            (let [v (get entry k)]
+              (if (and v entry-name (not (contains? names v)))
+                (assoc names v entry-name)
+                names)))
+          {}
+          entries))
+
 (defn- entries->request
-  "Entries with a uuid are looked up by it; the rest by their stream URL."
+  "Entries with a uuid are looked up by it; the rest by their stream URL.
+  The names the file gives travel along, by uuid and by URL."
   [entries]
-  {:ids  (vec (distinct (keep :id entries)))
-   :urls (vec (distinct (map :url (remove :id entries))))})
+  (let [by-url (remove :id entries)]
+    {:ids   (vec (distinct (keep :id entries)))
+     :urls  (vec (distinct (map :url by-url)))
+     :names {:ids  (first-names :id entries)
+             :urls (first-names :url by-url)}}))
 
 (defn- import-request
-  "`{:ids :urls}` to resolve from the text of a file in `format`."
+  "`{:ids :urls :names}` to resolve from the text of a file in `format`."
   [format text]
-  (case format
-    :m3u       (entries->request (favs/parse-m3u text))
-    :radiolise (entries->request (favs/parse-radiolise text))
-    :list      {:ids (favs/parse-list text) :urls []}))
+  (entries->request (case format
+                      :m3u       (favs/parse-m3u text)
+                      :radiolise (favs/parse-radiolise text)
+                      :list      (favs/parse-list text))))
 
 (defn- read-import
-  "`{:request {:ids :urls}}` for the text of `filename`, or `{:error toast-key}`
-  when it cannot be imported. A nil `text` is a file that was not read."
+  "`{:request {:ids :urls :names}}` for the text of `filename`, or
+  `{:error toast-key}` when it cannot be imported. A nil `text` is a file that
+  was not read."
   [state text filename]
   (let [format (favs/file-format filename)
         {:keys [ids urls] :as request} (when (and format text) (import-request format text))]
@@ -664,11 +730,19 @@
         close-dialog
         (then [:import/read text filename]))))
 
-(defmethod handle :import/resolved [state [_ {:keys [stations missing]}]]
+(defn- imported-names
+  "Station id → the name the imported file gave it. `url-ids` maps each
+  stream URL that was found to the id of its station."
+  [{:keys [ids urls]} url-ids]
+  (merge (into {} (keep (fn [[url id]] (when-let [n (get urls url)] [id n]))) url-ids)
+         ids))
+
+(defmethod handle :import/resolved [state [_ {:keys [stations missing names url-ids]}]]
   (let [before (count (items state))
+        names  (imported-names names url-ids)
         state  (-> state
                    (update :stations merge (by-id stations))
-                   (update-in [:favorites :items] #(reduce favs/add % stations))
+                   (update-in [:favorites :items] favs/add-imported stations names)
                    (update-in [:favorites :missing] #(apply disj % (map :id stations))))
         added  (- (count (items state)) before)]
     (apply toast (save (ok state))

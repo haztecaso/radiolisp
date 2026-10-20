@@ -28,6 +28,7 @@
      (case x
        :event.target/value           (.. dom-event -target -value)
        :event.target/value-as-number (.. dom-event -target -valueAsNumber)
+       :event.target/text-content    (.. dom-event -target -textContent)
        :event.target/natural-width   (.. dom-event -target -naturalWidth)
        :event.target/natural-height  (.. dom-event -target -naturalHeight)
        x))
@@ -54,6 +55,7 @@
   (cond
     (= "search-input" (.-id el))                             :search-input
     (= "filter-input" (.-id el))                             :filter-input
+    (= "rename-input" (.-id el))                             :rename-input
     (and (= "INPUT" (.-tagName el)) (= "range" (.-type el))) :slider
     (= "BUTTON" (.-tagName el))                              :button
     :else                                                    :other))

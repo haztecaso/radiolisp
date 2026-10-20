@@ -96,16 +96,20 @@
                  (when (seq found) (apply max-key :votes found)))))))
 
 (defn resolve-import
-  "Promise of `{:stations [...] :missing n}` for the uuids and stream URLs of
-  an imported playlist."
+  "Promise of `{:stations [...] :missing n :url-ids {url id}}` for the uuids
+  and stream URLs of an imported playlist; `:url-ids` says which station each
+  URL that was found belongs to."
   [server ids urls]
   (-> (js/Promise.all
        #js [(if (seq ids) (fetch-by-ids server ids) (js/Promise.resolve []))
             (js/Promise.all (into-array (map #(-> (lookup-url server %) (.catch (fn [_] nil))) urls)))])
       (.then (fn [[by-id by-url]]
-               (let [by-url (remove nil? by-url)]
+               (let [url-ids (into {} (keep (fn [[url station]] (when station [url (:id station)])))
+                                   (map vector urls by-url))
+                     by-url  (remove nil? by-url)]
                  {:stations (vec (concat by-id by-url))
-                  :missing  (+ (- (count ids) (count by-id)) (- (count urls) (count by-url)))})))))
+                  :missing  (+ (- (count ids) (count by-id)) (- (count urls) (count by-url)))
+                  :url-ids  url-ids})))))
 
 (defn aborted?
   "True when the request was cancelled on purpose (a newer one replaced it).

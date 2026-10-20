@@ -1,23 +1,42 @@
 (ns radiolisp.frontend.views.grid
   "The favourites: a full-width grid of square tiles."
   (:require [clojure.string :as str]
+            [radiolisp.common.favorites :as favs]
             [radiolisp.frontend.actions :as actions]
             [radiolisp.frontend.views.art :as art]
             [radiolisp.frontend.views.icons :as icons]))
 
-(defn- tile [{:keys [stations cache favorites player drag menu] :as state} t {:keys [id] shortcut :key stored-name :name}]
+(defn- name-editor
+  "The name, editable in place over the tile. Replicant clears an editable
+  node whenever it updates it, so the field stays the same vnode while
+  editing: its text is the name it started with, and the size that follows
+  what is typed (:rename/typed) sits on the wrapper, which it inherits."
+  [t {:keys [initial text]}]
+  [:div.rename {:style (art/name-style text)}
+   [:span#rename-input.full-name {:contenteditable "plaintext-only"
+                                  :role            "textbox"
+                                  :aria-label      (t :rename/label {:name initial})
+                                  :spellcheck      "false"
+                                  :on              {:input [[:rename/typed :event.target/text-content]]
+                                                    :blur  [[:rename/save]]}}
+    initial]])
+
+(defn- tile [{:keys [stations cache favorites player drag menu rename] :as state} t {:keys [id] shortcut :key :as favorite}]
   (let [station      (get stations id)
         shown        (or station (get cache id)) ; the cache only draws; playing waits for Radio Browser
-        station-name (or (:name shown) stored-name)
+        station-name (favs/display-name favorite shown)
+        art-station  {:id id :name station-name :favicon (:favicon shown)}
+        editing      (when (= id (:id rename)) rename)
         missing?     (contains? (:missing favorites) id)
         sick?        (false? (:check-ok? station))
         current?     (= id (get-in player [:station :id]))
         anchor       (str "more-" id)]
     [:article.tile {:replicant/key id
                     :class         [(when current? "playing")
+                                    (when editing "editing")
                                     (when (= id (:id drag)) "dragging")
                                     (when (and drag (= id (:over drag)) (not= id (:id drag))) "drop-before")]
-                    :draggable     "true"
+                    :draggable     (if editing "false" "true")
                     :on            {:dragstart [[:drag/start id]]
                                     :dragover  [[:drag/over id]]
                                     :drop      [[:drag/drop id]]
@@ -28,8 +47,10 @@
                                    {:name station-name})
                     :disabled   (nil? station)
                     :on         {:click [[:favorites/play id]]}}
-      (art/view (:art state) {:id id :name station-name :favicon (:favicon shown)} "art")
-      [:span.name {:title station-name} station-name]]
+      (art/view (:art state) art-station "art")
+      (when (art/shows-image? (:art state) art-station)
+        [:span.name {:title station-name} station-name])]
+     (when editing (name-editor t editing))
      [:button.keycap {:class      (when-not shortcut "empty")
                       :aria-label (if shortcut (t :tile/key {:key shortcut}) (t :tile/assign-key))
                       :title      (if shortcut (t :menu/change-key) (t :tile/assign-key))

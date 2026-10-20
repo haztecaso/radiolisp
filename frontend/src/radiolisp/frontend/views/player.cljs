@@ -33,14 +33,16 @@
 
 (defn view [{:keys [player favorites] :as state} t]
   (let [{:keys [station status]} player
-        {:keys [id homepage] station-name :name} station
+        {:keys [id homepage]} station
+        station-name (when station
+                       (favs/display-name (favs/find-favorite (:items favorites) id) station))
         active?   (contains? #{:playing :connecting} status)
         favorite? (and station (favs/member? (:items favorites) id))]
     [:footer#player.bar {:class      [(when (= :playing status) "is-playing")
                                       (when-not station "idle")]
                          :aria-label (t :player/label)}
      (if station
-       (art/view (:art state) station "thumb")
+       (art/view (:art state) (assoc station :name station-name) "thumb")
        [:div.thumb])
      [:div.now
       [:b (when station icons/waves)

@@ -44,6 +44,12 @@
     "Escape" [:filter/clear]
     nil))
 
+(defn- rename-action [{k :key}]
+  (case k
+    "Enter"  [:rename/commit]
+    "Escape" [:rename/cancel]
+    nil))
+
 (defn- input-action [{k :key :keys [shift?]}]
   (case k
     "ArrowDown" [:search/move 1]
@@ -69,8 +75,8 @@
 
 (defn key->action
   "`press` is `{:key :shift? :ctrl? :alt? :meta? :target :now}`, where
-  `:target` is one of :search-input, :filter-input, :slider, :button or
-  :other."
+  `:target` is one of :search-input, :filter-input, :rename-input, :slider,
+  :button or :other."
   [{:keys [help? dialog menu search] :as state} {k :key :keys [ctrl? alt? meta? target] :as press}]
   (let [open? (:open? search)]
     (cond
@@ -83,6 +89,7 @@
       ctrl?                            nil
       (= target :search-input)         (input-action press)
       (= target :filter-input)         (filter-action press)
+      (= target :rename-input)         (rename-action press)
       (= target :slider)               nil
       open?                            (or (list-action state press) (global-action state press))
       :else                            (global-action state press))))

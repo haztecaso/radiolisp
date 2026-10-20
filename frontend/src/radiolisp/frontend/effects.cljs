@@ -111,9 +111,9 @@
       (.then #(dispatch [:vote/done id %]))
       (.catch #(dispatch [:vote/done id false]))))
 
-(defmethod execute! :api/import [dispatch [_ {:keys [server ids urls]}]]
+(defmethod execute! :api/import [dispatch [_ {:keys [server ids urls names]}]]
   (-> (api/resolve-import server ids urls)
-      (.then #(dispatch [:import/resolved %]))
+      (.then #(dispatch [:import/resolved (assoc % :names names)]))
       (.catch #(dispatch [:import/failed]))))
 
 ;; files and clipboard
@@ -175,6 +175,14 @@
 
 (defmethod execute! :dom/focus [_ [_ target]]
   (some-> (element target) (.focus)))
+
+(defmethod execute! :dom/select-contents [_ [_ id]]
+  ;; Focuses an editable element with all its text selected, ready to be typed over.
+  (when-let [^js el (js/document.getElementById id)]
+    (.focus el)
+    (doto (js/window.getSelection)
+      (.removeAllRanges)
+      (.selectAllChildren el))))
 
 (defmethod execute! :dom/blur [_ [_ target]]
   (some-> (element target) (.blur)))

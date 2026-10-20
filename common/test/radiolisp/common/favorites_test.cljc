@@ -132,9 +132,10 @@
   (is (= "" (favs/->list []))))
 
 (deftest list-import
-  (is (= [uuid-a uuid-b] (favs/parse-list (favs/->list [{:id uuid-a} {:id uuid-b}]))))
+  (is (= [{:id uuid-a :name nil} {:id uuid-b :name "Mi Radio"}]
+         (favs/parse-list (favs/->list [{:id uuid-a} {:id uuid-b :custom-name "Mi Radio"}]))))
   (testing "CRLF, blanks, comments, junk, repeats and upper case"
-    (is (= [uuid-a uuid-b]
+    (is (= [{:id uuid-a :name nil} {:id uuid-b :name nil}]
            (favs/parse-list (str "# my radios\r\n"
                                  "  " (str/upper-case uuid-a) "  \r\n"
                                  "\r\n"
@@ -142,8 +143,66 @@
                                  "https://a.example/s\r\n"
                                  uuid-b "\r\n"
                                  uuid-a "\r\n")))))
+  (testing "a name after the uuid, its spaces tidied; the first one of a repeat wins"
+    (is (= [{:id uuid-a :name "Los 40 Clásicos"}]
+           (favs/parse-list (str uuid-a "\t Los 40   Clásicos \n" uuid-a " Otro\n")))))
   (is (= [] (favs/parse-list nil)))
   (is (= [] (favs/parse-list "hello"))))
+
+;; ---------------------------------------------------------------- custom names
+
+(def renamed
+  [{:id "j1" :name "Jazz Radio" :key "1" :custom-name "Jazz"}
+   {:id "b1" :name "Blues FM" :key nil}])
+
+(deftest display-name-prefers-the-custom-one
+  (is (= "Jazz" (favs/display-name (first renamed) jazz)))
+  (is (= "Blues FM" (favs/display-name (second renamed) blues)))
+  (testing "the stored name when Radio Browser does not know it"
+    (is (= "Gone" (favs/display-name {:id "zz" :name "Gone"} nil))))
+  (is (= "Jazz Radio" (favs/display-name nil jazz))))
+
+(deftest clean-name-tidies-whitespace
+  (is (= "Radio 3" (favs/clean-name "  Radio\n\t 3 ")))
+  (is (nil? (favs/clean-name "  \n ")))
+  (is (nil? (favs/clean-name nil))))
+
+(deftest rename-sets-and-clears
+  (is (= "Smooth" (:custom-name (first (favs/rename three "j1" " Smooth " "Jazz Radio")))))
+  (is (= (rest three) (rest (favs/rename three "j1" "Smooth" "Jazz Radio"))) "others untouched")
+  (testing "blank or the original name takes the custom one away"
+    (is (= three (favs/rename (favs/rename three "j1" "Smooth" "Jazz Radio") "j1" "  " "Jazz Radio")))
+    (is (= three (favs/rename (favs/rename three "j1" "Smooth" "Jazz Radio") "j1" "Jazz  Radio" "Jazz Radio")))
+    (is (= three (favs/rename three "j1" nil "Jazz Radio"))))
+  (is (= three (favs/rename three "zz" "X" "Y")) "unknown id"))
+
+(deftest add-imported-keeps-names-that-differ
+  (let [added (favs/add-imported [{:id "j1" :name "Jazz Radio" :key "1" :custom-name "Mine"}]
+                                 [jazz blues inter]
+                                 {"j1" "From file" "b1" "Blues" "f1" "France Inter"})]
+    (is (= [{:id "j1" :name "Jazz Radio" :key "1" :custom-name "Mine"}
+            {:id "b1" :name "Blues FM" :key nil :custom-name "Blues"}
+            {:id "f1" :name "France Inter" :key nil}]
+           added))))
+
+(deftest matching-looks-at-custom-names-too
+  (is (= ["j1"] (ids (favs/matching renamed stations "jazz r"))))
+  (is (= ["b1"] (ids (favs/matching [{:id "b1" :name "Blues FM" :key nil :custom-name "Delta"}] stations "delta")))))
+
+(deftest custom-names-travel
+  (testing "storage"
+    (is (= renamed (favs/deserialize (favs/serialize renamed))))
+    (is (= [{:id "a" :name "A" :key nil}]
+           (favs/deserialize "{:version 1 :favorites [{:id \"a\" :name \"A\" :custom-name \"  \"}]}"))
+        "a blank custom name is dropped")
+    (is (= [{:id "a" :name "A" :key nil}]
+           (favs/deserialize "{:version 1 :favorites [{:id \"a\" :name \"A\" :custom-name 3}]}"))))
+  (testing "M3U titles each station with the name the grid shows"
+    (is (= [{:id "j1" :name "Jazz" :url "https://jazz.example/stream"}
+            {:id "b1" :name "Blues FM" :url "http://blues.example/stream"}]
+           (favs/parse-m3u (favs/->m3u renamed stations)))))
+  (testing "the list writes the custom name after the uuid"
+    (is (= "j1 Jazz\nb1\n" (favs/->list renamed)))))
 
 (def radiolise-export
   (str "version: \"2\"\n"
