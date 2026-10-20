@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>radiolisp · iteración 2</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body { margin: 0; padding: 32px; background: #ececec; color: #111; font: 14px/20px "DM Sans", system-ui, sans-serif; }
+h1 { margin: 0 0 4px; font-size: 24px; } h2 { margin: 40px 0 4px; font-size: 18px; } p { margin: 0 0 16px; color: #555; max-width: 900px; }
+.grid { display: grid; grid-template-columns: repeat(3, 480px); gap: 24px; }
+.grid.two { grid-template-columns: repeat(2, 720px); }
+figure { margin: 0; } figcaption { margin-bottom: 8px; font-weight: 600; } figcaption span { font-weight: 400; color: #555; }
+figcaption a { font-weight: 400; margin-left: 8px; color: #111; }
+.frame { overflow: hidden; background: #fff; }
+.grid .frame { width: 480px; height: 300px; } .grid.two .frame { width: 720px; height: 450px; }
+iframe { width: 1440px; height: 900px; border: 0; transform-origin: 0 0; }
+.grid iframe { transform: scale(.3333); } .grid.two iframe { transform: scale(.5); }
+</style></head><body>
+<h1>radiolisp · iteración 2</h1>
+<p>Cada vista es la app real en miniatura. Abre cualquiera a tamaño completo con el enlace «abrir». Todo es interactivo: pulsa una casilla para escuchar, el cuadradito de la esquina para asignar atajo, ⋯ para el menú, «a» para buscar, «/» para filtrar.</p>
+
+<h2>1 · Panel de búsqueda en Radio Browser</h2>
+<p>A: paleta modal sobre la cuadrícula atenuada. B: panel lateral, la cuadrícula sigue visible. C: en línea, los resultados sustituyen a la cuadrícula.</p>
+<div class="grid">
+ <figure><figcaption>A · paleta <a href="index.html?search=a&open=1" target="_blank">abrir</a></figcaption><div class="frame"><iframe src="index.html?search=a&open=1"></iframe></div></figure>
+ <figure><figcaption>B · panel lateral <a href="index.html?search=b&open=1" target="_blank">abrir</a></figcaption><div class="frame"><iframe src="index.html?search=b&open=1"></iframe></div></figure>
+ <figure><figcaption>C · en línea <a href="index.html?search=c&open=1" target="_blank">abrir</a></figcaption><div class="frame"><iframe src="index.html?search=c&open=1"></iframe></div></figure>
+</div>
+
+<h2>2 · Nombre de la emisora en la casilla</h2>
+<p>Debajo: nombre y tags bajo la imagen. Superpuesto: solo el nombre, en una banda sobre el pie de la imagen; casillas más bajas y más imagen.</p>
+<div class="grid two">
+ <figure><figcaption>debajo <a href="index.html?names=below" target="_blank">abrir</a></figcaption><div class="frame"><iframe src="index.html?names=below"></iframe></div></figure>
+ <figure><figcaption>superpuesto <a href="index.html?names=overlay" target="_blank">abrir</a></figcaption><div class="frame"><iframe src="index.html?names=overlay"></iframe></div></figure>
+</div>
+
+<h2>3 · Emisoras con mala salud (sky news UK, Algérie Chaine 1)</h2>
+<p>Apagada: imagen en gris y «Sin señal desde…» en rojo bajo el nombre. Etiqueta: imagen intacta y una etiqueta «Sin señal».</p>
+<div class="grid two">
+ <figure><figcaption>apagada <a href="index.html?health=fade" target="_blank">abrir</a></figcaption><div class="frame"><iframe src="index.html?health=fade"></iframe></div></figure>
+ <figure><figcaption>etiqueta <a href="index.html?health=badge" target="_blank">abrir</a></figcaption><div class="frame"><iframe src="index.html?health=badge"></iframe></div></figure>
+</div>
+
+<h2>4 · Estados</h2>
+<p>
+ <a href="index.html?menu=0" target="_blank">menú ⋯</a> ·
+ <a href="index.html?dialog=key" target="_blank">asignar atajo</a> ·
+ <a href="index.html?dialog=remove" target="_blank">quitar de favoritas</a> ·
+ <a href="index.html?empty=1" target="_blank">sin favoritas</a>
+</p>
+</body></html>
