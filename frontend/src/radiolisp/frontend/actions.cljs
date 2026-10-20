@@ -153,3 +153,110 @@
 
 (defmethod handle :keys/g [state [_ now]]
   (ok (assoc-in state [:keys :last-g] now)))
+
+;; ---------------------------------------------------------------- player
+
+(defn- start-playback
+  "Connects to the station in the player and arms the connect timeout."
+  [state]
+  (ok (update state :player assoc :status :connecting :error nil)
+      [[:audio/play (get-in state [:player :station :url])]
+       [:timer/start :connect connect-timeout-ms [:audio/timeout]]]))
+
+(defmethod handle :search/choose [state [_ index]]
+  (let [{:keys [highlight] :as search} (:search state)
+        station (get (visible-stations search) (or index highlight))
+        player  (:player state)
+        closed  (assoc-in state [:search :open?] false)]
+    (cond
+      (nil? station)
+      (ok state)
+
+      (and (= (:id station) (get-in player [:station :id]))
+           (#{:playing :connecting} (:status player)))
+      (ok closed [[:dom/focus :toggle]])
+
+      (:hls? station)
+      (ok (update closed :player assoc :station station :status :error
+                  :error [:error/unsupported {}] :started-at nil)
+          [[:audio/stop] [:timer/cancel :connect] [:dom/focus :toggle]])
+
+      :else
+      (-> (start-playback (update closed :player assoc :station station :started-at nil))
+          (update :effects conj [:dom/focus :toggle])))))
+
+(defmethod handle :player/toggle [state _]
+  (let [{:keys [station status]} (:player state)]
+    (cond
+      (or (nil? station) (:hls? station))
+      (ok state)
+
+      (#{:playing :connecting} status)
+      (ok (assoc-in state [:player :status] :paused)
+          [[:audio/pause] [:timer/cancel :connect]])
+
+      :else
+      (start-playback state))))
+
+(defmethod handle :player/volume [state [_ volume]]
+  (let [player (assoc (:player state)
+                      :volume (clamp 0 100 (js/Math.round volume))
+                      :muted? false)]
+    (ok (assoc state :player player) [(volume-effect player)])))
+
+(defmethod handle :player/volume-step [state [_ delta]]
+  (handle state [:player/volume (+ (get-in state [:player :volume]) delta)]))
+
+(defmethod handle :player/mute [state _]
+  (let [player (update (:player state) :muted? not)]
+    (ok (assoc state :player player) [(volume-effect player)])))
+
+;; ---------------------------------------------------------------- audio element
+
+(defn- status-in? [state statuses]
+  (contains? statuses (get-in state [:player :status])))
+
+(defmethod handle :audio/playing [state [_ now]]
+  (ok (-> state
+          (assoc :now now)
+          (update :player (fn [player]
+                            (cond-> (assoc player :status :playing :error nil)
+                              (nil? (:started-at player)) (assoc :started-at now)))))
+      [[:timer/cancel :connect]]))
+
+(defmethod handle :audio/paused [state _]
+  (if (status-in? state #{:playing})
+    (ok (assoc-in state [:player :status] :paused))
+    (ok state)))
+
+(defmethod handle :audio/waiting [state _]
+  (if (status-in? state #{:playing})
+    (ok (assoc-in state [:player :status] :connecting)
+        [[:timer/start :connect connect-timeout-ms [:audio/timeout]]])
+    (ok state)))
+
+(defmethod handle :audio/failed [state _]
+  (if (status-in? state #{:playing :connecting})
+    (ok (update state :player assoc :status :error :error [:error/stream {}])
+        [[:timer/cancel :connect]])
+    (ok state)))
+
+(defmethod handle :audio/timeout [state _]
+  (if (status-in? state #{:connecting})
+    (ok (update state :player assoc :status :error :error [:error/stream {}])
+        [[:audio/stop]])
+    (ok state)))
+
+;; ---------------------------------------------------------------- misc
+
+(defmethod handle :clock/tick [state [_ now]]
+  (ok (assoc state :now now)))
+
+(defmethod handle :i18n/set [state [_ locale]]
+  (ok (assoc state :locale locale) [[:dom/lang locale]]))
+
+(defmethod handle :help/open [state _]
+  (ok (assoc state :help? true) [[:dom/show-help]]))
+
+(defmethod handle :help/close [state _]
+  (ok (assoc state :help? false)))
