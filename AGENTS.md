@@ -1,8 +1,9 @@
 # radiolisp: guide for AI agents
 
 radiolisp is a minimal web radio player written in ClojureScript, built to learn
-Clojure. The design spec is `docs/specs/2026-10-20-mvp-design.md`; read it before
-changing behaviour.
+Clojure. The design specs are `docs/specs/2026-10-20-mvp-design.md` and
+`docs/specs/2026-10-20-iteration-2-design.md` (favourites; it supersedes the MVP
+layout); read them before changing behaviour.
 
 ## Hard rules
 
@@ -14,6 +15,10 @@ changing behaviour.
 - `actions/handle` and `keymap/key->action` stay pure. Side effects go in
   `effects/execute!`, `api`, `audio`.
 - Design changes follow `.agents/skills/design-taste-frontend` (app-screen rules).
+- `bb e2e` must never count clicks or votes in Radio Browser: keep `/json/url` and
+  `/json/vote` blocked in `frontend/e2e/check.mjs`.
+- `radiolisp.frontend.hls` is only loaded through `shadow.lazy`; never require it
+  from another namespace, or hls.js moves into the main module.
 
 ## Modules
 

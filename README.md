@@ -6,14 +6,21 @@ y las reproduce en el navegador. Está inspirado en
 [radiolise](https://gitlab.com/radiolise/radiolise.gitlab.io), y nació también
 para aprender Clojure.
 
-- Búsqueda incremental por nombre y "Más escuchadas hoy" cuando no hay búsqueda.
-- Reproducir y pausar, volumen y silencio.
+- Una cuadrícula de **favoritas** que se guarda en el navegador: se reordena
+  arrastrando, se filtra con `/` y cada emisora puede tener su propia tecla.
+- Una paleta (`a`) que busca en todo Radio Browser, con "Más escuchadas hoy" cuando
+  no hay búsqueda.
+- Reproductor fijo abajo: reproducir y pausar, volumen y silencio. Suena MP3, AAC,
+  Ogg y HLS; las teclas multimedia del sistema también funcionan.
+- Exportar e importar las favoritas en M3U, votar emisoras y copiar su stream.
 - Todo se maneja con teclado, con flechas o con atajos estilo vim (pulsa `?`).
 - Interfaz en español e inglés.
 
-Por ahora es solo frontend, sin backend. El diseño completo está en
-[`docs/specs/2026-10-20-mvp-design.md`](docs/specs/2026-10-20-mvp-design.md), y la
-referencia visual en [`docs/design/prototype/`](docs/design/prototype/).
+Por ahora es solo frontend, sin backend. El diseño está en
+[`docs/specs/2026-10-20-mvp-design.md`](docs/specs/2026-10-20-mvp-design.md) y
+[`docs/specs/2026-10-20-iteration-2-design.md`](docs/specs/2026-10-20-iteration-2-design.md)
+(favoritas), y la referencia visual en
+[`docs/design/prototype-2/`](docs/design/prototype-2/).
 
 ## Requisitos
 
@@ -36,7 +43,7 @@ Sin Nix, instala esas herramientas a mano y usa los mismos comandos sin el prefi
 
 ```sh
 nix develop      # entra en el entorno (o `direnv allow` una vez, si usas direnv)
-bb setup         # instala shadow-cljs desde npm (una sola vez)
+bb setup         # instala shadow-cljs y hls.js desde npm (una sola vez)
 bb dev           # compila en modo watch y sirve la app
 ```
 
@@ -73,21 +80,22 @@ Está organizado por módulos, como [Penpot](https://github.com/penpot/penpot):
 radiolisp/
 ├── flake.nix  bb.edn  deps.edn   # entorno, tareas y deps.edn raíz (solo para clojure-lsp)
 ├── common/                        # .cljc puro, compartido con el futuro backend
-│   ├── src/radiolisp/common/      #   station (normaliza Radio Browser), format (reloj)
+│   ├── src/radiolisp/common/      #   station (normaliza Radio Browser), favorites (lista, M3U)
 │   └── test/
 ├── frontend/
 │   ├── deps.edn  shadow-cljs.edn  package.json
 │   ├── resources/
 │   │   ├── public/                # index.html, fonts/; css/ y js/ son salida de compilación
-│   │   ├── styles/                # main.scss y parciales (_tokens, _player, _search…)
+│   │   ├── styles/                # main.scss y parciales (_tokens, _grid, _player, _search…)
 │   │   └── i18n/                  # es.edn, en.edn
 │   ├── src/radiolisp/frontend/
-│   │   ├── main.cljs              # conexión: dispatch, render, teclado, reloj
+│   │   ├── main.cljs              # conexión: dispatch, render, teclado, teclas multimedia
 │   │   ├── store.cljs             # el estado inicial y el átomo
 │   │   ├── actions.cljs           # toda la lógica: estado × acción → estado + efectos (puro)
 │   │   ├── keymap.cljs            # tecla + contexto → acción (puro)
-│   │   ├── effects.cljs           # ejecuta efectos: fetch, audio, temporizadores, foco
+│   │   ├── effects.cljs           # ejecuta efectos: fetch, audio, almacenamiento, ficheros, foco
 │   │   ├── api.cljs  audio.cljs   # Radio Browser y el elemento <audio>
+│   │   ├── hls.cljs               # hls.js, en su propio módulo (se carga bajo demanda)
 │   │   ├── i18n.cljs              # traducciones, plurales y números
 │   │   └── views/                 # hiccup para Replicant
 │   ├── test/
@@ -118,7 +126,7 @@ clic / tecla / evento de <audio> / respuesta HTTP
   `{:on {:click [[:player/toggle]]}}`.
 - **Acciones**: `actions/handle` es un `defmulti` sobre el primer elemento del
   vector. No hace I/O: devuelve el estado nuevo y una lista de efectos, como
-  `[:api/fetch {...}]`, `[:audio/play url]` o
+  `[:api/fetch {...}]`, `[:storage/save favoritas]`, `[:audio/play url hls?]` o
   `[:timer/start :search 300 [:search/run]]`.
 - **Efectos**: `effects/execute!` es el único sitio con efectos secundarios. Sus
   resultados vuelven como acciones, por ejemplo `[:search/loaded seq stations]`.
@@ -165,6 +173,7 @@ Para curiosear el estado en vivo:
 ```clojure
 (require '[radiolisp.frontend.store :as store])
 (:player @store/state)
+(:favorites @store/state)
 (radiolisp.frontend.main/dispatch! [:i18n/set :es])
 ```
 
@@ -172,11 +181,15 @@ Para curiosear el estado en vivo:
 
 - **`bb test`**: tests unitarios con `cljs.test`, compilados con el target
   `:node-test` de shadow-cljs. Cubren la lógica pura: normalización de emisoras,
-  formato, i18n, todas las acciones y el mapa de teclas. Cualquier namespace que
+  la lista de favoritas (orden, teclas, filtro, EDN y M3U), el encaje de las
+  imágenes, i18n, todas las acciones y el mapa de teclas. Cualquier namespace que
   acabe en `-test`, en `common/test` o `frontend/test`, entra solo.
-- **`bb e2e`**: maneja Chromium por CDP contra la app en marcha y comprueba unas 47
-  cosas: búsqueda con una sola petición por pausa, teclado, reproducción real,
-  ayuda, cambio de idioma, error sin red y reintento, y el layout de móvil. Hay que
+- **`bb e2e`**: maneja Chromium por CDP contra la app en marcha y comprueba unas 80
+  cosas: añadir desde la paleta, una sola petición `byuuid` al recargar,
+  reproducción real, teclas asignadas, menús, arrastrar y soltar, filtro, quitar con
+  confirmación, exportar e importar M3U, HLS con hls.js, ayuda, idioma y el layout
+  de móvil. Siembra `localStorage` y bloquea `/json/url` y `/json/vote`, así que no
+  altera las estadísticas de Radio Browser. Hay que
   tener `bb dev` corriendo; para otra dirección, por ejemplo un build de release,
   usa `URL=http://127.0.0.1:8090/ bb e2e`. Usa la API y los streams reales, así que
   necesita red y depende de que las emisoras respondan. Las capturas quedan en
@@ -201,10 +214,14 @@ cd frontend/resources/public && python3 -m http.server 8090
   el navegador bloquea esos streams (contenido mixto). La app prueba primero la
   versión `https://` de cada URL, pero no todas existen. Lo resolverá un proxy en
   el futuro backend.
-- **HLS (`.m3u8`)** todavía no se reproduce: la app avisa de "formato no
-  soportado".
+- **HLS (`.m3u8`)** suena de forma nativa donde el navegador sabe (Safari, Chrome
+  reciente) y con hls.js en el resto. hls.js (unos 600 KB) va en su propio módulo y
+  solo se descarga la primera vez que hace falta. Sin Media Source Extensions, la
+  app avisa de "formato no soportado".
+- **Las favoritas viven en este navegador** (`localStorage`). Para llevarlas a otro,
+  exporta e importa el M3U; los atajos no viajan.
 - **Lo que suena** (metadatos ICY) necesita backend, y llegará con él.
-- Sin favoritos ni persistencia, sin modo oscuro, y con dos idiomas.
+- Sin modo oscuro, y con dos idiomas.
 
 ## Créditos
 
