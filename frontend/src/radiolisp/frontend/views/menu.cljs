@@ -49,7 +49,7 @@
 
 (defn- list-items [t]
   (list
-   (item icons/download (t :menu/export) [[:favorites/export]])
+   (item icons/download (t :menu/export) [[:dialog/open-export]])
    (item icons/upload (t :menu/import) [[:favorites/import-pick]])
    [:hr]
    (item icons/key-icon (t :help/title) [[:help/open]] [:span.meta "?"])))

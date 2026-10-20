@@ -10,7 +10,9 @@
 (def debounce-ms 300)
 (def connect-timeout-ms 15000)
 (def toast-ms 2500)
-(def export-filename "radiolisp-favoritas.m3u")
+(def import-accept
+  "M3U, the list of uuids and Radiolise exports (`.txt`)."
+  ".m3u,.m3u8,.list,.txt,audio/x-mpegurl,audio/mpegurl")
 
 (defn query-active?
   "True when `query` is long enough to search for."
@@ -520,28 +522,64 @@
 
 ;; ---------------------------------------------------------------- export and import
 
-(defmethod handle :favorites/export [state _]
+(defmethod handle :dialog/open-export [state _]
+  (ok (assoc state :dialog {:kind :export :format :m3u :stem favs/default-file-stem})
+      [[:dom/show-dialog "dialog"]]))
+
+(defmethod handle :export-dialog/format [state [_ format]]
+  (ok (cond-> state
+        (contains? favs/formats format) (assoc-in [:dialog :format] format))))
+
+(defmethod handle :export-dialog/stem [state [_ stem]]
+  (ok (assoc-in state [:dialog :stem] stem)))
+
+(defn- export-file
+  "The file for `format`, and how many favourites it carries: M3U needs a
+  known stream, the list only the uuid."
+  [state format]
   (let [{:keys [stations]} state
-        favorites          (items state)
-        exported           (count (filter #(get-in stations [(:id %) :url]) favorites))]
-    (-> (ok state [[:file/download {:filename export-filename
-                                    :mime     "audio/x-mpegurl"
-                                    :text     (favs/->m3u favorites stations)}]])
+        favorites          (items state)]
+    (case format
+      :m3u  {:text     (favs/->m3u favorites stations)
+             :exported (count (filter #(get-in stations [(:id %) :url]) favorites))}
+      :list {:text     (favs/->list favorites)
+             :exported (count favorites)})))
+
+(defmethod handle :export-dialog/save [state _]
+  (let [{:keys [format stem]} (:dialog state)
+        {:keys [text exported]} (export-file state format)]
+    (-> (ok state [[:file/download {:filename (favs/export-filename stem format)
+                                    :mime     (get-in favs/formats [format :mime])
+                                    :text     text}]])
+        close-dialog
         (toast [:toast/exported {:count exported}]))))
 
 (defmethod handle :favorites/import-pick [state _]
-  (ok state [[:file/pick {:accept ".m3u,.m3u8,audio/x-mpegurl,audio/mpegurl"
-                          :action :import/read}]]))
+  (ok state [[:file/pick {:accept import-accept :action :import/read}]]))
 
-(defmethod handle :import/read [state [_ text]]
-  (let [entries (favs/parse-m3u text)
-        server  (current-server state)]
+(defn- entries->request
+  "Entries with a uuid are looked up by it; the rest by their stream URL."
+  [entries]
+  {:ids  (vec (distinct (keep :id entries)))
+   :urls (vec (distinct (map :url (remove :id entries))))})
+
+(defn- import-request
+  "`{:ids :urls}` to resolve from the text of a file in `format`."
+  [format text]
+  (case format
+    :m3u       (entries->request (favs/parse-m3u text))
+    :radiolise (entries->request (favs/parse-radiolise text))
+    :list      {:ids (favs/parse-list text) :urls []}))
+
+(defmethod handle :import/read [state [_ text filename]]
+  (let [format (favs/file-format filename)
+        server (current-server state)
+        {:keys [ids urls] :as request} (when format (import-request format text))]
     (cond
-      (empty? entries) (toast (ok state) [:toast/import-empty {}])
-      (nil? server)    (toast (ok state) [:toast/import-failed {}])
-      :else            (ok state [[:api/import {:server server
-                                                :ids    (vec (distinct (keep :id entries)))
-                                                :urls   (vec (distinct (map :url (remove :id entries))))}]]))))
+      (nil? format)                    (toast (ok state) [:toast/import-unsupported {}])
+      (and (empty? ids) (empty? urls)) (toast (ok state) [:toast/import-empty {}])
+      (nil? server)                    (toast (ok state) [:toast/import-failed {}])
+      :else                            (ok state [[:api/import (assoc request :server server)]]))))
 
 (defmethod handle :import/resolved [state [_ {:keys [stations missing]}]]
   (let [before (count (items state))

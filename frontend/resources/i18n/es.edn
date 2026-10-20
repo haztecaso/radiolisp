@@ -15,8 +15,8 @@
  :tile/gone           "Ya no está en Radio Browser"
 
  :menu/list           "Lista de favoritas"
- :menu/export         "Exportar favoritas (M3U)"
- :menu/import         "Importar M3U…"
+ :menu/export         "Exportar…"
+ :menu/import         "Importar…"
  :menu/homepage       "Visitar la web"
  :menu/vote           "Votar"
  :menu/change-key     "Cambiar atajo"
@@ -73,6 +73,15 @@
  :key/clear           "Quitar atajo"
  :key/save            "Guardar"
 
+ :export/title        "Exportar favoritas"
+ :export/format       "Formato"
+ :export/m3u-label    "Lista M3U"
+ :export/m3u-hint     "Nombre y stream de cada emisora. La abren otros reproductores."
+ :export/list-label   "Lista de identificadores (.list)"
+ :export/list-hint    "Un uuid de Radio Browser por línea. Incluye las que ya no tienen stream."
+ :export/filename     "Nombre del fichero"
+ :export/save         "Exportar"
+
  :toast/added         "«{name}» añadida a favoritas"
  :toast/removed       "«{name}» quitada de favoritas"
  :toast/moved         "«{name}» movida al principio"
@@ -86,6 +95,7 @@
  :toast/not-found     {:one "{count} no encontrada" :other "{count} no encontradas"}
  :toast/import-empty  "El fichero no tiene emisoras"
  :toast/import-failed "No se pudo importar el fichero"
+ :toast/import-unsupported "Solo se importan ficheros .m3u, .list o .txt de Radiolise"
 
  :help/title          "Atajos de teclado"
  :help/close          "Cerrar"

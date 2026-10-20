@@ -34,6 +34,31 @@
   .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
   .actions .left { margin-right: auto; }
 }
+// Export: the format as two radio rows, then the file name with its extension.
+#dialog {
+  .options { display: grid; gap: 8px; margin: 16px 0 0; padding: 0; border: 0; }
+  .option {
+    display: flex; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); cursor: pointer;
+    input { margin: 3px 0 0; accent-color: var(--accent); }
+    b { display: block; font-weight: 600; }
+    small { display: block; color: var(--muted); font-size: 12px; line-height: 16px; }
+    &.on { border-color: var(--accent); background: var(--accent-soft); }
+    &:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+    input:focus-visible { outline: none; }
+  }
+  .field-label { display: block; margin-top: 20px; color: var(--muted); font-size: 13px; }
+  .filename {
+    display: flex; margin-top: 6px; border: 1px solid var(--border); background: var(--surface);
+    &:focus-within { border-color: var(--accent); }
+    input {
+      flex: 1; min-width: 0; height: 36px; padding: 0 0 0 12px; border: 0; background: none;
+      &:focus { outline: none; }
+      &::placeholder { color: var(--faint); }
+      @media (max-width: $phone) { font-size: 16px; } // 16px: iOS does not zoom
+    }
+    .ext { display: grid; place-items: center; padding: 0 12px 0 2px; color: var(--muted); }
+  }
+}
 .keyprev {
   display: grid; place-items: center; height: 88px; margin-top: 20px;
   border: 1px dashed var(--control); font-size: 32px; font-weight: 700; color: var(--faint);

@@ -262,30 +262,65 @@ try {
   check('the station keeps playing', (await barName(grid)) === '101 SMOOTH JAZZ');
 
   // export and import
+  const menuItem = (re) => grid.eval(`[...document.querySelectorAll('#menu [role=menuitem]')].find(e => ${re}.test(e.textContent)).click()`);
   await click(grid, '#list-menu');
-  await grid.eval(`[...document.querySelectorAll('#menu [role=menuitem]')].find(e => /Exportar/.test(e.textContent)).click()`);
+  await menuItem('/Exportar/');
+  check('export asks for format and name', (await dialogOpen(grid)) && (await grid.eval(`document.getElementById('export-stem')?.value`)) === 'radiolisp-favoritas');
+  await grid.screenshot({ path: `${OUT}/8b-export-desktop.jpg` });
+  await press(grid, 'Enter');
   await waitFor(grid, `window.__downloads.length > 0`, 3000);
   const download = (await grid.eval(`window.__downloads[0]`)) || {};
   check('export downloads an M3U', download.name === 'radiolisp-favoritas.m3u' && download.text.startsWith('#EXTM3U\n'), download.name);
   check('the M3U carries the uuids', download.text?.includes(`radiobrowser-uuid="${STATIONS.bbc.id}"`));
   check('keys are not exported', !/:key|"1"/.test(download.text || ''));
+  check('export closes the dialog', !(await dialogOpen(grid)));
 
-  const m3u = join(OUT, 'import.m3u');
-  writeFileSync(m3u, [
+  await click(grid, '#list-menu');
+  await menuItem('/Exportar/');
+  await click(grid, '#dialog input[value=list]');
+  await grid.eval(`(() => { const i = document.getElementById('export-stem'); i.value = 'mis radios'; i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await click(grid, '#dialog .btn.primary');
+  await waitFor(grid, `window.__downloads.length > 1`, 3000);
+  const list = (await grid.eval(`window.__downloads[1]`)) || {};
+  check('export downloads a list of uuids', list.name === 'mis radios.list' && list.text?.split('\n').includes(STATIONS.bbc.id), `${list.name} ${JSON.stringify(list.text)}`);
+
+  await grid.send('Page.setInterceptFileChooserDialog', { enabled: true });
+  const importFile = async (name, lines) => {
+    const path = join(OUT, name);
+    writeFileSync(path, lines.join('\n'));
+    const chooser = new Promise((resolve) => browser.on(grid.sessionId, 'Page.fileChooserOpened', resolve));
+    await click(grid, '#list-menu');
+    // A real key press: the file chooser only opens with user activation.
+    await grid.eval(`[...document.querySelectorAll('#menu [role=menuitem]')].find(e => /Importar/.test(e.textContent)).focus()`);
+    await press(grid, 'Enter');
+    const { backendNodeId } = await chooser;
+    await grid.send('DOM.setFileInputFiles', { files: [path], backendNodeId });
+  };
+  await importFile('import.m3u', [
     '#EXTM3U',
     `#EXTINF:-1 radiobrowser-uuid="${STATIONS.inter.id}",France Inter`, 'https://example.invalid/whatever.m3u8',
     `#EXTINF:-1 radiobrowser-uuid="${STATIONS.bbc.id}",BBC`, 'https://example.invalid/bbc',
     '#EXTINF:-1,Not in Radio Browser', 'https://example.invalid/nothing.mp3', '',
-  ].join('\n'));
-  await grid.send('Page.setInterceptFileChooserDialog', { enabled: true });
-  const chooser = new Promise((resolve) => browser.on(grid.sessionId, 'Page.fileChooserOpened', resolve));
-  await click(grid, '#list-menu');
-  await grid.eval(`[...document.querySelectorAll('#menu [role=menuitem]')].find(e => /Importar/.test(e.textContent)).click()`);
-  const { backendNodeId } = await chooser;
-  await grid.send('DOM.setFileInputFiles', { files: [m3u], backendNodeId });
+  ]);
   check('import reports added and missing', await waitFor(grid, `/Importada 1 · 1 no encontrada/.test(document.querySelector('.toast.show')?.textContent || '')`, 15000), await toast(grid));
   check('imported station in the grid', (await tileNames(grid)).includes('France Inter'), JSON.stringify(await tileNames(grid)));
   check('no duplicates after import', (await storedIds(grid)).filter((id) => id === STATIONS.bbc.id).length === 1);
+
+  await waitFor(grid, `!document.querySelector('.toast.show')`, 5000);
+  await importFile('import.list', ['# radiolisp', STATIONS.bbc.id, STATIONS.inter.id, '00000000-0000-0000-0000-000000000000', '']);
+  check('a .list imports by uuid', await waitFor(grid, `/Importadas 0 · 1 no encontrada/.test(document.querySelector('.toast.show')?.textContent || '')`, 15000), await toast(grid));
+
+  await waitFor(grid, `!document.querySelector('.toast.show')`, 5000);
+  await importFile('Favorites_1792522073000.txt', [
+    'version: "2"', 'type: list', 'data:', '  Favorites:',
+    `    - name: BBC`, `      url: https://example.invalid/bbc`, `      icon: ""`, `      id: ${STATIONS.bbc.id}`, `      hue: 120`,
+    `    - name: Nothing`, `      url: https://example.invalid/nothing.mp3`, `      id: ""`, '',
+  ]);
+  check('a Radiolise export imports', await waitFor(grid, `/Importadas 0 · 1 no encontrada/.test(document.querySelector('.toast.show')?.textContent || '')`, 15000), await toast(grid));
+
+  await waitFor(grid, `!document.querySelector('.toast.show')`, 5000);
+  await importFile('radios.pls', ['[playlist]', 'File1=https://example.invalid/s', '']);
+  check('other files are refused', await waitFor(grid, `/Solo se importan/.test(document.querySelector('.toast.show')?.textContent || '')`, 5000), await toast(grid));
 
   // help and language
   await grid.eval(`document.activeElement.blur()`);

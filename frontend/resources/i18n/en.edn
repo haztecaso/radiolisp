@@ -15,8 +15,8 @@
  :tile/gone           "No longer in Radio Browser"
 
  :menu/list           "Favourites list"
- :menu/export         "Export favourites (M3U)"
- :menu/import         "Import M3U…"
+ :menu/export         "Export…"
+ :menu/import         "Import…"
  :menu/homepage       "Visit the website"
  :menu/vote           "Vote"
  :menu/change-key     "Change key"
@@ -73,6 +73,15 @@
  :key/clear           "Remove key"
  :key/save            "Save"
 
+ :export/title        "Export favourites"
+ :export/format       "Format"
+ :export/m3u-label    "M3U playlist"
+ :export/m3u-hint     "Each station's name and stream. Other players can open it."
+ :export/list-label   "List of identifiers (.list)"
+ :export/list-hint    "One Radio Browser uuid per line. Keeps stations with no stream too."
+ :export/filename     "File name"
+ :export/save         "Export"
+
  :toast/added         "“{name}” added to favourites"
  :toast/removed       "“{name}” removed from favourites"
  :toast/moved         "“{name}” moved to the front"
@@ -86,6 +95,7 @@
  :toast/not-found     {:one "{count} not found" :other "{count} not found"}
  :toast/import-empty  "The file has no stations"
  :toast/import-failed "Could not import the file"
+ :toast/import-unsupported "Only .m3u, .list or Radiolise .txt files can be imported"
 
  :help/title          "Keyboard shortcuts"
  :help/close          "Close"

@@ -1,7 +1,8 @@
 (ns radiolisp.frontend.views.dialogs
-  "The one native <dialog> for confirmations: removing a favourite and
-  choosing its key. It always exists; `effects` opens and closes it and its
-  content follows `:dialog` in the state.")
+  "The one native <dialog> for confirmations: removing a favourite, choosing
+  its key and exporting the list. It always exists; `effects` opens and
+  closes it and its content follows `:dialog` in the state."
+  (:require [radiolisp.common.favorites :as favs]))
 
 (defn- favorite [{:keys [stations favorites]} id]
   (let [stored (first (filter #(= id (:id %)) (:items favorites)))]
@@ -35,10 +36,46 @@
       [:button.btn.primary {:disabled (nil? pending) :on {:click [[:key-dialog/save]]}}
        (t :key/save)]])))
 
+(def ^:private format-text
+  {:m3u  [:export/m3u-label :export/m3u-hint]
+   :list [:export/list-label :export/list-hint]})
+
+(defn- format-option [t chosen format]
+  [:label.option {:class (when (= chosen format) "on")}
+   [:input {:type    "radio"
+            :name    "export-format"
+            :value   (name format)
+            :checked (= chosen format)
+            :on      {:change [[:export-dialog/format format]]}}]
+   (let [[label hint] (format-text format)]
+     [:span [:b (t label)] [:small (t hint)]])])
+
+(defn- export-body [t {:keys [format stem]}]
+  [:form {:on {:submit [[:export-dialog/save]]}}
+   [:h2#dialog-title (t :export/title)]
+   [:fieldset.options
+    [:legend.vh (t :export/format)]
+    (format-option t format :m3u)
+    (format-option t format :list)]
+   [:label.field-label {:for "export-stem"} (t :export/filename)]
+   [:div.filename
+    [:input#export-stem {:type         "text"
+                         :autofocus    true
+                         :autocomplete "off"
+                         :spellcheck   false
+                         :value        stem
+                         :placeholder  favs/default-file-stem
+                         :on           {:input [[:export-dialog/stem :event.target/value]]}}]
+    [:span.ext (str "." (get-in favs/formats [format :extension]))]]
+   [:div.actions
+    [:button.btn {:type "button" :on {:click [[:dialog/close]]}} (t :dialog/cancel)]
+    [:button.btn.primary {:type "submit"} (t :export/save)]]])
+
 (defn view [{:keys [dialog] :as state} t]
   [:dialog#dialog {:aria-labelledby "dialog-title"
                    :on              {:close [[:dialog/close]]}}
    (case (:kind dialog)
      :remove (remove-body state t (:id dialog))
      :key    (key-body state t dialog)
+     :export (export-body t dialog)
      nil)])

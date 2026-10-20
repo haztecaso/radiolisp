@@ -103,7 +103,7 @@
                        (fn []
                          (when-let [file (aget (.-files input) 0)]
                            (-> (.text file)
-                               (.then #(dispatch [action %]))
+                               (.then #(dispatch [action % (.-name file)]))
                                (.catch #(dispatch [:import/failed]))))))
     (.click input)))
 

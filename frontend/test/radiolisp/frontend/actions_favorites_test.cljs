@@ -166,22 +166,52 @@
          (:effects (a/handle ready [:station/copy-url "j1"])))))
 
 (deftest exporting
-  (let [{:keys [state effects]} (a/handle ready [:favorites/export])
-        [_ {:keys [filename text]}] (f/find-effect effects :file/download)]
-    (is (= "radiolisp-favoritas.m3u" filename))
-    (is (str/starts-with? text "#EXTM3U\n"))
-    (is (str/includes? text "radiobrowser-uuid=\"b1\""))
-    (is (= [[:toast/exported {:count 2}]] (:toast state)))))
+  (let [opened (:state (a/handle ready [:dialog/open-export]))]
+    (is (= {:kind :export :format :m3u :stem "radiolisp-favoritas"} (:dialog opened)))
+    (is (= [[:dom/show-dialog "dialog"]] (:effects (a/handle ready [:dialog/open-export]))))
+    (testing "M3U carries the favourites with a known stream"
+      (let [{:keys [state effects]} (a/handle opened [:export-dialog/save])
+            [_ {:keys [filename mime text]}] (f/find-effect effects :file/download)]
+        (is (= "radiolisp-favoritas.m3u" filename))
+        (is (= "audio/x-mpegurl" mime))
+        (is (str/starts-with? text "#EXTM3U\n"))
+        (is (str/includes? text "radiobrowser-uuid=\"b1\""))
+        (is (nil? (:dialog state)))
+        (is (f/find-effect effects :dom/close-dialog))
+        (is (= [[:toast/exported {:count 2}]] (:toast state)))))
+    (testing "the list carries every uuid, under the chosen name"
+      (let [{:keys [state effects]} (run-all opened
+                                             [:export-dialog/format :list]
+                                             [:export-dialog/stem "mis radios.m3u"]
+                                             [:export-dialog/save])
+            [_ {:keys [filename mime text]}] (f/find-effect effects :file/download)]
+        (is (= "mis radios.list" filename))
+        (is (= "text/plain" mime))
+        (is (= (apply str (map #(str % "\n") (ids ready))) text))
+        (is (= [[:toast/exported {:count (count (ids ready))}]] (:toast state)))))
+    (testing "unknown formats are ignored"
+      (is (= :m3u (get-in (a/handle opened [:export-dialog/format :pls]) [:state :dialog :format]))))))
+
+(def uuid-a "960e57c5-0601-11e8-ae97-52543be04c81")
 
 (deftest importing
   (let [m3u (str "#EXTM3U\n"
                  "#EXTINF:-1 radiobrowser-uuid=\"j1\",Jazz Radio\nhttp://jazz.example/stream\n"
                  "#EXTINF:-1 radiobrowser-uuid=\"h1\",HLS FM\nhttps://hls.example/live.m3u8\n"
                  "#EXTINF:-1,Somewhere\nhttp://somewhere.example/s\n")]
-    (is (= [[:file/pick {:accept ".m3u,.m3u8,audio/x-mpegurl,audio/mpegurl" :action :import/read}]]
+    (is (= [[:file/pick {:accept ".m3u,.m3u8,.list,.txt,audio/x-mpegurl,audio/mpegurl" :action :import/read}]]
            (:effects (a/handle ready [:favorites/import-pick]))))
     (is (= [[:api/import {:server "s1" :ids ["j1" "h1"] :urls ["http://somewhere.example/s"]}]]
-           (:effects (a/handle ready [:import/read m3u]))))
+           (:effects (a/handle ready [:import/read m3u "radios.m3u"]))))
+    (testing "a list of uuids"
+      (is (= [[:api/import {:server "s1" :ids [uuid-a] :urls []}]]
+             (:effects (a/handle ready [:import/read (str "# mine\n" uuid-a "\n") "radios.list"])))))
+    (testing "a Radiolise export"
+      (is (= [[:api/import {:server "s1" :ids [uuid-a] :urls ["http://somewhere.example/s"]}]]
+             (:effects (a/handle ready [:import/read (str "version: \"2\"\ntype: list\ndata:\n  Favorites:\n"
+                                                          "    - name: A\n      url: http://a.example/s\n      id: " uuid-a "\n"
+                                                          "    - name: B\n      url: http://somewhere.example/s\n      id: \"\"\n")
+                                        "Favorites_1792522073000.txt"])))))
     (testing "found stations are added once; the toast counts both"
       (let [{:keys [state effects]} (a/handle ready [:import/resolved {:stations [jazz hls-fm] :missing 1}])]
         (is (= ["j1" "b1" "h1"] (ids state)))
@@ -189,7 +219,12 @@
         (is (saved effects))
         (is (= [[:toast/imported {:count 1}] [:toast/not-found {:count 1}]] (:toast state)))))
     (testing "a file without stations"
-      (is (= [[:toast/import-empty {}]] (:toast (:state (a/handle ready [:import/read "hello"])))))))
+      (is (= [[:toast/import-empty {}]] (:toast (:state (a/handle ready [:import/read "hello" "x.m3u"])))))
+      (is (= [[:toast/import-empty {}]] (:toast (:state (a/handle ready [:import/read m3u "x.list"]))))))
+    (testing "other files are refused"
+      (let [{:keys [state effects]} (a/handle ready [:import/read m3u "radios.pls"])]
+        (is (empty? (filter #(= :api/import (first %)) effects)))
+        (is (= [[:toast/import-unsupported {}]] (:toast state))))))
   (is (= [[:toast/import-failed {}]] (:toast (:state (a/handle ready [:import/failed]))))))
 
 (deftest artwork

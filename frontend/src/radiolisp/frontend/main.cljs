@@ -34,14 +34,14 @@
 
 (defn- dispatch-dom-event!
   "The innermost handler wins: a button inside a clickable row or tile does
-  not also trigger it. Drag and drop needs the browser defaults turned off
-  (dragover, drop) and some data set (Firefox will not drag without it)."
+  not also trigger it. Forms never navigate (submit). Drag and drop needs the
+  browser defaults turned off (dragover, drop) and some data set (Firefox will not drag without it)."
   [event-data handler]
   (when (= :replicant.trigger/dom-event (:replicant/trigger event-data))
     (let [^js e (:replicant/dom-event event-data)]
       (.stopPropagation e)
       (case (.-type e)
-        ("dragover" "drop") (.preventDefault e)
+        ("dragover" "drop" "submit") (.preventDefault e)
         "dragstart"         (let [^js data (.-dataTransfer e)]
                               (.setData data "text/plain" "")
                               (set! (.-effectAllowed data) "move"))
