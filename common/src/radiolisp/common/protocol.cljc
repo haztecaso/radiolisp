@@ -20,7 +20,8 @@
 (defn station-id?
   "True for a Radio Browser station uuid (lower case, as the API gives it)."
   [x]
-  (and (string? x) (some? (re-find station-id-re x))))
+  ;; The length check also stops a trailing newline, which `$` lets through on the JVM.
+  (and (string? x) (= 36 (count x)) (some? (re-find station-id-re x))))
 
 ;; client → server
 
