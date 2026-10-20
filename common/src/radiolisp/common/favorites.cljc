@@ -146,3 +146,92 @@
 
           :else
           (recur more info entries))))))
+
+;; ---------------------------------------------------------------- list of uuids
+
+(def ^:private uuid-re
+  #"(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+
+(defn ->list
+  "One Radio Browser uuid per line, every favourite in grid order."
+  [favorites]
+  (apply str (map #(str (:id %) "\n") favorites)))
+
+(defn parse-list
+  "The uuids in `text`, one per line, in order and without repeats. Blank
+  lines, `#` comments and anything that is not a uuid are ignored."
+  [text]
+  (->> (str/split-lines (or text ""))
+       (map str/trim)
+       (filter #(re-find uuid-re %))
+       (map str/lower-case)
+       distinct
+       vec))
+
+;; ---------------------------------------------------------------- Radiolise
+
+(defn- unquote-yaml [s]
+  (let [s (str/trim s)]
+    (if-let [[_ inner] (or (re-find #"^\"(.*)\"$" s) (re-find #"^'(.*)'$" s))]
+      inner
+      s)))
+
+(defn- radiolise-entry [{id "id" url "url" station-name "name"}]
+  (let [id    (some-> id unquote-yaml str/lower-case)
+        url   (some-> url unquote-yaml)
+        entry {:id   (when (and id (re-find uuid-re id)) id)
+               :name (some-> station-name unquote-yaml not-empty)
+               :url  (when (and url (re-find #"(?i)^https?://\S+$" url)) url)}]
+    (when (or (:id entry) (:url entry))
+      entry)))
+
+(defn parse-radiolise
+  "`[{:id :name :url}]` from a Radiolise export: YAML whose lists hold one map
+  per station, each opened by `- key: value`. Only `id` (the Radio Browser
+  uuid), `name` and `url` are read; other keys and folded lines are ignored."
+  [text]
+  (let [stations (reduce (fn [stations line]
+                           (if-let [[_ k v] (re-find #"^\s*-\s+([\w-]+):\s*(.*)$" line)]
+                             (conj stations {k v})
+                             (if-let [[_ k v] (and (seq stations)
+                                                   (re-find #"^\s+([\w-]+):\s*(.*)$" line))]
+                               (conj (pop stations) (assoc (peek stations) k v))
+                               stations)))
+                         []
+                         (str/split-lines (or text "")))]
+    (into [] (keep radiolise-entry) stations)))
+
+;; ---------------------------------------------------------------- files
+
+(def formats
+  "Export formats: their extension and media type."
+  {:m3u  {:extension "m3u" :mime "audio/x-mpegurl"}
+   :list {:extension "list" :mime "text/plain"}})
+
+(def default-file-stem "radiolisp-favoritas")
+
+(def ^:private extension-re #"(?i)\.(m3u8?|list)$")
+
+(defn file-format
+  "The import format of a file called `filename`, from its extension, or nil.
+  Radiolise exports its favourites as `.txt`."
+  [filename]
+  (when-let [[_ ext] (re-find #"(?i)\.(m3u8?|list|txt)$" (or filename ""))]
+    (case (str/lower-case ext)
+      "list" :list
+      "txt"  :radiolise
+      :m3u)))
+
+(defn export-filename
+  "`stem` made safe as a file name, with the extension of `kind` (a key of
+  `formats`). A known extension typed in the stem is dropped; a blank stem
+  becomes `default-file-stem`."
+  [stem kind]
+  (let [stem (-> (or stem "")
+                 (str/replace #"[\\/:*?\"<>|\x00-\x1f]" "")
+                 str/trim
+                 (str/replace extension-re "")
+                 (str/replace #"^\.+" "")
+                 str/trim)]
+    (str (if (str/blank? stem) default-file-stem stem)
+         "." (get-in formats [kind :extension]))))
