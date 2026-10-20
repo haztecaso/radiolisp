@@ -16,8 +16,9 @@ $muted: #665a5f;
 $faint: #72656b;
 $negative: #c4242a;
 $negative-ink: #831c1e;
+$negative-soft: #ffedea;
 
-$phone: 639px;
+$phone: 760px;
 $tablet: 1024px;
 
 :root {
@@ -37,10 +38,12 @@ $tablet: 1024px;
   --faint: #{$faint};
   --negative: #{$negative};
   --negative-ink: #{$negative-ink};
+  --negative-soft: #{$negative-soft};
 
-  --col: 560px;
   --edge: 24px;
   --pad: 32px;
+  --top: 56px;
+  --bar: 72px;
   --font: "DM Sans", Inter, system-ui, sans-serif;
   --ease: cubic-bezier(.2, .7, .2, 1);
 

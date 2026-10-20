@@ -42,13 +42,30 @@ kbd {
   font: 500 12px/18px var(--font); text-align: center; color: var(--muted);
 }
 .icon-btn {
-  display: grid; place-items: center; width: 40px; height: 40px;
+  display: grid; place-items: center; flex: none; width: 40px; height: 40px;
   border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer;
   &:hover { border-color: var(--control); color: var(--text); }
+  &.on { color: var(--accent); }
   svg { width: 18px; height: 18px; }
   @media (max-width: $phone) { width: 44px; height: 44px; }
 }
-.text-btn {
-  padding: 0; border: 0; background: none; font-weight: 500; white-space: nowrap;
-  text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px;
+  border: 1px solid var(--control); background: var(--surface);
+  font-weight: 500; white-space: nowrap; cursor: pointer;
+  &:hover { border-color: var(--text); }
+  &:disabled { color: var(--faint); border-color: var(--border); cursor: not-allowed; }
+  svg { width: 16px; height: 16px; }
+  &.primary { background: var(--text); border-color: var(--text); color: #fff; }
+  &.primary:disabled { background: var(--raised); border-color: var(--raised); color: var(--faint); }
+  &.danger { color: var(--negative-ink); border-color: var(--negative-soft); }
+  &.danger:hover { border-color: var(--negative); }
 }
+.text-btn {
+  padding: 0; border: 0; background: none; color: var(--muted); font-size: 13px;
+  white-space: nowrap; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px;
+  &:hover { color: var(--text); }
+  &[aria-pressed="true"] { color: var(--text); font-weight: 600; text-decoration: none; }
+}
+input[type=search]::-webkit-search-cancel-button { display: none; }

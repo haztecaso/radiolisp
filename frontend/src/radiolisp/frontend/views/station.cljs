@@ -1,18 +1,19 @@
 (ns radiolisp.frontend.views.station
-  "Pieces of a station shared by the player and the list."
+  "Pieces of a station shared by the player bar, the grid and the palette."
   (:require [clojure.string :as str]))
 
-(defn format-badge
-  "\"MP3 192 kbps\", or a dash when Radio Browser does not know."
-  [{:keys [codec bitrate]}]
-  (if (and codec bitrate)
-    [:span.format [:span.codec codec " "] [:span.num bitrate] " " [:span.unit "kbps"]]
-    [:span.dash "—"]))
+(defn quality
+  "A bordered chip: \"MP3 128 kbps\", \"HLS\", the codec alone, or nothing
+  when Radio Browser does not know."
+  [{:keys [hls? codec bitrate]}]
+  (cond
+    hls?                [:span.q "HLS"]
+    (and codec bitrate) [:span.q codec [:span.unit.num (str bitrate " kbps")]]
+    codec               [:span.q codec]
+    :else               nil))
 
-(defn tags-line [t {:keys [tags]}]
-  (if (seq tags)
-    (str/join " · " tags)
-    [:span.dash (t :station/no-tags)]))
-
-(defn country-code [{:keys [country]}]
-  (or country "—"))
+(defn tags-line
+  "Tags, optionally after the country code, joined by middle dots."
+  ([station] (tags-line station false))
+  ([{:keys [country tags]} with-country?]
+   (str/join " · " (cond->> tags with-country? (cons country) true (remove nil?)))))

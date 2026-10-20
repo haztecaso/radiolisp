@@ -1,7 +1,10 @@
 (ns radiolisp.frontend.hls
   "hls.js, alone in the shadow-cljs module :hls so that it only downloads
-  when a browser without native HLS plays an HLS station."
-  (:require ["hls.js" :default Hls]))
+  when a browser without native HLS plays an HLS station.
+
+  The package resolves to its UMD build, whose module.exports is the Hls
+  class itself, so it is required with :as, not :default."
+  (:require ["hls.js" :as Hls]))
 
 (defn start!
   "Plays the HLS stream `url` in `audio` through Media Source Extensions and

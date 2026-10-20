@@ -17,9 +17,9 @@
     (is (= :small (art/fit 64 64)))
     (is (= :small (art/fit 95 40)))))
 
-(deftest fit-of-nothing-is-broken
-  (is (= :broken (art/fit 0 0)))
-  (is (= :broken (art/fit nil nil))))
+(deftest images-without-a-size-are-contained
+  (is (= :contain (art/fit 0 0)))
+  (is (= :contain (art/fit nil nil))))
 
 (deftest initials-take-two-words
   (is (= "FI" (art/initials "France Info")))

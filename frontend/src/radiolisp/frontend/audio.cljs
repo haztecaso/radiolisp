@@ -57,7 +57,8 @@
                  (if-let [hls (start! (element) url fail-attempt!)]
                    (swap! state assoc :hls hls)
                    ((:dispatch @state) [:audio/unsupported])))))
-      (.catch (fn [_]
+      (.catch (fn [error]
+                (js/console.warn "radiolisp: HLS playback failed to start" error)
                 (when (= attempt (:attempt @state))
                   (fail-attempt!))))))
 

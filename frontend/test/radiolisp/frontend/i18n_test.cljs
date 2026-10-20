@@ -14,8 +14,14 @@
   (is (= "12 stations" (i18n/t :en :search/results {:count 12}))))
 
 (deftest t-formats-numbers-for-the-locale
-  (is (= "1,678 plays" (i18n/t :en :station/listens {:count 1678})))
-  (is (= "12.345 escuchas" (i18n/t :es :station/listens {:count 12345}))))
+  (is (= "1,678 stations" (i18n/t :en :search/results {:count 1678})))
+  (is (= "12.345 emisoras" (i18n/t :es :search/results {:count 12345}))))
+
+(deftest format-date-shows-day-and-month
+  (is (= "17 oct" (i18n/format-date :es "2026-10-17T15:03:57Z")))
+  (is (= "Oct 17" (i18n/format-date :en "2026-10-17T15:03:57Z")))
+  (is (nil? (i18n/format-date :es nil)))
+  (is (nil? (i18n/format-date :es "not a date"))))
 
 (deftest t-shows-missing-keys
   (is (= ":nope/missing" (i18n/t :es :nope/missing))))

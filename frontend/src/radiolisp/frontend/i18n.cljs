@@ -23,7 +23,7 @@
             languages)
       default-locale))
 
-(defn- format-number [locale n]
+(defn format-number [locale n]
   (.format (js/Intl.NumberFormat. (name locale)) n))
 
 (defn- plural-form [locale n]
@@ -49,3 +49,11 @@
   [locale ms]
   (.format (js/Intl.DateTimeFormat. (name locale) #js {:hour "2-digit" :minute "2-digit"})
            (js/Date. ms)))
+
+(defn format-date
+  "Day and short month of an ISO 8601 timestamp, or nil."
+  [locale iso]
+  (when iso
+    (let [date (js/Date. iso)]
+      (when-not (js/isNaN (.getTime date))
+        (.format (js/Intl.DateTimeFormat. (name locale) #js {:day "numeric" :month "short"}) date)))))

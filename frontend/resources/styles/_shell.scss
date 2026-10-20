@@ -1,46 +1,44 @@
 @use "tokens" as *;
 
+// Top bar: brand · filter · add · list menu · shortcuts · language.
+.top {
+  position: sticky; top: 0; z-index: 5;
+  height: var(--top); padding: 0 var(--edge);
+  display: flex; align-items: center; gap: 24px;
+  background: var(--ground); border-bottom: 1px solid var(--border);
+  @media (max-width: $phone) { gap: 12px; }
+}
+
 .brand {
-  position: fixed; top: var(--edge); left: var(--edge); z-index: 1;
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 10px; flex: none;
   font-weight: 600; font-size: 16px; letter-spacing: -0.01em;
   color: var(--text); text-decoration: none;
   .mark { width: 28px; height: 20px; color: var(--accent); }
   @media (max-width: $phone) { b { display: none; } }
 }
 
-.corner {
-  position: fixed; top: calc(var(--edge) + 2px); right: var(--edge);
-  display: flex; gap: 16px; align-items: center;
-  color: var(--muted); font-size: 13px;
-  button {
-    padding: 0; border: 0; background: none; cursor: pointer; color: inherit;
-    text-decoration: underline; text-underline-offset: 3px;
-    &[aria-pressed="true"] { color: var(--text); font-weight: 600; text-decoration: none; }
+.filter {
+  position: relative; display: block; flex: 1; max-width: 420px;
+  svg { position: absolute; left: 12px; top: 10px; width: 16px; height: 16px; color: var(--muted); }
+  input {
+    width: 100%; height: 36px; padding: 0 12px 0 36px;
+    border: 1px solid var(--border); background: var(--surface);
+    &:focus { outline: none; border-color: var(--accent); }
+    &::placeholder { color: var(--faint); }
+    @media (max-width: $phone) { font-size: 16px; } // 16px: iOS does not zoom
   }
+  @media (max-width: $phone) { max-width: none; min-width: 0; }
 }
 
-// The column: centred when only the player shows, at the top while searching.
-.stage {
-  min-height: 100svh;
-  display: grid; justify-items: center; align-content: center;
-  padding: 88px var(--edge);
-  transition: padding-top 280ms var(--ease);
-  @media (max-width: $phone) { padding: 64px var(--edge) 72px; }
-}
-.col { width: 100%; max-width: var(--col); }
-
-.app.searching {
-  .stage { align-content: start; padding-top: max(72px, 9vh); }
-
-  // Phone: searching becomes a full-screen sheet.
+.top-actions {
+  margin-left: auto; display: flex; align-items: center; gap: 16px;
+  .sep { width: 1px; height: 20px; background: var(--border); }
+  .lang { color: var(--muted); font-size: 13px; }
   @media (max-width: $phone) {
-    .brand, .corner { display: none; }
-    .stage { padding: 0; align-content: stretch; }
-    .col { max-width: none; display: flex; flex-direction: column; height: 100svh; }
+    gap: 4px;
+    .hide-s, .add-label { display: none; }
+    .btn { width: 44px; height: 44px; padding: 0; justify-content: center; }
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .stage { transition: none; }
-}
+main { padding-bottom: var(--bar); }

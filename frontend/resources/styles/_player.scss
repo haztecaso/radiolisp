@@ -1,29 +1,40 @@
 @use "tokens" as *;
 
-.player {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: var(--pad);
-
-  h1 {
-    margin: 12px 0 0;
-    font-size: 28px; line-height: 34px; font-weight: 700; letter-spacing: -0.02em;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-    overflow: hidden; overflow-wrap: anywhere;
-    @media (max-width: $phone) { font-size: 24px; line-height: 30px; }
-  }
-  &.empty h1 { margin-top: 0; color: var(--muted); font-weight: 600; }
+// The player: a bar fixed at the bottom.
+.bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 6;
+  height: var(--bar); padding: 0 var(--edge);
+  display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 14px;
+  background: var(--surface); border-top: 1px solid var(--border);
+  @media (max-width: $phone) { gap: 10px; }
 }
 
-.status {
-  display: flex; align-items: center; gap: 10px; height: 18px;
-  color: var(--muted); font-size: 13px;
-  .live { color: var(--accent-ink); font-weight: 600; }
-  &.err { color: var(--negative-ink); }
+.thumb {
+  width: 48px; height: 48px; flex: none; overflow: hidden;
+  display: grid; place-items: center; background: var(--raised);
+  img { width: 60%; height: 60%; object-fit: contain; }
+  &.cover img { width: 100%; height: 100%; object-fit: cover; }
+  .mono { font-weight: 700; font-size: 18px; color: var(--accent-ink); }
 }
+
+.now {
+  min-width: 0;
+  b { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; line-height: 20px; }
+  b span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+.bar.idle .now b { color: var(--muted); }
+
+.meta-line { display: flex; align-items: center; gap: 10px; margin-top: 3px; min-width: 0; }
+.q {
+  flex: none; display: inline-flex; align-items: center; height: 20px; padding: 0 6px;
+  border: 1px solid var(--control); font-size: 12px; font-weight: 600; letter-spacing: .01em;
+  .unit { margin-left: 3px; font-weight: 400; color: var(--muted); }
+}
+.tags { min-width: 0; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.err-line { color: var(--negative-ink); font-size: 13px; }
 
 .waves {
-  width: 22px; height: 16px; flex: none; color: var(--accent);
+  width: 20px; height: 14px; flex: none; color: var(--accent);
   .w1, .w2 { opacity: .25; }
 }
 .is-playing .waves {
@@ -31,55 +42,40 @@
   .w2 { animation: wave 1.6s ease-in-out .3s infinite; }
 }
 @keyframes wave { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) {
-  .is-playing .waves .w1, .is-playing .waves .w2 { animation: none; opacity: 1; }
+
+.ctrls {
+  display: flex; align-items: center; gap: 6px;
+  @media (max-width: $phone) { gap: 2px; .hide-s { display: none; } }
 }
 
-.facts {
-  margin: 6px 0 0; color: var(--muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  .unit { font-size: 12px; }
+// Volume: an icon; the slider unfolds on hover or focus.
+.vol {
+  display: flex; align-items: center;
+  .slider { width: 0; overflow: hidden; transition: width 180ms var(--ease); }
+  &:hover .slider, &:focus-within .slider { width: 132px; }
+  @media (max-width: $phone) { .slider { display: none; } }
 }
-
-.controls {
-  display: grid; grid-template-columns: 56px 40px minmax(0, 1fr) 40px;
-  align-items: center; gap: 12px; margin-top: 28px;
-  @media (max-width: $phone) {
-    grid-template-columns: 56px minmax(0, 1fr) 44px;
-    .slider, .vol-val { display: none; }
-    .mute { grid-column: 3; }
-  }
+// The track is drawn with flat spans; the native range input sits on top, invisible.
+.slider-in {
+  position: relative; width: 120px; height: 24px; margin: 0 6px;
+  .track, .fill { position: absolute; top: 10px; height: 4px; }
+  .track { left: 0; right: 0; background: var(--accent-track); }
+  .fill { left: 0; background: var(--accent); }
+  .knob { position: absolute; top: 6px; width: 12px; height: 12px; background: var(--accent-ink); }
+  input { position: absolute; inset: 0; width: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  &:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 
 .toggle {
-  display: grid; place-items: center; width: 56px; height: 56px;
+  display: grid; place-items: center; width: 48px; height: 48px; margin-left: 8px;
   border: 0; background: var(--accent); color: #fff; cursor: pointer;
   transition: transform 90ms var(--ease);
   &:active { transform: scale(.94); }
   &:disabled { background: var(--raised); color: var(--faint); cursor: not-allowed; }
-  svg { width: 22px; height: 22px; }
+  svg { width: 20px; height: 20px; }
 }
 
-// The volume track is drawn with flat spans; the native range input sits on top, invisible.
-.slider {
-  position: relative; height: 24px;
-  .track, .fill { position: absolute; top: 10px; height: 4px; }
-  .track { left: 0; right: 0; background: var(--accent-track); }
-  .fill { left: 0; background: var(--accent); }
-  .thumb { position: absolute; top: 6px; width: 12px; height: 12px; background: var(--accent-ink); }
-  input { position: absolute; inset: 0; width: 100%; margin: 0; opacity: 0; cursor: pointer; }
-  &:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 4px; }
-}
-.vol-val { width: 40px; text-align: right; color: var(--muted); font-size: 13px; }
-
-// Phone while searching: the player shrinks to a strip (toggle + name).
-.app.searching .player {
-  @media (max-width: $phone) {
-    display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 12px;
-    padding: 8px var(--edge); border-width: 0 0 1px;
-    .status, .facts, .controls > :not(.toggle) { display: none; }
-    .controls { display: contents; }
-    .toggle { width: 44px; height: 44px; grid-column: 1; grid-row: 1; }
-    h1 { grid-column: 2; grid-row: 1; margin: 0; font-size: 16px; line-height: 22px; -webkit-line-clamp: 1; }
-  }
+@media (prefers-reduced-motion: reduce) {
+  .is-playing .waves .w1, .is-playing .waves .w2 { animation: none; opacity: 1; }
+  .vol .slider { transition: none; }
 }
