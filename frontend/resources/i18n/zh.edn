@@ -67,6 +67,7 @@
  :error/blocked       "电台屏蔽了你的连接（HTTP 451）。使用 VPN 或身处其服务地区以外时常会这样。"
  :error/refused       "电台拒绝了连接（HTTP {status}）。"
  :error/http-only     "该电台只通过 http 播放，浏览器不允许在 https 页面中播放。"
+ :error/busy         "radiolisp 服务器繁忙，请稍后再试。"
  :error/unsupported   "此浏览器无法播放该电台的格式。"
  :error/retry         "重试"
 

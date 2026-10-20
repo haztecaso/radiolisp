@@ -67,6 +67,7 @@
  :error/blocked       "The station blocks your connection (HTTP 451). This usually happens on a VPN or outside its region."
  :error/refused       "The station refused the connection (HTTP {status})."
  :error/http-only     "This station only streams over http, and the browser will not play it on an https page."
+ :error/busy         "The radiolisp server is busy. Try again in a while."
  :error/unsupported   "This browser cannot play this station's format."
  :error/retry         "Retry"
 

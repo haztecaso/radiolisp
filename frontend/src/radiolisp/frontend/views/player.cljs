@@ -5,14 +5,16 @@
             [radiolisp.frontend.views.icons :as icons]
             [radiolisp.frontend.views.station :as sv]))
 
-(defn- meta-line [t {:keys [station status error]}]
-  [:div.meta-line {:aria-live "polite"}
-   (cond
-     (nil? station)          [:span.tags (t :player/idle-hint)]
-     (= :error status)       [:span.err-line (t (first error))]
-     (= :connecting status)  [:span.tags (t :player/connecting)]
-     :else                   (list (sv/quality station)
-                                   [:span.tags (sv/tags-line station)]))])
+(defn- meta-line [t {:keys [station status error now-playing]}]
+  (let [title (:title now-playing)]
+    [:div.meta-line {:aria-live "polite"}
+     (cond
+       (nil? station)                     [:span.tags (t :player/idle-hint)]
+       (= :error status)                  [:span.err-line (t (first error))]
+       (= :connecting status)             [:span.tags (t :player/connecting)]
+       (and title (= :playing status))    [:span.now-title {:title title} title]
+       :else                              (list (sv/quality station)
+                                                [:span.tags (sv/tags-line station)]))]))
 
 (defn- volume-control [t {:keys [volume muted?]}]
   (let [shown (if muted? 0 volume)]

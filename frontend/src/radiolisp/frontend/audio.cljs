@@ -7,16 +7,18 @@
   `play!` tries the https:// form of the URL first and falls back to the
   original when that errors or does not start within `https-attempt-ms`.
   On an https page the original is pointless (the browser blocks or upgrades
-  mixed content), so only the https form is tried, and when it fails the
-  station is reported as http-only.
+  mixed content), so the last resort is the backend's proxy,
+  `/api/stream/<uuid>`. HLS cannot go through it: when its https form fails,
+  the station is reported as http-only.
 
   When every URL has failed, the element does not say why, so a `fetch` of the
   last one reads the HTTP status for the message (a 451 means the station
-  blocks the listener's region or VPN). Streams without CORS keep it hidden.
+  blocks the listener's region or VPN). Streams without CORS keep it hidden;
+  the proxy, being on the same origin, always tells.
 
   HLS streams play natively where the browser can (Safari); elsewhere through
   hls.js, loaded on demand from the :hls module."
-  (:require [clojure.string :as str]
+  (:require [radiolisp.frontend.stream-url :as stream-url]
             [shadow.lazy :as lazy]))
 
 (def https-attempt-ms 8000)
@@ -31,9 +33,10 @@
   (atom {:element   nil
          :dispatch  nil
          :url       nil      ; the station URL being played, before any https rewrite
+         :id        nil      ; its Radio Browser uuid, for the proxy
          :current   nil      ; the candidate URL being tried
          :hls?      false
-         :http-only? false   ; on an https page, an http:// station with no fallback
+         :http-only? false   ; on an https page, an http:// HLS station with no fallback
          :hls       nil      ; the hls.js instance, when one is attached
          :attempt   0        ; bumped on every load; stale async work checks it
          :fallbacks []
@@ -43,15 +46,6 @@
 
 (defn- https-page? []
   (= "https:" (.. js/window -location -protocol)))
-
-(defn- http-url? [url]
-  (str/starts-with? url "http://"))
-
-(defn- candidates [url]
-  (cond
-    (not (http-url? url)) [url]
-    (https-page?)         [(str "https://" (subs url (count "http://")))]
-    :else                 [(str "https://" (subs url (count "http://"))) url]))
 
 (defn- clear-attempt! []
   (js/clearTimeout (:timer @state))
@@ -64,6 +58,13 @@
 
 (defn- native-hls? []
   (not= "" (.canPlayType (element) "application/vnd.apple.mpegurl")))
+
+(defn- play-element!
+  "Starts the element. Failures arrive through the \"error\" event, so the
+  promise's rejection adds nothing. `play` may also return no promise at all
+  (old browsers, or an extension that replaces it)."
+  [^js audio]
+  (some-> (.play audio) (.catch (fn [_] nil))))
 
 (declare fail-attempt!)
 
@@ -86,8 +87,7 @@
     (if (and (:hls? @state) (not (native-hls?)))
       (load-hls! url attempt)
       (do (set! (.-src audio) url)
-          ;; Failures arrive through the "error" event; the rejection adds nothing.
-          (-> (.play audio) (.catch (fn [_] nil)))))))
+          (play-element! audio)))))
 
 (defn- start-attempt! [url]
   (clear-attempt!)
@@ -110,7 +110,8 @@
 
 (defn- report-failure!
   "Dispatches :audio/failed with the HTTP status `url` answers with, or nil
-  when it cannot be read (no CORS, mixed content, network error)."
+  when it cannot be read (no CORS, mixed content, network error), and says
+  whether `url` was the proxy."
   [url]
   (let [attempt (:attempt @state)]
     (-> (js/fetch url #js {:cache "no-store" :signal (js/AbortSignal.timeout status-probe-ms)})
@@ -121,7 +122,7 @@
         (.catch (fn [_] nil))
         (.then (fn [status]
                  (when (= attempt (:attempt @state))
-                   ((:dispatch @state) [:audio/failed status])))))))
+                   ((:dispatch @state) [:audio/failed status {:proxy? (stream-url/proxy? url)}])))))))
 
 (defn- fail-attempt! []
   (cond
@@ -152,17 +153,17 @@
     (swap! state assoc :element audio :dispatch dispatch)))
 
 (defn play!
-  "Plays `url`; `hls?` says it is an HLS playlist."
-  [url hls?]
+  "Plays `url` of station `id`; `hls?` says it is an HLS playlist."
+  [url hls? id]
   (let [audio (element)]
     (if (and (= url (:url @state))
              (nil? (.-error audio))
              (or (:hls @state) (not= "" (.-src audio))))
       ;; Resuming the station already loaded and healthy.
-      (-> (.play audio) (.catch (fn [_] nil)))
-      (let [[first-url & fallbacks] (candidates url)]
-        (swap! state assoc :url url :hls? (boolean hls?) :fallbacks (vec fallbacks)
-               :http-only? (and (http-url? url) (https-page?)))
+      (play-element! audio)
+      (let [[first-url & fallbacks] (stream-url/candidates url id hls? (https-page?))]
+        (swap! state assoc :url url :id id :hls? (boolean hls?) :fallbacks (vec fallbacks)
+               :http-only? (and (stream-url/http? url) (https-page?) (empty? fallbacks)))
         (start-attempt! first-url)))))
 
 (defn pause! []

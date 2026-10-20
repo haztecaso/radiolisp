@@ -358,7 +358,7 @@
 
 (deftest renamed-favourites-show-their-name
   (let [state (assoc-in ready [:favorites :items 0 :custom-name] "Jazz")]
-    (is (= {:title "Jazz" :artwork (:favicon jazz)}
+    (is (= {:title "Jazz" :artist "radiolisp" :artwork (:favicon jazz)}
            (second (f/find-effect (:effects (a/handle state [:favorites/play "j1"])) :media/update))))
     (is (= ["j1"] (map :id (a/filtered-favorites (assoc state :filter "jazz"))))))
   (testing "the M3U export carries it"

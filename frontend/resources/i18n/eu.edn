@@ -67,6 +67,7 @@
  :error/blocked       "Irrati-kateak zure konexioa blokeatzen du (HTTP 451). VPNarekin edo bere eskualdetik kanpo gertatu ohi da."
  :error/refused       "Irrati-kateak konexioa baztertu du (HTTP {status})."
  :error/http-only     "Irrati-kate honek http bidez soilik igortzen du, eta nabigatzaileak ez du uzten https orri batean entzuten."
+ :error/busy         "radiolisp-en zerbitzaria lanpetuta dago. Saiatu berriro geroxeago."
  :error/unsupported   "Nabigatzaile honek ezin du irrati-kate honen formatua erreproduzitu."
  :error/retry         "Saiatu berriro"
 

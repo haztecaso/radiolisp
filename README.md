@@ -17,11 +17,16 @@ para aprender Clojure.
   soltando el fichero sobre la página), votar emisoras y copiar su stream.
 - Todo se maneja con teclado, con flechas o con atajos estilo vim (pulsa `?`).
 - Interfaz en doce idiomas: español, inglés, portugués, francés, italiano, catalán, gallego, euskera, rumano, búlgaro, ruso y chino.
+- Con el backend (opcional): **lo que suena** (el título que emite la emisora, en
+  el reproductor y en los controles del sistema) y un **proxy** para las emisoras
+  que solo emiten por `http://` cuando la app se sirve por `https`.
 
-Por ahora es solo frontend, sin backend. El diseño está en
-[`docs/specs/2026-10-20-mvp-design.md`](docs/specs/2026-10-20-mvp-design.md) y
+El frontend funciona solo, como web estática; el backend añade lo anterior. El
+diseño está en
+[`docs/specs/2026-10-20-mvp-design.md`](docs/specs/2026-10-20-mvp-design.md),
 [`docs/specs/2026-10-20-iteration-2-design.md`](docs/specs/2026-10-20-iteration-2-design.md)
-(favoritas), y la referencia visual en
+(favoritas) y [`docs/specs/2026-10-20-backend-design.md`](docs/specs/2026-10-20-backend-design.md)
+(backend), y la referencia visual en
 [`docs/design/prototype-2/`](docs/design/prototype-2/).
 
 ## Requisitos
@@ -31,7 +36,7 @@ todas las herramientas con versiones fijadas:
 
 | Herramienta | Para qué |
 |---|---|
-| JDK 21 + CLI `clojure` | shadow-cljs y las dependencias (`deps.edn`) |
+| JDK 21 + CLI `clojure` | shadow-cljs, el backend y las dependencias (`deps.edn`) |
 | [babashka](https://babashka.org/) | las tareas del proyecto (`bb.edn`) |
 | Node.js 22 | el CLI de shadow-cljs y los tests |
 | dart-sass | compilar el SCSS |
@@ -50,11 +55,18 @@ bb dev           # compila en modo watch y sirve la app
 ```
 
 Abre <http://localhost:8080>. La primera compilación descarga las dependencias y
-tarda unos minutos; las siguientes, segundos.
+tarda unos minutos; las siguientes, segundos. `bb dev` arranca también el backend
+en <http://localhost:8090>, y sus logs salen en la misma terminal (en nivel
+`debug`; `LOG_LEVEL=info bb dev` para menos).
 
 `bb dev` vigila a la vez el ClojureScript (shadow-cljs) y el SCSS (sass). Al guardar
 un `.cljs`, un `.scss` o un diccionario `.edn`, el navegador se recarga en caliente
 sin perder el estado.
+
+En desarrollo la página del `:8080` habla con el backend del `:8090` (lo fija el
+build de dev con `radiolisp.frontend.socket/backend-origin`). El `:8090` sirve
+también la app, como en producción, y la recarga en caliente funciona en los dos.
+Para el backend solo: `bb backend`.
 
 ## Tareas
 
@@ -64,8 +76,9 @@ lista.
 | Tarea | Qué hace |
 |---|---|
 | `bb setup` | `npm install` en `frontend/` |
-| `bb dev` | watch de ClojureScript y SCSS, sirve en `:8080` |
-| `bb test` | todos los tests (`common` y `frontend`) en Node |
+| `bb dev` | watch de ClojureScript y SCSS en `:8080`, y el backend en `:8090` con sus logs |
+| `bb backend` | el backend en `:8090` (variables en [Backend](#backend)) |
+| `bb test` | todos los tests: `common` y `frontend` en Node; `common` y `backend` en la JVM |
 | `bb lint` | clj-kondo |
 | `bb fmt` / `bb fmt:check` | aplica o comprueba el formato con cljfmt |
 | `bb css` | compila el SCSS una vez, comprimido |
@@ -81,8 +94,9 @@ Está organizado por módulos, como [Penpot](https://github.com/penpot/penpot):
 ```
 radiolisp/
 ├── flake.nix  bb.edn  deps.edn   # entorno, tareas y deps.edn raíz (solo para clojure-lsp)
-├── common/                        # .cljc puro, compartido con el futuro backend
-│   ├── src/radiolisp/common/      #   station (normaliza Radio Browser), favorites (lista, M3U, .list, Radiolise)
+├── common/                        # .cljc puro, compartido por frontend y backend
+│   ├── src/radiolisp/common/      #   station (normaliza Radio Browser), favorites (lista, M3U, .list, Radiolise),
+│   │                              #   protocol (mensajes del WebSocket)
 │   └── test/
 ├── frontend/
 │   ├── deps.edn  shadow-cljs.edn  package.json
@@ -97,12 +111,24 @@ radiolisp/
 │   │   ├── keymap.cljs            # tecla + contexto → acción (puro)
 │   │   ├── effects.cljs           # ejecuta efectos: fetch, audio, almacenamiento, ficheros, foco
 │   │   ├── api.cljs  audio.cljs   # Radio Browser y el elemento <audio>
+│   │   ├── stream_url.cljs        # qué URLs probar para un stream (https, original, proxy)
+│   │   ├── socket.cljs            # el WebSocket al backend (lo que suena)
 │   │   ├── hls.cljs               # hls.js, en su propio módulo (se carga bajo demanda)
 │   │   ├── i18n.cljs              # traducciones, plurales y números
 │   │   └── views/                 # hiccup para Replicant
 │   ├── test/
 │   └── e2e/check.mjs              # prueba en navegador (bb e2e)
-└── docs/                          # spec, plan y prototipo
+├── backend/                       # Clojure en la JVM: Ring + Jetty 12 con virtual threads
+│   ├── deps.edn
+│   ├── src/radiolisp/backend/
+│   │   ├── main.clj  http.clj     # arranque, rutas y ficheros estáticos
+│   │   ├── stream.clj  socket.clj # /api/stream/<uuid> y /api/ws
+│   │   ├── relay.clj              # una sesión por emisora: lector, oyentes, suscritos
+│   │   ├── upstream.clj  icy.clj  # cliente HTTP/1.0 (acepta ICY) y lector de metadatos
+│   │   ├── radio_browser.clj      # uuid → emisora, con caché
+│   │   └── guard.clj  limits.clj  config.clj   # SSRF, límites por IP, configuración
+│   └── test/                      # unitarios e integración contra una emisora falsa
+└── docs/                          # specs, planes, ideas y prototipo
 ```
 
 ## Cómo funciona
@@ -198,15 +224,19 @@ Para curiosear el estado en vivo:
   `:node-test` de shadow-cljs. Cubren la lógica pura: normalización de emisoras,
   la lista de favoritas (orden, teclas, filtro, EDN, M3U, `.list` y Radiolise), el encaje de las
   imágenes, i18n, todas las acciones y el mapa de teclas. Cualquier namespace que
-  acabe en `-test`, en `common/test` o `frontend/test`, entra solo.
+  acabe en `-test`, en `common/test` o `frontend/test`, entra solo. Después corre
+  los del backend en la JVM (`clojure -X:test` en `backend/`, también los de
+  `common/`): el lector ICY, el cliente, la guardia, los límites y una prueba de
+  integración que arranca el backend delante de una emisora falsa local.
 - **`bb e2e`**: maneja Chromium por CDP contra la app en marcha y comprueba unas 80
   cosas: añadir desde la paleta, una sola petición `byuuid` al recargar,
   reproducción real, teclas asignadas, menús, arrastrar y soltar, filtro, quitar con
   confirmación, exportar (M3U y `.list`) e importar (M3U, `.list` y Radiolise), HLS con hls.js, ayuda, idioma, tema y el layout
   de móvil. Siembra `localStorage` y bloquea `/json/url` y `/json/vote`, así que no
   altera las estadísticas de Radio Browser. Hay que
-  tener `bb dev` corriendo; para otra dirección, por ejemplo un build de release,
-  usa `URL=http://127.0.0.1:8090/ bb e2e`. Usa la API y los streams reales, así que
+  tener `bb dev` corriendo; para otra dirección, por ejemplo el backend,
+  usa `URL=http://localhost:8090/ bb e2e`: si contesta `/api/health`, comprueba
+  también que llega lo que suena. Usa la API y los streams reales, así que
   necesita red y depende de que las emisoras respondan. Las capturas quedan en
   `frontend/target/e2e/`.
 
@@ -217,19 +247,58 @@ bb build
 ```
 
 Deja una web estática en `frontend/resources/public/`: `index.html`, `css/`, `js/`
-y `fonts/`. Se sirve con cualquier servidor de ficheros estáticos, por ejemplo:
+y `fonts/`. Se sirve con `bb backend`, o sin backend con cualquier servidor de
+ficheros estáticos, por ejemplo:
 
 ```sh
-cd frontend/resources/public && python3 -m http.server 8090
+cd frontend/resources/public && python3 -m http.server 8000
 ```
+
+## Backend
+
+Un solo proceso sirve la app, `GET /api/stream/<uuid>`, el WebSocket `/api/ws` y
+`GET /api/health`.
+
+- **Lo que suena.** Mientras una emisora suena, el frontend se suscribe por
+  WebSocket con su uuid. El backend abre la emisora con `Icy-MetaData: 1`, lee los
+  `StreamTitle` y los manda como acciones EDN (`[:now-playing/title {:id … :title
+  …}]`). Al pausar o cambiar de emisora, se da de baja.
+- **Proxy.** En una página `https`, una emisora `http://` cuya versión `https://`
+  no existe suena a través de `/api/stream/<uuid>`.
+- **Una conexión por emisora**, compartida por todos sus oyentes del proxy y sus
+  suscritos. Un oyente nuevo recibe al momento los últimos 64 KiB; el que se
+  retrasa demasiado se desconecta sin frenar a los demás. Si la emisora se corta, se
+  reintenta tres veces; sin nadie, la conexión se cierra a los 5 s.
+- **No es un proxy abierto**: solo acepta uuids de Radio Browser y resuelve la URL
+  en el servidor; no conecta a direcciones privadas, tampoco tras una redirección.
+  No registra IPs.
+
+Se configura con variables de entorno:
+
+| Variable | Defecto | Qué es |
+|---|---|---|
+| `PORT` / `HOST` | `8090` / `127.0.0.1` | dónde escucha; en producción, detrás de un proxy con TLS |
+| `PUBLIC_DIR` | `../frontend/resources/public` | el build del frontend |
+| `TRUST_PROXY` | `false` | `true` para tomar la IP de `X-Forwarded-For` |
+| `LOG_LEVEL` | `info` | `debug` añade cada petición a `/api`, los títulos y los oyentes |
+| `MAX_SESSIONS` | `32` | emisoras abiertas a la vez |
+| `MAX_LISTENERS` / `MAX_LISTENERS_PER_IP` | `200` / `2` | oyentes del proxy |
+| `MAX_SOCKETS_PER_IP` | `4` | WebSockets por IP |
+| `STREAM_REQUESTS_PER_MINUTE` | `20` | peticiones a `/api/stream` por IP |
+
+Los logs salen por la consola (logback, `backend/resources/logback.xml`): qué
+emisoras se abren, conectan, se cortan o se cierran, y los errores. Nunca IPs.
+
+En producción: `bb build` y `bb backend` (o `clojure -M -m radiolisp.backend.main`
+en `backend/`) detrás de Caddy o nginx con TLS.
 
 ## Limitaciones conocidas
 
 - **Streams `http://`.** Muchas emisoras solo emiten por http. Servida por `https`,
   el navegador bloquea esos streams (contenido mixto). La app prueba la versión
-  `https://` de cada URL y, si no existe, avisa de que la emisora solo emite por
-  http. Lo resolverá un proxy en el futuro backend
-  ([ideas de backend](docs/ideas/backend.md)).
+  `https://` de cada URL y, si no existe, el proxy del backend. Sin backend, o con
+  una emisora HLS (el proxy no las acepta), avisa de que la emisora solo emite por
+  http.
 - **Bloqueos por región o VPN.** Algunas emisoras (RTVE, por ejemplo) contestan
   `451` a ciertas IP. La app lo detecta cuando el stream permite CORS y lo dice.
 - **HLS (`.m3u8`)** suena de forma nativa donde el navegador sabe (Safari, Chrome
@@ -238,7 +307,9 @@ cd frontend/resources/public && python3 -m http.server 8090
   app avisa de "formato no soportado".
 - **Las favoritas viven en este navegador** (`localStorage`). Para llevarlas a otro,
   exporta e importa el M3U o el `.list`; los atajos no viajan.
-- **Lo que suena** (metadatos ICY) necesita backend, y llegará con él.
+- **Lo que suena** necesita el backend y una emisora con metadatos ICY. Las HLS no
+  dan títulos (sus metadatos van en ID3, y el backend aún no los lee).
+- **Más ideas** que necesitan backend: [`docs/ideas/backend.md`](docs/ideas/backend.md).
 
 ## Créditos
 

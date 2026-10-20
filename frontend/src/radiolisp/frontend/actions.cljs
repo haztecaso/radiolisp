@@ -173,12 +173,34 @@
 (defn- active? [player]
   (contains? #{:playing :connecting} (:status player)))
 
+(defn- media-effect
+  "Media Session metadata: the song over the station when the station says
+  what is on, else the station over radiolisp."
+  [state]
+  (let [{:keys [station now-playing]} (:player state)
+        title (:title now-playing)
+        station-name (or (favorite-name state (:id station)) (:name station))]
+    [:media/update {:title   (or title station-name)
+                    :artist  (if title station-name "radiolisp")
+                    :artwork (:favicon station)}]))
+
+(defn- stop-now-playing
+  "Stops following the titles of the station in the player, if it was."
+  [{:keys [state] :as result}]
+  (if-let [{:keys [title]} (get-in state [:player :now-playing])]
+    (let [result (-> result
+                     (assoc-in [:state :player :now-playing] nil)
+                     (add-effects [:socket/unsubscribe]))]
+      (cond-> result
+        title (add-effects (media-effect (:state result)))))
+    result))
+
 (defn- start-playback
   "Connects to the station in the player and arms the connect timeout."
   [state]
-  (let [{:keys [url hls?]} (get-in state [:player :station])]
+  (let [{:keys [id url hls?]} (get-in state [:player :station])]
     (ok (update state :player assoc :status :connecting :error nil)
-        [[:audio/play url hls?]
+        [[:audio/play url hls? id]
          [:timer/start :connect connect-timeout-ms [:audio/timeout]]])))
 
 (defmethod handle :player/toggle [state _]
@@ -188,8 +210,9 @@
       (ok state)
 
       (active? player)
-      (ok (assoc-in state [:player :status] :paused)
-          [[:audio/pause] [:timer/cancel :connect]])
+      (stop-now-playing
+       (ok (assoc-in state [:player :status] :paused)
+           [[:audio/pause] [:timer/cancel :connect]]))
 
       :else
       (start-playback state))))
@@ -206,10 +229,15 @@
     (handle state [:player/toggle])
 
     :else
-    (-> (start-playback (assoc-in state [:player :station] station))
-        (add-effects [:api/click {:server (current-server state) :id (:id station)}]
-                     [:media/update {:title (or (favorite-name state (:id station)) (:name station))
-                                     :artwork (:favicon station)}]))))
+    (let [{:keys [effects] :as stopped} (stop-now-playing (ok state))
+          ;; The old station's Media Session entry is replaced right below.
+          effects (filterv #(not= :media/update (first %)) effects)]
+      (-> (start-playback (assoc-in (:state stopped) [:player :station] station))
+          (update :effects #(into effects %))
+          (add-effects [:api/click {:server (current-server state) :id (:id station)}]
+                       [:media/update {:title (or (favorite-name state (:id station)) (:name station))
+                                       :artist "radiolisp"
+                                       :artwork (:favicon station)}])))))
 
 (defmethod handle :player/volume [state [_ volume]]
   (let [player (assoc (:player state)
@@ -230,12 +258,18 @@
   (contains? statuses (get-in state [:player :status])))
 
 (defmethod handle :audio/playing [state _]
-  (ok (update state :player assoc :status :playing :error nil)
-      [[:timer/cancel :connect]]))
+  (let [{:keys [station now-playing]} (:player state)
+        id (:id station)]
+    (cond-> (ok (update state :player assoc :status :playing :error nil)
+                [[:timer/cancel :connect]])
+      ;; Titles come from the backend, which reads ICY streams, not HLS.
+      (and id (not (:hls? station)) (not= id (:id now-playing)))
+      (-> (assoc-in [:state :player :now-playing] {:id id :title nil})
+          (add-effects [:socket/subscribe id])))))
 
 (defmethod handle :audio/paused [state _]
   (if (status-in? state #{:playing})
-    (ok (assoc-in state [:player :status] :paused))
+    (stop-now-playing (ok (assoc-in state [:player :status] :paused)))
     (ok state)))
 
 (defmethod handle :audio/waiting [state _]
@@ -245,8 +279,9 @@
     (ok state)))
 
 (defn- fail [state error]
-  (ok (update state :player assoc :status :error :error error)
-      [[:timer/cancel :connect]]))
+  (stop-now-playing
+   (ok (update state :player assoc :status :error :error error)
+       [[:timer/cancel :connect]])))
 
 (defn- stream-error
   "The message for a stream that failed, given the HTTP status it answered
@@ -258,9 +293,18 @@
     (and (number? status) (>= status 400)) [:error/refused {:status status}]
     :else                                [:error/stream {}]))
 
-(defmethod handle :audio/failed [state [_ status]]
+(defn- proxy-error
+  "The message when the backend's proxy failed too: no answer or 404/405
+  means there is no backend, so the station stays http-only."
+  [status]
+  (cond
+    (contains? #{nil 404 405} status) [:error/http-only {}]
+    (contains? #{429 503} status)     [:error/busy {}]
+    :else                             [:error/stream {}]))
+
+(defmethod handle :audio/failed [state [_ status {:keys [proxy?]}]]
   (if (status-in? state #{:playing :connecting})
-    (fail state (stream-error status))
+    (fail state (if proxy? (proxy-error status) (stream-error status)))
     (ok state)))
 
 (defmethod handle :audio/http-only [state _]
@@ -275,9 +319,26 @@
 
 (defmethod handle :audio/timeout [state _]
   (if (status-in? state #{:connecting})
-    (ok (update state :player assoc :status :error :error [:error/stream {}])
-        [[:audio/stop]])
+    (stop-now-playing
+     (ok (update state :player assoc :status :error :error [:error/stream {}])
+         [[:audio/stop]]))
     (ok state)))
+
+;; ---------------------------------------------------------------- now playing (backend)
+
+(defn- following? [state id]
+  (= id (get-in state [:player :now-playing :id])))
+
+(defmethod handle :now-playing/title [state [_ {:keys [id title]}]]
+  (if (and (following? state id) (not= title (get-in state [:player :now-playing :title])))
+    (let [state (assoc-in state [:player :now-playing :title] title)]
+      (ok state [(media-effect state)]))
+    (ok state)))
+
+;; No titles for this station, or the backend did not understand us: the
+;; player simply shows none. Not an error for the listener.
+(defmethod handle :now-playing/unavailable [state _] (ok state))
+(defmethod handle :now-playing/rejected [state _] (ok state))
 
 ;; ---------------------------------------------------------------- favourites: playing
 

@@ -31,6 +31,7 @@
   .unit { margin-left: 3px; font-weight: 400; color: var(--muted); }
 }
 .tags { min-width: 0; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.now-title { min-width: 0; color: var(--text); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .err-line { color: var(--negative-ink); font-size: 13px; }
 
 .waves {

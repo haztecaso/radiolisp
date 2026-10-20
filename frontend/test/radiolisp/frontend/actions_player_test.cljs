@@ -10,19 +10,19 @@
   (let [{:keys [state effects]} (a/handle ready [:favorites/play "b1"])]
     (is (= blues (get-in state [:player :station])))
     (is (= :connecting (get-in state [:player :status])))
-    (is (= [[:audio/play "http://blues.example/stream" false]
+    (is (= [[:audio/play "http://blues.example/stream" false "b1"]
             [:timer/start :connect a/connect-timeout-ms [:audio/timeout]]
             [:api/click {:server "s1" :id "b1"}]
-            [:media/update {:title "Blues FM" :artwork nil}]]
+            [:media/update {:title "Blues FM" :artist "radiolisp" :artwork nil}]]
            effects))))
 
 (deftest playing-the-station-that-plays-pauses-it
   (let [{:keys [state effects]} (a/handle playing-jazz [:favorites/play "j1"])]
     (is (= :paused (get-in state [:player :status])))
-    (is (= [[:audio/pause] [:timer/cancel :connect]] effects))
+    (is (= [[:audio/pause] [:timer/cancel :connect] [:socket/unsubscribe]] effects))
     (testing "and again resumes it without counting another click"
       (let [{:keys [effects]} (a/handle state [:favorites/play "j1"])]
-        (is (= [:audio/play "http://jazz.example/stream" false] (first effects)))
+        (is (= [:audio/play "http://jazz.example/stream" false "j1"] (first effects)))
         (is (nil? (f/find-effect effects :api/click)))))))
 
 (deftest unknown-favourites-do-nothing
@@ -31,7 +31,7 @@
 (deftest hls-goes-to-the-audio-layer
   (let [{:keys [effects]} (a/handle (assoc-in ready [:stations "h1"] hls-fm)
                                     [:favorites/play "h1"])]
-    (is (= [:audio/play "https://hls.example/live.m3u8" true] (first effects)))))
+    (is (= [:audio/play "https://hls.example/live.m3u8" true "h1"] (first effects)))))
 
 (deftest assigned-keys-play-their-favourite
   (is (= jazz (get-in (:state (a/handle ready [:favorites/play-key "1"])) [:player :station])))
@@ -46,10 +46,10 @@
 (deftest toggle-pauses-and-resumes
   (let [{:keys [state effects]} (a/handle playing-jazz [:player/toggle])]
     (is (= :paused (get-in state [:player :status])))
-    (is (= [[:audio/pause] [:timer/cancel :connect]] effects))
+    (is (= [[:audio/pause] [:timer/cancel :connect] [:socket/unsubscribe]] effects))
     (let [{:keys [state effects]} (a/handle state [:player/toggle])]
       (is (= :connecting (get-in state [:player :status])))
-      (is (= [:audio/play "http://jazz.example/stream" false] (first effects))))))
+      (is (= [:audio/play "http://jazz.example/stream" false "j1"] (first effects))))))
 
 (deftest toggle-does-nothing-without-a-station
   (is (= {:state ready :effects []} (a/handle ready [:player/toggle]))))

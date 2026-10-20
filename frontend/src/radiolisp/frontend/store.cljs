@@ -10,7 +10,8 @@
                   :status  :stopped     ; :stopped :connecting :playing :paused :error
                   :error   nil          ; [:error/stream {}] | [:error/unsupported {}]
                   :volume  100
-                  :muted?  false}
+                  :muted?  false
+                  :now-playing nil}             ; {:id :title} while following the station's titles (backend)
    :favorites    {:items    []          ; [{:id :name :key :custom-name?}], in grid order
                   :status   :idle       ; :idle (storage unread) :pending :loading :done :error
                   :retried? false
