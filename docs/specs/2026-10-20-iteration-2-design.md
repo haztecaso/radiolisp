@@ -70,6 +70,11 @@ https://icecast.radiofrance.fr/franceinfo-midfi.mp3
     elige el de más votos, y las que no se encuentran se descartan.
   - Las que ya son favoritas no se duplican.
   - Un aviso resume el resultado: «Importadas 7 · 2 no encontradas».
+  - También se importa soltando el fichero en cualquier parte de la página: un
+    diálogo dice cuántas emisoras trae y pide confirmación. Un fichero de otro
+    tipo o sin emisoras solo da el aviso.
+  - Sin favoritas, el estado vacío ofrece «Importar una lista» junto a «Añadir
+    emisora».
 - Los atajos no se exportan: son personales del navegador.
 
 ## 4. Layout
@@ -79,8 +84,11 @@ https://icecast.radiofrance.fr/franceinfo-midfi.mp3
 - Marca.
 - Campo «Filtrar favoritas» (`/`).
 - Botón «+ Añadir emisora» (`a`).
-- Menú ⋯ de la lista: «Exportar…» (diálogo) e «Importar…».
-- «Atajos ?» e idioma ES · EN.
+- Menú ⋯ de la lista: «Exportar…» (diálogo) e «Importar…»; el cambio de tema
+  (claro u oscuro); «Idioma», que abre en el mismo menú una página con cada
+  idioma nombrado en su propia lengua (español, English, português, français,
+  italiano, català, galego, euskara, română, български, русский, 中文) y «‹ Idioma»
+  para volver (también Esc); y «Atajos de teclado».
 
 ### Cuadrícula
 

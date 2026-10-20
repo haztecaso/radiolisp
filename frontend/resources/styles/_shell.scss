@@ -1,6 +1,6 @@
 @use "tokens" as *;
 
-// Top bar: brand · filter · add · list menu · shortcuts · language.
+// Top bar: brand · add · filter · list menu (with theme and language).
 .top {
   position: sticky; top: 0; z-index: 5;
   height: var(--top); padding: 0 var(--edge);
@@ -39,7 +39,6 @@
 
 .top-actions {
   margin-left: auto; display: flex; align-items: center; gap: 12px;
-  .lang { color: var(--muted); font-size: 13px; }
   @media (max-width: $phone) { gap: 4px; .hide-s { display: none; } }
 }
 

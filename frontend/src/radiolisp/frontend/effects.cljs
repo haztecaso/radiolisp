@@ -6,6 +6,17 @@
             [radiolisp.frontend.audio :as audio]))
 
 (def storage-key "radiolisp/favorites")
+(def theme-key "radiolisp/theme") ; also read by the script in index.html
+
+(def dark-query "(prefers-color-scheme: dark)")
+
+(defn initial-theme
+  "The theme to start with: the stored choice, else the browser's preference."
+  []
+  (let [stored (try (js/localStorage.getItem theme-key) (catch :default _ nil))]
+    (if (#{"light" "dark"} stored)
+      {:current (keyword stored) :chosen? true}
+      {:current (if (.-matches (js/matchMedia dark-query)) :dark :light) :chosen? false})))
 
 (def focus-targets
   {:search-input "#search-input"
@@ -48,6 +59,10 @@
 (defmethod execute! :storage/save [_ [_ favorites]]
   (try (js/localStorage.setItem storage-key (favs/serialize favorites))
        (catch :default e (js/console.warn "radiolisp: could not save the favourites" e))))
+
+(defmethod execute! :theme/save [_ [_ theme]]
+  (try (js/localStorage.setItem theme-key (name theme))
+       (catch :default _ nil)))
 
 (defmethod execute! :storage/persist [_ _]
   ;; Asks the browser not to evict our storage under pressure.
@@ -95,16 +110,26 @@
     (.click link)
     (js/setTimeout #(js/URL.revokeObjectURL url) 1000)))
 
+(defn read-file!
+  "Reads `file` as text and dispatches `[action text filename]`."
+  [dispatch ^js file action]
+  (-> (.text file)
+      (.then #(dispatch [action % (.-name file)]))
+      (.catch #(dispatch [:import/failed]))))
+
+(defonce ^:private picker
+  ;; The open file input. It is never in the document, so without this
+  ;; reference it can be collected before the browser reports the choice.
+  (atom nil))
+
 (defmethod execute! :file/pick [dispatch [_ {:keys [accept action]}]]
-  (let [input (js/document.createElement "input")]
+  (let [input (reset! picker (js/document.createElement "input"))]
     (set! (.-type input) "file")
     (set! (.-accept input) accept)
     (.addEventListener input "change"
                        (fn []
                          (when-let [file (aget (.-files input) 0)]
-                           (-> (.text file)
-                               (.then #(dispatch [action % (.-name file)]))
-                               (.catch #(dispatch [:import/failed]))))))
+                           (read-file! dispatch file action))))
     (.click input)))
 
 (defmethod execute! :clipboard/write [dispatch [_ text]]
@@ -145,6 +170,9 @@
 (defmethod execute! :dom/lang [_ [_ locale]]
   (set! (.-lang js/document.documentElement) (name locale)))
 
+(defmethod execute! :dom/theme [_ [_ theme]]
+  (set! (.. js/document -documentElement -dataset -theme) (name theme)))
+
 (defmethod execute! :dom/show-dialog [_ [_ id]]
   (let [^js dialog (js/document.getElementById id)]
     (when-not (.-open dialog) (.showModal dialog))))
@@ -172,11 +200,11 @@
                    (max menu-margin (- (.-top r) mh 4)))]
         (set! (.. menu -style -left) (str left "px"))
         (set! (.. menu -style -top) (str top "px"))
-        (some-> (.querySelector menu "[role=menuitem]") (.focus))))))
+        (some-> (.querySelector menu "[role^=menuitem]") (.focus))))))
 
 (defmethod execute! :dom/focus-step [_ [_ container-id delta]]
   (when-let [^js container (js/document.getElementById container-id)]
-    (let [items (vec (js/Array.from (.querySelectorAll container "[role=menuitem]")))
+    (let [items (vec (js/Array.from (.querySelectorAll container "[role^=menuitem]")))
           n     (count items)
           i     (.indexOf items js/document.activeElement)]
       (when (pos? n)

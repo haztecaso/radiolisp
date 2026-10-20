@@ -79,6 +79,23 @@
     (let [state (:state (a/handle playing-jazz [:audio/failed]))]
       (is (= :error (get-in state [:player :status])))
       (is (= [:error/stream {}] (get-in state [:player :error])))))
+  (testing "the HTTP status of the failed stream picks the message"
+    (is (= [:error/blocked {}]
+           (get-in (:state (a/handle playing-jazz [:audio/failed 451])) [:player :error])))
+    (is (= [:error/refused {:status 403}]
+           (get-in (:state (a/handle playing-jazz [:audio/failed 403])) [:player :error])))
+    (is (= [:error/stream {}]
+           (get-in (:state (a/handle playing-jazz [:audio/failed 200])) [:player :error]))
+        "a stream that answers fine but does not play is not a refusal"))
+  (testing "a stream that only exists over http, on an https page"
+    (let [connecting (:state (a/handle ready [:favorites/play "j1"]))
+          {:keys [state effects]} (a/handle connecting [:audio/http-only])]
+      (is (= [:error/http-only {}] (get-in state [:player :error])))
+      (is (some #{[:audio/stop]} effects)))
+    (is (= :paused (get-in (:state (a/handle (assoc-in playing-jazz [:player :status] :paused)
+                                             [:audio/http-only]))
+                           [:player :status]))
+        "ignored once the player is not trying to play"))
   (testing "a format the browser cannot play"
     (let [connecting (:state (a/handle ready [:favorites/play "j1"]))
           {:keys [state effects]} (a/handle connecting [:audio/unsupported])]
@@ -96,6 +113,8 @@
   (let [{:keys [state effects]} (a/handle ready [:i18n/set :es])]
     (is (= :es (:locale state)))
     (is (= [[:dom/lang :es]] effects)))
+  (testing "the language picker sends the locale as a string"
+    (is (= :eu (:locale (:state (a/handle ready [:i18n/set "eu"]))))))
   (let [{:keys [state effects]} (a/handle ready [:help/open])]
     (is (true? (:help? state)))
     (is (= [[:dom/show-dialog "help"]] effects))

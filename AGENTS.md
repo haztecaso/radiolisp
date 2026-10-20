@@ -4,14 +4,17 @@ radiolisp is a minimal web radio player written in ClojureScript, built to learn
 Clojure. The design specs are `docs/specs/2026-10-20-mvp-design.md` and
 `docs/specs/2026-10-20-iteration-2-design.md` (favourites; it supersedes the MVP
 layout); read them before changing behaviour.
+Ideas that need a backend are collected in `docs/ideas/backend.md`.
 
 ## Hard rules
 
 - Never `git push` or touch remotes. The user pushes.
 - Run `bb lint`, `bb fmt:check` and `bb test` before you call a change done.
 - Never pipe test output into `head`, `tail` or `grep`; redirect to a file first.
-- UI strings live only in `frontend/resources/i18n/{es,en}.edn`, with the same
-  keys in both. State holds keys and data, never translated text.
+- UI strings live only in `frontend/resources/i18n/<locale>.edn` (es, en, pt, fr,
+  it, ca, gl, eu, ro, bg, ru, zh), with the same keys and `{placeholders}` in
+  all of them and every plural form `Intl.PluralRules` gives the locale. A new
+  key goes into every file. State holds keys and data, never translated text.
 - `actions/handle` and `keymap/key->action` stay pure. Side effects go in
   `effects/execute!`, `api`, `audio`.
 - Design changes follow `.agents/skills/design-taste-frontend` (app-screen rules).

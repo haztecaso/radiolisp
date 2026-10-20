@@ -1,9 +1,13 @@
 {:brand/name          "radiolisp"
+ :theme/to-dark       "Switch to dark theme"
+ :theme/to-light      "Switch to light theme"
  :lang/label          "Language"
+ :lang/name           "English"
 
  :grid/title          "Favourites"
  :grid/empty-title    "No favourites yet"
- :grid/empty-hint     "Search Radio Browser for a station and press the heart to keep it here."
+ :grid/empty-hint     "Search Radio Browser for a station and press the heart to keep it here, or drop a list file onto the page."
+ :grid/empty-import  "Import a list"
  :grid/no-match       "No favourite is called “{query}”"
  :grid/search-for     "Search Radio Browser for “{query}”"
  :filter/label        "Filter favourites"
@@ -57,6 +61,9 @@
  :error/network       "Could not reach Radio Browser at {time}."
  :error/stations      "Could not load the details of your favourites."
  :error/stream        "Could not play: the stream is not responding."
+ :error/blocked       "The station blocks your connection (HTTP 451). This usually happens on a VPN or outside its region."
+ :error/refused       "The station refused the connection (HTTP {status})."
+ :error/http-only     "This station only streams over http, and the browser will not play it on an https page."
  :error/unsupported   "This browser cannot play this station's format."
  :error/retry         "Retry"
 
@@ -81,6 +88,12 @@
  :export/list-hint    "One Radio Browser uuid per line. Keeps stations with no stream too."
  :export/filename     "File name"
  :export/save         "Export"
+ :import/title       "Import favourites?"
+ :import/body        {:one   "“{file}” lists {count} station. It is added to your favourites; the ones you already have stay as they are."
+                      :other "“{file}” lists {count} stations. They are added to your favourites; the ones you already have stay as they are."}
+ :import/confirm     "Import"
+ :drop/title         "Drop the file to import the list"
+ :drop/hint          "M3U, .list or a Radiolise .txt"
 
  :toast/added         "“{name}” added to favourites"
  :toast/removed       "“{name}” removed from favourites"

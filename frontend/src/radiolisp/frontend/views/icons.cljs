@@ -53,6 +53,12 @@
 
 (def plus (stroke "0 0 16 16" "M8 2v12M2 8h12"))
 
+(def chevron-right (stroke "0 0 16 16" "M6 3.5L10.5 8 6 12.5"))
+
+(def chevron-left (stroke "0 0 16 16" "M10 3.5L5.5 8l4.5 4.5"))
+
+(def check (stroke "0 0 16 16" "M3 8.5l3.25 3.25L13 5"))
+
 (def dots
   [:svg {:viewBox "0 0 16 16" :fill "currentColor" :aria-hidden "true"}
    [:circle {:cx "3" :cy "8" :r "1.4"}]
@@ -89,3 +95,9 @@
 
 (def funnel (stroke "0 0 16 16" "M2 3h12l-4.75 5.5v4.5l-2.5 1V8.5z"))
 
+(def moon (stroke "0 0 16 16" "M13.5 9.5A5.75 5.75 0 016.5 2.5a5.75 5.75 0 107 7z"))
+
+(def sun
+  [:svg {:viewBox "0 0 16 16" :fill "none" :stroke "currentColor" :stroke-width "1.5" :aria-hidden "true"}
+   [:circle {:cx "8" :cy "8" :r "3"}]
+   [:path {:d "M8 1v1.75M8 13.25V15M1 8h1.75M13.25 8H15M3.05 3.05l1.24 1.24M11.71 11.71l1.24 1.24M3.05 12.95l1.24-1.24M11.71 4.29l1.24-1.24"}]])

@@ -5,7 +5,7 @@
 .menu {
   position: fixed; top: 0; left: 0; z-index: 20; min-width: 232px; padding: 6px 0;
   background: var(--surface); border: 1px solid var(--border);
-  box-shadow: 0 8px 24px rgba(24, 18, 20, .12);
+  box-shadow: 0 8px 24px var(--shadow);
   button, a {
     display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 14px;
     border: 0; background: none; color: var(--text); text-align: left; text-decoration: none;
@@ -14,6 +14,8 @@
   }
   svg { width: 16px; height: 16px; flex: none; color: var(--muted); }
   .meta { margin-left: auto; padding-left: 16px; color: var(--faint); font-size: 12px; }
+  .sub .meta { padding-right: 2px; }
+  .meta svg { display: block; color: var(--accent); }
   hr { margin: 6px 0; border: 0; border-top: 1px solid var(--rule); }
   .danger, .danger svg { color: var(--negative-ink); }
   .info {
@@ -27,8 +29,8 @@
 #dialog {
   width: min(400px, calc(100vw - 32px)); padding: 28px;
   border: 1px solid var(--border); background: var(--surface); color: var(--text);
-  box-shadow: 0 12px 32px rgba(24, 18, 20, .14);
-  &::backdrop { background: rgba(24, 18, 20, .24); }
+  box-shadow: 0 12px 32px var(--shadow);
+  &::backdrop { background: var(--scrim); }
   h2 { margin: 0 0 8px; font-size: 18px; line-height: 24px; overflow-wrap: anywhere; }
   p { margin: 0; color: var(--muted); }
   .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
@@ -72,9 +74,29 @@
 .toast {
   position: fixed; right: var(--edge); bottom: calc(var(--bar) + 16px); z-index: 30;
   max-width: calc(100vw - 2 * var(--edge)); padding: 10px 14px;
-  background: var(--text); color: #fff; font-size: 13px;
+  background: var(--text); color: var(--on-text); font-size: 13px;
   opacity: 0; transform: translateY(8px); pointer-events: none;
   transition: opacity 160ms, transform 160ms;
   &.show { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+
+// A file dragged over the page: the whole window is the target.
+.drop-zone {
+  position: fixed; inset: 0; z-index: 40; display: grid; place-items: center;
+  padding: var(--edge); background: var(--scrim); pointer-events: none;
+  opacity: 0; transition: opacity 120ms;
+  &.show { opacity: 1; }
+  &::before {
+    content: ""; position: absolute; inset: 12px;
+    border: 2px dashed var(--accent);
+  }
+}
+.drop-box {
+  display: grid; justify-items: center; gap: 6px; max-width: 360px; padding: 28px 32px;
+  background: var(--surface); box-shadow: 0 12px 32px var(--shadow);
+  color: var(--muted); font-size: 13px; text-align: center;
+  svg { width: 28px; height: 28px; margin-bottom: 4px; color: var(--accent); }
+  b { color: var(--text); font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .drop-zone { transition: none; } }

@@ -36,7 +36,6 @@ Dos objetivos, con el mismo peso:
 - Streams HLS (`.m3u8`).
 - Modo oscuro.
 - Visualizador.
-- Más idiomas.
 
 ## 3. Repositorio y herramientas
 
@@ -124,11 +123,11 @@ evento DOM / tecla / <audio> / timer / fetch
 ### 4.1 Forma del estado
 
 ```clojure
-{:locale  :es                          ; :es | :en
+{:locale  :es                          ; :es | :en | :pt | … (i18n/locales)
  :help?   false
  :player  {:station    nil             ; mapa de emisora (radiolisp.common.station) o nil
            :status     :stopped        ; :stopped | :connecting | :playing | :paused | :error
-           :error      nil             ; [:error/stream {}] | [:error/unsupported {}]
+           :error      nil             ; [:error/stream {}] | [:error/blocked {}] | [:error/refused {:status n}] | [:error/http-only {}] | [:error/unsupported {}]
            :started-at nil             ; ms, para el reloj
            :volume     70              ; 0–100
            :muted?     false}
@@ -175,7 +174,7 @@ El estado **nunca contiene textos traducidos**: guarda claves y datos (§8).
 - **Las respuestas antiguas se descartan**: cada búsqueda incrementa `:seq`, y una respuesta con un `seq` anterior se ignora. Además, `[:api/fetch …]` aborta el fetch anterior con un `AbortController`.
 - Endpoint: `GET /json/stations/search?name=<q>&hidebroken=true&order=clickcount&reverse=true&limit=50`.
 - "Más escuchadas hoy": `GET /json/stations/topclick/20?hidebroken=true`.
-- **Servidor**: al iniciar se pide `https://all.api.radio-browser.info/json/servers` y se elige uno al azar. Si falla, se usa una lista fija de respaldo (`de1`, `de2`). Ante un error de red o un 5xx se reintenta una vez con el siguiente servidor antes de pasar a `:error`.
+- **Servidor**: al iniciar se pide `https://all.api.radio-browser.info/json/servers` y se elige uno al azar. Si falla, se usa `all.api.radio-browser.info`, que el DNS reparte entre los servidores vivos. Ante un error de red o un 5xx se reintenta una vez con el siguiente servidor antes de pasar a `:error`.
 - Todas las peticiones llevan `X-Requested-With: radiolisp/<versión>`. Radio Browser pide identificarse, y por CORS solo admite esa cabecera, no `User-Agent` ni una propia.
 
 ### 4.4 `radiolisp.common.station`
@@ -311,8 +310,9 @@ El teclado es modal, como vim. **Insertar** significa escribir en el input. **No
 - **Plurales**: un valor puede ser un mapa `{:one "…" :other "…"}`, y la forma se elige con `Intl.PluralRules`.
 - **Números** con `Intl.NumberFormat` del idioma activo.
 - **El estado guarda claves y datos, nunca textos.** Los errores son vectores como `[:error/network {:at 1729420320000}]` y la vista los traduce, formateando la hora con `Intl.DateTimeFormat`.
-- **Idioma**: se detecta de `navigator.languages` (el primero que sea `es` o `en`, y si no, `en`). Se cambia con el selector ES · EN y no se persiste. `<html lang>` se actualiza con cada cambio.
-- **Una prueba comprueba** que `es.edn` y `en.edn` tienen exactamente las mismas claves.
+- **Idioma**: se detecta de `navigator.languages` (el primero cuya base esté soportada: `pt-BR` da `pt`; si ninguno, `en`). Se cambia con el selector de idioma y no se persiste. `<html lang>` se actualiza con cada cambio.
+- **Unas pruebas comprueban** que todos los `.edn` tienen las mismas claves y marcadores, y que cada plural trae todas las formas de su idioma.
+- **Idiomas** (ampliado tras el MVP): es, en, pt, fr, it, ca, gl, eu, ro, bg, ru y zh.
 - **Alcance**: todo el texto visible, `aria-label`, `title`, la ayuda y los errores. El contenido de Radio Browser (nombres, tags) no se traduce.
 
 ## 9. Errores y estados
@@ -324,6 +324,9 @@ El teclado es modal, como vim. **Insertar** significa escribir en el input. **No
 | Radio Browser caído (tras reintentar con otro servidor) | Lista | Caja con un punto rojo: "No se pudo conectar con Radio Browser a las HH:MM." y "Reintentar" |
 | Conectando con el stream | Reproductor | "Conectando…", sin reloj; a los 15 s pasa a error |
 | El stream falla (`error` del `<audio>`, CORS o 404) | Reproductor | "No se pudo reproducir: el stream no responde." y el play vuelve a ▶ |
+| El stream contesta 451 (bloqueo por región o VPN; se lee con un `fetch` si el stream permite CORS) | Reproductor | "La emisora bloquea tu conexión (HTTP 451)…" |
+| El stream contesta otro 4xx/5xx legible | Reproductor | "La emisora rechazó la conexión (HTTP n)." |
+| Página `https` y el stream solo existe en `http://` (la versión `https://` falla o no arranca en `https-attempt-ms`) | Reproductor | "Esta emisora solo emite por http…" |
 | Emisora HLS (`:hls? true` o `.m3u8`) | Reproductor | "Esta emisora usa un formato que aún no se puede reproducir." Se sigue mostrando en los resultados |
 | Contenido mixto (`http://` en una página `https://`) | Reproductor | Se trata como error del stream |
 
@@ -362,3 +365,4 @@ Esto no forma parte del MVP. Se documenta para que las decisiones de ahora no lo
 - Un mensaje entrante será otra acción para `actions/handle` (`[:now-playing/received {...}]`). Enviar un mensaje será otro efecto (`[:ws/send ...]`). La arquitectura de §4 no cambia.
 - `common/` compartirá el dominio (`station.cljc`) y los schemas de eventos (malli, que entra en esa fase).
 - Primeras funcionalidades: metadatos ICY de lo que suena (como `packages/api` de radiolise) y un proxy de streams `http` para servirlos en `https`.
+- La lista completa de ideas que necesitan backend está en `docs/ideas/backend.md`.

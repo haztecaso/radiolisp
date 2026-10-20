@@ -1,7 +1,8 @@
 (ns radiolisp.frontend.views.menu
   "Pop-up menus: the list menu (⋯ in the top bar) and a station's menu (⋯ on
-  its tile). `effects` places it next to its button; a transparent scrim
-  behind it closes it on any outside click."
+  its tile). The list menu also holds the theme and the language, which opens
+  as a second page of the same menu. `effects` places it next to its button;
+  a transparent scrim behind it closes it on any outside click."
   (:require [radiolisp.frontend.i18n :as i18n]
             [radiolisp.frontend.views.icons :as icons]))
 
@@ -47,21 +48,45 @@
      [:button.danger {:role "menuitem" :on {:click [[:menu/close] [:dialog/open-remove id]]}}
       icons/trash [:span (t :fav/remove)]])))
 
-(defn- list-items [t]
+(defn- list-items [{:keys [theme]} t]
+  (let [dark? (= :dark (:current theme))]
+    (list
+     (item icons/download (t :menu/export) [[:dialog/open-export]])
+     (item icons/upload (t :menu/import) [[:favorites/import-pick]])
+     [:hr]
+     (item (if dark? icons/sun icons/moon) (t (if dark? :theme/to-light :theme/to-dark)) [[:theme/toggle]])
+     [:button.sub {:role "menuitem" :aria-haspopup "menu" :on {:click [[:menu/page :language]]}}
+      icons/globe [:span (t :lang/label)] [:span.meta (t :lang/name)] icons/chevron-right]
+     [:hr]
+     (item icons/key-icon (t :help/title) [[:help/open]] [:span.meta "?"]))))
+
+(defn- language-items
+  "Each language is listed by its own name, so it can be found from any other."
+  [{:keys [locale]} t]
   (list
-   (item icons/download (t :menu/export) [[:dialog/open-export]])
-   (item icons/upload (t :menu/import) [[:favorites/import-pick]])
+   [:button {:role "menuitem" :on {:click [[:menu/page nil]]}}
+    icons/chevron-left [:span (t :lang/label)]]
    [:hr]
-   (item icons/key-icon (t :help/title) [[:help/open]] [:span.meta "?"])))
+   (for [l i18n/locales]
+     [:button {:replicant/key l
+               :role          "menuitemradio"
+               :aria-checked  (str (= l locale))
+               :lang          (name l)
+               :on            {:click [[:menu/close] [:i18n/set l]]}}
+      [:span (i18n/t l :lang/name)]
+      (when (= l locale) [:span.meta icons/check])])))
 
 (defn view [{:keys [menu] :as state} t]
-  (when-let [{:keys [kind id]} menu]
+  (when-let [{:keys [kind id page]} menu]
     (list
      [:div.menu-scrim {:replicant/key "scrim" :on {:click [[:menu/close]]}}]
      [:div#menu.menu {:replicant/key "menu"
                       :role          "menu"
-                      :aria-label    (t (if (= :list kind) :menu/list :tile/options)
-                                        {:name (get-in state [:stations id :name])})}
-      (if (= :list kind)
-        (list-items t)
-        (station-items state t id))])))
+                      :aria-label    (cond
+                                       (= :language page) (t :lang/label)
+                                       (= :list kind)     (t :menu/list)
+                                       :else              (t :tile/options {:name (get-in state [:stations id :name])}))}
+      (cond
+        (= :language page) (language-items state t)
+        (= :list kind)     (list-items state t)
+        :else              (station-items state t id))])))

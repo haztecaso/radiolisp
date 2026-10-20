@@ -6,6 +6,13 @@
   content) and on networks whose port-80 proxies buffer endless responses, so
   `play!` tries the https:// form of the URL first and falls back to the
   original when that errors or does not start within `https-attempt-ms`.
+  On an https page the original is pointless (the browser blocks or upgrades
+  mixed content), so only the https form is tried, and when it fails the
+  station is reported as http-only.
+
+  When every URL has failed, the element does not say why, so a `fetch` of the
+  last one reads the HTTP status for the message (a 451 means the station
+  blocks the listener's region or VPN). Streams without CORS keep it hidden.
 
   HLS streams play natively where the browser can (Safari); elsewhere through
   hls.js, loaded on demand from the :hls module."
@@ -13,6 +20,7 @@
             [shadow.lazy :as lazy]))
 
 (def https-attempt-ms 8000)
+(def status-probe-ms 4000)
 
 ;; Not required on purpose: requiring it would put hls.js in the main module.
 (def ^:private hls-module
@@ -23,7 +31,9 @@
   (atom {:element   nil
          :dispatch  nil
          :url       nil      ; the station URL being played, before any https rewrite
+         :current   nil      ; the candidate URL being tried
          :hls?      false
+         :http-only? false   ; on an https page, an http:// station with no fallback
          :hls       nil      ; the hls.js instance, when one is attached
          :attempt   0        ; bumped on every load; stale async work checks it
          :fallbacks []
@@ -31,10 +41,17 @@
 
 (defn- ^js element [] (:element @state))
 
+(defn- https-page? []
+  (= "https:" (.. js/window -location -protocol)))
+
+(defn- http-url? [url]
+  (str/starts-with? url "http://"))
+
 (defn- candidates [url]
-  (if (str/starts-with? url "http://")
-    [(str "https://" (subs url (count "http://"))) url]
-    [url]))
+  (cond
+    (not (http-url? url)) [url]
+    (https-page?)         [(str "https://" (subs url (count "http://")))]
+    :else                 [(str "https://" (subs url (count "http://"))) url]))
 
 (defn- clear-attempt! []
   (js/clearTimeout (:timer @state))
@@ -72,14 +89,14 @@
           ;; Failures arrive through the "error" event; the rejection adds nothing.
           (-> (.play audio) (.catch (fn [_] nil)))))))
 
-(declare next-candidate!)
-
 (defn- start-attempt! [url]
   (clear-attempt!)
+  (swap! state assoc :current url)
   (load! url)
-  (when (seq (:fallbacks @state))
+  ;; An https form that does not exist often hangs instead of erroring.
+  (when (or (seq (:fallbacks @state)) (:http-only? @state))
     (swap! state assoc :timer
-           (js/setTimeout #(when (< (.-readyState (element)) 3) (next-candidate!))
+           (js/setTimeout #(when (< (.-readyState (element)) 3) (fail-attempt!))
                           https-attempt-ms))))
 
 (defn- next-candidate!
@@ -91,9 +108,26 @@
         true)
     (do (clear-attempt!) false)))
 
+(defn- report-failure!
+  "Dispatches :audio/failed with the HTTP status `url` answers with, or nil
+  when it cannot be read (no CORS, mixed content, network error)."
+  [url]
+  (let [attempt (:attempt @state)]
+    (-> (js/fetch url #js {:cache "no-store" :signal (js/AbortSignal.timeout status-probe-ms)})
+        (.then (fn [^js res]
+                 ;; Only the status matters; a live stream body never ends.
+                 (some-> (.-body res) (.cancel) (.catch (fn [_] nil)))
+                 (.-status res)))
+        (.catch (fn [_] nil))
+        (.then (fn [status]
+                 (when (= attempt (:attempt @state))
+                   ((:dispatch @state) [:audio/failed status])))))))
+
 (defn- fail-attempt! []
-  (when-not (next-candidate!)
-    ((:dispatch @state) [:audio/failed])))
+  (cond
+    (next-candidate!)    nil
+    (:http-only? @state) ((:dispatch @state) [:audio/http-only])
+    :else                (report-failure! (:current @state))))
 
 (defn- playback-state! [s]
   (when-let [^js session (.-mediaSession js/navigator)]
@@ -127,7 +161,8 @@
       ;; Resuming the station already loaded and healthy.
       (-> (.play audio) (.catch (fn [_] nil)))
       (let [[first-url & fallbacks] (candidates url)]
-        (swap! state assoc :url url :hls? (boolean hls?) :fallbacks (vec fallbacks))
+        (swap! state assoc :url url :hls? (boolean hls?) :fallbacks (vec fallbacks)
+               :http-only? (and (http-url? url) (https-page?)))
         (start-attempt! first-url)))))
 
 (defn pause! []

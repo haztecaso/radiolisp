@@ -1,9 +1,13 @@
 {:brand/name          "radiolisp"
+ :theme/to-dark       "Cambiar a tema oscuro"
+ :theme/to-light      "Cambiar a tema claro"
  :lang/label          "Idioma"
+ :lang/name           "Español"
 
  :grid/title          "Favoritas"
  :grid/empty-title    "Todavía no tienes favoritas"
- :grid/empty-hint     "Busca una emisora en Radio Browser y pulsa el corazón para guardarla aquí."
+ :grid/empty-hint     "Busca una emisora en Radio Browser y pulsa el corazón para guardarla aquí, o suelta un fichero de lista sobre la página."
+ :grid/empty-import  "Importar una lista"
  :grid/no-match       "Ninguna favorita se llama «{query}»"
  :grid/search-for     "Buscar «{query}» en Radio Browser"
  :filter/label        "Filtrar favoritas"
@@ -57,6 +61,9 @@
  :error/network       "No se pudo conectar con Radio Browser a las {time}."
  :error/stations      "No se pudieron cargar los datos de tus favoritas."
  :error/stream        "No se pudo reproducir: el stream no responde."
+ :error/blocked       "La emisora bloquea tu conexión (HTTP 451). Suele pasar con VPN o fuera de su región."
+ :error/refused       "La emisora rechazó la conexión (HTTP {status})."
+ :error/http-only     "Esta emisora solo emite por http, y el navegador no la deja sonar en una página https."
  :error/unsupported   "Este navegador no puede reproducir el formato de esta emisora."
  :error/retry         "Reintentar"
 
@@ -81,6 +88,12 @@
  :export/list-hint    "Un uuid de Radio Browser por línea. Incluye las que ya no tienen stream."
  :export/filename     "Nombre del fichero"
  :export/save         "Exportar"
+ :import/title       "¿Importar favoritas?"
+ :import/body        {:one   "«{file}» trae {count} emisora. Se añade a tus favoritas; las que ya tienes no cambian."
+                      :other "«{file}» trae {count} emisoras. Se añaden a tus favoritas; las que ya tienes no cambian."}
+ :import/confirm     "Importar"
+ :drop/title         "Suelta el fichero para importar la lista"
+ :drop/hint          "M3U, .list o un .txt de Radiolise"
 
  :toast/added         "«{name}» añadida a favoritas"
  :toast/removed       "«{name}» quitada de favoritas"

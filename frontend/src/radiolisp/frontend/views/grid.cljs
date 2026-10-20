@@ -66,7 +66,9 @@
        [:div.empty-state
         [:b (t :grid/empty-title)]
         [:span (t :grid/empty-hint)]
-        [:button.btn.primary {:on {:click [[:search/open]]}} icons/plus (t :search/open)]]
+        [:div.empty-actions
+         [:button.btn.primary {:on {:click [[:search/open]]}} icons/plus (t :search/open)]
+         [:button.btn {:on {:click [[:favorites/import-pick]]}} icons/upload (t :grid/empty-import)]]]
 
        (empty? shown)
        [:div.empty-state

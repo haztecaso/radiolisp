@@ -1,6 +1,6 @@
 (ns radiolisp.frontend.views.dialogs
   "The one native <dialog> for confirmations: removing a favourite, choosing
-  its key and exporting the list. It always exists; `effects` opens and
+  its key, exporting the list and importing a dropped file. It always exists; `effects` opens and
   closes it and its content follows `:dialog` in the state."
   (:require [radiolisp.common.favorites :as favs]))
 
@@ -71,6 +71,14 @@
     [:button.btn {:type "button" :on {:click [[:dialog/close]]}} (t :dialog/cancel)]
     [:button.btn.primary {:type "submit"} (t :export/save)]]])
 
+(defn- import-body [t {:keys [filename] n :count}]
+  [:form {:on {:submit [[:import-dialog/confirm]]}}
+   [:h2#dialog-title (t :import/title)]
+   [:p (t :import/body {:file filename :count n})]
+   [:div.actions
+    [:button.btn {:type "button" :on {:click [[:dialog/close]]}} (t :dialog/cancel)]
+    [:button.btn.primary {:type "submit" :autofocus true} (t :import/confirm)]]])
+
 (defn view [{:keys [dialog] :as state} t]
   [:dialog#dialog {:aria-labelledby "dialog-title"
                    :on              {:close [[:dialog/close]]}}
@@ -78,4 +86,5 @@
      :remove (remove-body state t (:id dialog))
      :key    (key-body state t dialog)
      :export (export-body t dialog)
+     :import (import-body t dialog)
      nil)])

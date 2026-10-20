@@ -13,9 +13,10 @@ para aprender Clojure.
 - Reproductor fijo abajo: reproducir y pausar, volumen y silencio. Suena MP3, AAC,
   Ogg y HLS; las teclas multimedia del sistema también funcionan.
 - Exportar las favoritas en M3U o como lista de uuids (`.list`), importar esos
-  ficheros y los `.txt` que exporta Radiolise, votar emisoras y copiar su stream.
+  ficheros y los `.txt` que exporta Radiolise (desde el menú, el estado vacío o
+  soltando el fichero sobre la página), votar emisoras y copiar su stream.
 - Todo se maneja con teclado, con flechas o con atajos estilo vim (pulsa `?`).
-- Interfaz en español e inglés.
+- Interfaz en doce idiomas: español, inglés, portugués, francés, italiano, catalán, gallego, euskera, rumano, búlgaro, ruso y chino.
 
 Por ahora es solo frontend, sin backend. El diseño está en
 [`docs/specs/2026-10-20-mvp-design.md`](docs/specs/2026-10-20-mvp-design.md) y
@@ -88,7 +89,7 @@ radiolisp/
 │   ├── resources/
 │   │   ├── public/                # index.html, fonts/; css/ y js/ son salida de compilación
 │   │   ├── styles/                # main.scss y parciales (_tokens, _grid, _player, _search…)
-│   │   └── i18n/                  # es.edn, en.edn
+│   │   └── i18n/                  # un .edn por idioma (es, en, pt, fr…)
 │   ├── src/radiolisp/frontend/
 │   │   ├── main.cljs              # conexión: dispatch, render, teclado, teclas multimedia
 │   │   ├── store.cljs             # el estado inicial y el átomo
@@ -147,9 +148,14 @@ clic / tecla / evento de <audio> / respuesta HTTP
 ### Textos e idiomas
 
 Todos los textos visibles, `aria-label` incluidos, viven en
-`frontend/resources/i18n/es.edn` y `en.edn`, con las mismas claves en los dos (un
-test lo comprueba). Desde las vistas: `(t :search/empty {:query q})`. Los plurales
-son un mapa `{:one "…" :other "…"}`, y se eligen con `{:count n}`.
+`frontend/resources/i18n/<idioma>.edn` (`es`, `en`, `pt`, `fr`, `it`, `ca`, `gl`,
+`eu`, `ro`, `bg`, `ru`, `zh`), con las mismas claves y los mismos `{marcadores}` en
+todos (unos tests lo comprueban). Desde las vistas: `(t :search/empty {:query q})`.
+Los plurales son un mapa con las formas de `Intl.PluralRules` del idioma
+(`{:one "…" :other "…"}`; el rumano añade `:few` y el ruso `:few` y `:many`), y se
+eligen con `{:count n}`. `:lang/name` es el nombre del idioma en ese idioma: es lo
+que lista el selector. Para añadir uno, crea su `.edn` y súmalo a
+`dictionaries` y `locales` en `i18n.cljs`.
 
 ### Estilos
 
@@ -159,6 +165,14 @@ del diseño: radio 0, una sola familia tipográfica (DM Sans, autoalojada), el c
 pleno solo en marcas pequeñas, y nada de degradados ni sombras en reposo. Para
 cambios visuales sigue el skill `.agents/skills/design-taste-frontend` (reglas de
 *app screens*).
+
+Modo oscuro: la paleta oscura es el mapa `$dark` de `_tokens.scss`, que redefine
+los mismos custom properties bajo `:root[data-theme="dark"]`. Un script en
+`index.html` pone `data-theme` antes del primer pintado (la elección guardada en
+`radiolisp/theme`, si no la preferencia del navegador). El botón sol/luna de la
+barra superior la cambia y la guarda; mientras no se pulse, la app sigue los
+cambios de la preferencia del sistema. Un color nuevo necesita su valor en los dos
+temas: nada de hex sueltos en los estilos.
 
 ## REPL
 
@@ -188,7 +202,7 @@ Para curiosear el estado en vivo:
 - **`bb e2e`**: maneja Chromium por CDP contra la app en marcha y comprueba unas 80
   cosas: añadir desde la paleta, una sola petición `byuuid` al recargar,
   reproducción real, teclas asignadas, menús, arrastrar y soltar, filtro, quitar con
-  confirmación, exportar (M3U y `.list`) e importar (M3U, `.list` y Radiolise), HLS con hls.js, ayuda, idioma y el layout
+  confirmación, exportar (M3U y `.list`) e importar (M3U, `.list` y Radiolise), HLS con hls.js, ayuda, idioma, tema y el layout
   de móvil. Siembra `localStorage` y bloquea `/json/url` y `/json/vote`, así que no
   altera las estadísticas de Radio Browser. Hay que
   tener `bb dev` corriendo; para otra dirección, por ejemplo un build de release,
@@ -212,9 +226,12 @@ cd frontend/resources/public && python3 -m http.server 8090
 ## Limitaciones conocidas
 
 - **Streams `http://`.** Muchas emisoras solo emiten por http. Servida por `https`,
-  el navegador bloquea esos streams (contenido mixto). La app prueba primero la
-  versión `https://` de cada URL, pero no todas existen. Lo resolverá un proxy en
-  el futuro backend.
+  el navegador bloquea esos streams (contenido mixto). La app prueba la versión
+  `https://` de cada URL y, si no existe, avisa de que la emisora solo emite por
+  http. Lo resolverá un proxy en el futuro backend
+  ([ideas de backend](docs/ideas/backend.md)).
+- **Bloqueos por región o VPN.** Algunas emisoras (RTVE, por ejemplo) contestan
+  `451` a ciertas IP. La app lo detecta cuando el stream permite CORS y lo dice.
 - **HLS (`.m3u8`)** suena de forma nativa donde el navegador sabe (Safari, Chrome
   reciente) y con hls.js en el resto. hls.js (unos 600 KB) va en su propio módulo y
   solo se descarga la primera vez que hace falta. Sin Media Source Extensions, la
@@ -222,7 +239,6 @@ cd frontend/resources/public && python3 -m http.server 8090
 - **Las favoritas viven en este navegador** (`localStorage`). Para llevarlas a otro,
   exporta e importa el M3U o el `.list`; los atajos no viajan.
 - **Lo que suena** (metadatos ICY) necesita backend, y llegará con él.
-- Sin modo oscuro, y con dos idiomas.
 
 ## Créditos
 

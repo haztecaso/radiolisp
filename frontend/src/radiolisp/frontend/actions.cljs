@@ -10,6 +10,11 @@
 (def debounce-ms 300)
 (def connect-timeout-ms 15000)
 (def toast-ms 2500)
+(def file-drag-ms
+  "How long a dragged file counts as over the page after its last dragover.
+  Browsers repeat dragover every 50 to 350 ms while the file stays there, and
+  send no reliable event when it leaves the window."
+  400)
 (def import-accept
   "M3U, the list of uuids and Radiolise exports (`.txt`)."
   ".m3u,.m3u8,.list,.txt,audio/x-mpegurl,audio/mpegurl")
@@ -78,9 +83,10 @@
 (defn- volume-effect [{:keys [volume muted?]}]
   [:audio/volume (if muted? 0 (/ volume 100))])
 
-(defmethod handle :app/init [state [_ {:keys [locale]}]]
-  (ok (assoc state :locale locale)
+(defmethod handle :app/init [state [_ {:keys [locale theme]}]]
+  (ok (assoc state :locale locale :theme theme)
       [[:dom/lang locale]
+       [:dom/theme (:current theme)]
        (volume-effect (:player state))
        [:storage/load]
        [:storage/persist]
@@ -212,9 +218,24 @@
   (ok (update state :player assoc :status :error :error error)
       [[:timer/cancel :connect]]))
 
-(defmethod handle :audio/failed [state _]
+(defn- stream-error
+  "The message for a stream that failed, given the HTTP status it answered
+  with (nil when it could not be read). 451 is what CDNs answer to a region
+  or VPN they block."
+  [status]
+  (cond
+    (= 451 status)                       [:error/blocked {}]
+    (and (number? status) (>= status 400)) [:error/refused {:status status}]
+    :else                                [:error/stream {}]))
+
+(defmethod handle :audio/failed [state [_ status]]
   (if (status-in? state #{:playing :connecting})
-    (fail state [:error/stream {}])
+    (fail state (stream-error status))
+    (ok state)))
+
+(defmethod handle :audio/http-only [state _]
+  (if (status-in? state #{:playing :connecting})
+    (add-effects (fail state [:error/http-only {}]) [:audio/stop])
     (ok state)))
 
 (defmethod handle :audio/unsupported [state _]
@@ -452,6 +473,11 @@
     (ok (assoc state :menu nil) [[:dom/focus anchor]])
     (ok state)))
 
+(defmethod handle :menu/page [state [_ page]]
+  (if-let [{:keys [anchor]} (:menu state)]
+    (ok (assoc-in state [:menu :page] page) [[:dom/place-menu anchor]])
+    (ok state)))
+
 (defmethod handle :menu/move [state [_ delta]]
   (ok state [[:dom/focus-step "menu" delta]]))
 
@@ -571,15 +597,45 @@
     :radiolise (entries->request (favs/parse-radiolise text))
     :list      {:ids (favs/parse-list text) :urls []}))
 
-(defmethod handle :import/read [state [_ text filename]]
+(defn- read-import
+  "`{:request {:ids :urls}}` for the text of `filename`, or `{:error toast-key}`
+  when it cannot be imported. A nil `text` is a file that was not read."
+  [state text filename]
   (let [format (favs/file-format filename)
-        server (current-server state)
-        {:keys [ids urls] :as request} (when format (import-request format text))]
+        {:keys [ids urls] :as request} (when (and format text) (import-request format text))]
     (cond
-      (nil? format)                    (toast (ok state) [:toast/import-unsupported {}])
-      (and (empty? ids) (empty? urls)) (toast (ok state) [:toast/import-empty {}])
-      (nil? server)                    (toast (ok state) [:toast/import-failed {}])
-      :else                            (ok state [[:api/import (assoc request :server server)]]))))
+      (nil? format)                    {:error :toast/import-unsupported}
+      (and (empty? ids) (empty? urls)) {:error :toast/import-empty}
+      (nil? (current-server state))    {:error :toast/import-failed}
+      :else                            {:request request})))
+
+(defmethod handle :import/read [state [_ text filename]]
+  (let [{:keys [error request]} (read-import state text filename)]
+    (if error
+      (toast (ok state) [error {}])
+      (ok state [[:api/import (assoc request :server (current-server state))]]))))
+
+(defmethod handle :file-drag/over [state _]
+  (ok (assoc state :file-drag? true) [[:timer/start :file-drag file-drag-ms [:file-drag/end]]]))
+
+(defmethod handle :file-drag/end [state _]
+  (ok (assoc state :file-drag? false) [[:timer/cancel :file-drag]]))
+
+(defmethod handle :import/offer [state [_ text filename]]
+  (let [{:keys [error] {:keys [ids urls]} :request} (read-import state text filename)]
+    (if error
+      (toast (ok state) [error {}])
+      (ok (assoc state :dialog {:kind     :import
+                                :filename filename
+                                :text     text
+                                :count    (+ (count ids) (count urls))})
+          [[:dom/show-dialog "dialog"]]))))
+
+(defmethod handle :import-dialog/confirm [state _]
+  (let [{:keys [text filename]} (:dialog state)]
+    (-> (ok state)
+        close-dialog
+        (then [:import/read text filename]))))
 
 (defmethod handle :import/resolved [state [_ {:keys [stations missing]}]]
   (let [before (count (items state))
@@ -610,7 +666,18 @@
   (ok (assoc-in state [:art id] :broken)))
 
 (defmethod handle :i18n/set [state [_ locale]]
-  (ok (assoc state :locale locale) [[:dom/lang locale]]))
+  (let [locale (keyword locale)] ; the language picker sends its value as a string
+    (ok (assoc state :locale locale) [[:dom/lang locale]])))
+
+(defmethod handle :theme/toggle [state _]
+  (let [theme (if (= :dark (get-in state [:theme :current])) :light :dark)]
+    (ok (assoc state :theme {:current theme :chosen? true})
+        [[:dom/theme theme] [:theme/save theme]])))
+
+(defmethod handle :theme/system-changed [state [_ theme]]
+  (if (get-in state [:theme :chosen?])
+    (ok state)
+    (ok (assoc-in state [:theme :current] theme) [[:dom/theme theme]])))
 
 (defmethod handle :help/open [state _]
   (ok (assoc state :help? true) [[:dom/show-dialog "help"]]))

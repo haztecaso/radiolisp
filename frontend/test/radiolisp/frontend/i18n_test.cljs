@@ -26,16 +26,45 @@
 (deftest t-shows-missing-keys
   (is (= ":nope/missing" (i18n/t :es :nope/missing))))
 
+(deftest every-locale-has-a-dictionary
+  (is (= (set i18n/locales) (set (keys i18n/dictionaries)))))
+
 (deftest dictionaries-have-the-same-keys
-  (let [{:keys [es en]} i18n/dictionaries]
-    (is (= (set (keys es)) (set (keys en))))
-    (doseq [[k v] es :when (map? v)]
-      (testing (str k)
-        (is (= (set (keys v)) (set (keys (get en k)))))))))
+  (let [en (:en i18n/dictionaries)]
+    (doseq [[locale dictionary] i18n/dictionaries]
+      (testing (name locale)
+        (is (= (set (keys en)) (set (keys dictionary))))))))
+
+(defn- placeholders [message]
+  (set (re-seq #"\{\w+\}" (if (map? message) (apply str (vals message)) message))))
+
+(deftest dictionaries-keep-the-placeholders
+  (let [en (:en i18n/dictionaries)]
+    (doseq [[locale dictionary] i18n/dictionaries
+            [k message] dictionary]
+      (testing (str (name locale) " " k)
+        (is (= (placeholders (get en k)) (placeholders message)))))))
+
+(deftest plurals-cover-every-form-of-the-locale
+  (doseq [[locale dictionary] i18n/dictionaries
+          :let [rules (js/Intl.PluralRules. (name locale))
+                forms (set (map #(keyword (.select rules %)) (range 200)))]
+          [k message] dictionary
+          :when (map? message)]
+    (testing (str (name locale) " " k)
+      (is (every? (set (keys message)) (conj forms :other))))))
+
+(deftest plurals-agree-in-russian
+  (is (= "1 станция" (i18n/t :ru :search/results {:count 1})))
+  (is (= "3 станции" (i18n/t :ru :search/results {:count 3})))
+  (is (= "5 станций" (i18n/t :ru :search/results {:count 5}))))
 
 (deftest detect-locale-takes-the-first-supported-language
   (is (= :es (i18n/detect-locale ["es-ES" "en"])))
   (is (= :es (i18n/detect-locale ["ES"])))
-  (is (= :en (i18n/detect-locale ["fr-FR" "en-GB"])))
-  (is (= :en (i18n/detect-locale ["fr"])))
+  (is (= :fr (i18n/detect-locale ["fr-FR" "en-GB"])))
+  (is (= :pt (i18n/detect-locale ["pt-BR"])))
+  (is (= :zh (i18n/detect-locale ["zh-CN"])))
+  (is (= :en (i18n/detect-locale ["ja" "en-GB"])))
+  (is (= :en (i18n/detect-locale ["ja"])))
   (is (= :en (i18n/detect-locale []))))

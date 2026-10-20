@@ -2,12 +2,12 @@
 
 // The palette: a modal at the top, over the dimmed grid.
 .palette { position: fixed; inset: 0; z-index: 15; }
-.palette .scrim { position: absolute; inset: 0; background: rgba(24, 18, 20, .24); }
+.palette .scrim { position: absolute; inset: 0; background: var(--scrim); }
 .palette .box {
   position: relative; display: flex; flex-direction: column;
   width: min(680px, calc(100vw - 32px)); max-height: 80vh; margin: 10vh auto 0;
   background: var(--surface); border: 1px solid var(--border);
-  box-shadow: 0 16px 40px rgba(24, 18, 20, .16);
+  box-shadow: 0 16px 40px var(--shadow);
   animation: drop 200ms var(--ease);
   @media (max-width: $phone) { width: 100%; max-height: none; height: 100svh; margin: 0; border: 0; }
 }

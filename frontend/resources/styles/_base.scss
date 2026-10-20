@@ -75,7 +75,7 @@ kbd {
   &:hover { border-color: var(--text); }
   &:disabled { color: var(--faint); border-color: var(--border); cursor: not-allowed; }
   svg { width: 16px; height: 16px; }
-  &.primary { background: var(--text); border-color: var(--text); color: #fff; }
+  &.primary { background: var(--text); border-color: var(--text); color: var(--on-text); }
   &.primary:disabled { background: var(--raised); border-color: var(--raised); color: var(--faint); }
   &.danger { color: var(--negative-ink); border-color: var(--negative-soft); }
   &.danger:hover { border-color: var(--negative); }

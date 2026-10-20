@@ -16,12 +16,6 @@
     ([k] (i18n/t locale k))
     ([k vars] (i18n/t locale k vars))))
 
-(defn- language-button [locale current]
-  [:button.text-btn {:lang         (name locale)
-                     :aria-pressed (str (= locale current))
-                     :on           {:click [[:i18n/set locale]]}}
-   (str/upper-case (name locale))])
-
 (defn- filter-field
   "A funnel button that unfolds into the filter field, which folds back once
   it is left empty."
@@ -42,7 +36,7 @@
                        :on         {:click [[:filter/focus]]}}
      icons/funnel]))
 
-(defn- top-bar [{:keys [locale menu] :as state} t]
+(defn- top-bar [{:keys [menu] :as state} t]
   [:header.top
    [:a.brand {:href "/"} icons/mark [:b (t :brand/name)]]
    [:div.tools
@@ -52,8 +46,6 @@
      icons/plus]
     (filter-field state t)]
    [:div.top-actions
-    [:span.lang.hide-s {:role "group" :aria-label (t :lang/label)}
-     (language-button :es locale) " · " (language-button :en locale)]
     [:button#list-menu.icon-btn {:aria-label    (t :menu/list)
                                  :aria-haspopup "menu"
                                  :aria-expanded (str (= "list-menu" (:anchor menu)))
@@ -63,6 +55,13 @@
 (defn- toast [{messages :toast} t]
   [:div.toast {:role "status" :class (when messages "show")}
    (str/join " · " (map (fn [[k vars]] (t k vars)) messages))])
+
+(defn- drop-zone [{:keys [file-drag?]} t]
+  [:div.drop-zone {:class (when file-drag? "show") :aria-hidden "true"}
+   [:div.drop-box
+    icons/upload
+    [:b (t :drop/title)]
+    [:span (t :drop/hint)]]])
 
 (defn app [{:keys [locale] :as state}]
   (let [t (translator locale)]
@@ -74,4 +73,5 @@
      (menu/view state t)
      (toast state t)
      (dialogs/view state t)
+     (drop-zone state t)
      (help/view t)]))

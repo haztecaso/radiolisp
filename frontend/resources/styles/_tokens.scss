@@ -18,6 +18,34 @@ $negative: #c4242a;
 $negative-ink: #831c1e;
 $negative-soft: #ffedea;
 
+// Dark: the same raspberry on a near-black ground tinted with its hue. Depth
+// comes from lighter surface steps, never from glows.
+$dark: (
+  accent: #e0679a,
+  accent-soft: #2a1720,
+  accent-track: #4a2335,
+  accent-ink: #f4a8c8,
+  ground: #141012,
+  surface: #1c1719,
+  raised: #262022,
+  active: #2d2629,
+  border: #30282c,
+  rule: #221c1f,
+  control: #4a3f44,
+  text: #f3eef0,
+  muted: #b0a3a9,
+  faint: #998b91,
+  negative: #f0565b,
+  negative-ink: #ff9b94,
+  negative-soft: #331617,
+  on-text: #141012,
+  tile-2: #2a1b22,
+  tile-3: #231d20,
+  veil: rgba(20, 16, 18, .9),
+  shadow: rgba(0, 0, 0, .5),
+  scrim: rgba(0, 0, 0, .5),
+);
+
 $phone: 760px;
 $tablet: 1024px;
 
@@ -39,6 +67,14 @@ $tablet: 1024px;
   --negative: #{$negative};
   --negative-ink: #{$negative-ink};
   --negative-soft: #{$negative-soft};
+  --on-text: #fff;                        // ink on a --text fill
+  --on-accent: #fff;                      // ink on an --accent fill, both themes
+  --tile-2: #f9eef3;                      // placeholder tile tints
+  --tile-3: #f3ecef;
+  --veil: rgba(255, 255, 255, .94);       // behind names over artwork
+  --shadow: rgba(24, 18, 20, .14);        // floating panels
+  --scrim: rgba(24, 18, 20, .24);
+  color-scheme: light;
 
   --edge: 24px;
   --pad: 32px;
@@ -50,4 +86,11 @@ $tablet: 1024px;
 
   @media (max-width: $tablet) { --edge: 20px; }
   @media (max-width: $phone) { --edge: 16px; --pad: 20px; }
+}
+
+// Set on <html> by index.html before the first paint (stored choice or the
+// browser's preference), then kept by the :dom/theme effect.
+:root[data-theme="dark"] {
+  @each $name, $value in $dark { --#{$name}: #{$value}; }
+  color-scheme: dark;
 }

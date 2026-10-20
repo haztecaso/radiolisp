@@ -19,9 +19,9 @@
     (= "Enter" k)         (when (:pending dialog) [:key-dialog/save])
     :else                 [:key-dialog/pressed k]))
 
-(defn- menu-action [{k :key}]
+(defn- menu-action [menu {k :key}]
   (case k
-    "Escape"          [:menu/close]
+    "Escape"          (if (:page menu) [:menu/page nil] [:menu/close])
     ("j" "ArrowDown") [:menu/move 1]
     ("k" "ArrowUp")   [:menu/move -1]
     nil))
@@ -77,7 +77,7 @@
       (or help? alt? meta?)            nil
       (= :key (:kind dialog))          (when-not ctrl? (key-dialog-action state press))
       dialog                           nil
-      menu                             (when-not ctrl? (menu-action press))
+      menu                             (when-not ctrl? (menu-action menu press))
       (and open? ctrl? (#{"j" "n"} k)) [:search/move 1]
       (and open? ctrl? (#{"k" "p"} k)) [:search/move -1]
       ctrl?                            nil

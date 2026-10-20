@@ -129,6 +129,7 @@ try {
   const page = await newApp(browser, { width: 1440, height: 900 });
   check('empty state without favourites', await waitFor(page, `!!document.querySelector('.empty-state')`), await text(page, '.empty-state b'));
   check('no station request without favourites', count(page, /byuuid/) === 0);
+  check('empty state offers an import', /Import/.test((await text(page, '.empty-actions .btn:not(.primary)')) || ''));
   await page.screenshot({ path: `${OUT}/1-empty-desktop.jpg` });
 
   await press(page, 'a');
@@ -173,6 +174,22 @@ try {
   check('vanished station flagged', flags.includes('Ya no está en Radio Browser'));
   check('assigned key shown on its tile', (await text(grid, '.tile:nth-child(1) .keycap')) === '1');
   await grid.screenshot({ path: `${OUT}/3-grid-desktop.jpg` });
+
+  // theme: the browser's preference first, the list menu overrides and remembers it
+  const theme = () => grid.eval('document.documentElement.dataset.theme');
+  const toggleTheme = async () => {
+    await click(grid, '#list-menu');
+    await grid.eval(`[...document.querySelectorAll('#menu [role=menuitem]')].find(e => /tema/.test(e.textContent)).click()`);
+  };
+  check('theme follows the browser (light)', (await theme()) === 'light', await theme());
+  check('the top bar has no theme or language controls', !(await exists(grid, '.top-actions .theme, .top select')));
+  await toggleTheme();
+  check('the menu switches the theme to dark', (await theme()) === 'dark' && (await grid.eval(`localStorage.getItem('radiolisp/theme')`)) === 'dark');
+  await grid.screenshot({ path: `${OUT}/3b-grid-dark-desktop.jpg` });
+  await grid.goto(URL, { settleMs: 500 });
+  check('chosen theme survives a reload', (await theme()) === 'dark', await theme());
+  await toggleTheme();
+  await waitFor(grid, `document.querySelectorAll('.tile .art img, .tile .art .mono').length >= 4`);
 
   // play: click a tile, counts a click (blocked), pauses on a second click
   await click(grid, '.tile:nth-child(1) .play');
@@ -322,6 +339,28 @@ try {
   await importFile('radios.pls', ['[playlist]', 'File1=https://example.invalid/s', '']);
   check('other files are refused', await waitFor(grid, `/Solo se importan/.test(document.querySelector('.toast.show')?.textContent || '')`, 5000), await toast(grid));
 
+  // A file dropped on the page (here on a tile, which must not take it) asks first.
+  const dropFile = (name, content) => grid.eval(`(() => {
+    const data = new DataTransfer();
+    data.items.add(new File([${JSON.stringify(content)}], ${JSON.stringify(name)}));
+    const target = document.querySelector('.tile');
+    for (const type of ['dragover', 'drop']) target.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data }));
+  })()`);
+  await grid.eval(`document.querySelector('.tile').dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: (() => { const d = new DataTransfer(); d.items.add(new File(['x'], 'a.list')); return d; })() }))`);
+  check('a dragged file shows the drop zone', await waitFor(grid, `!!document.querySelector('.drop-zone.show')`, 2000), await text(grid, '.drop-box b'));
+  await grid.screenshot({ path: `${OUT}/8c-drop-zone-desktop.jpg` });
+  check('the drop zone goes once the file leaves', await waitFor(grid, `!document.querySelector('.drop-zone.show')`, 2000));
+  await waitFor(grid, `!document.querySelector('.toast.show')`, 5000);
+  await dropFile('dropped.list', `${STATIONS.jazz.id}\n`);
+  check('a dropped file opens the import dialog', await waitFor(grid, `document.getElementById('dialog').open && /dropped\.list/.test(document.getElementById('dialog').textContent)`, 5000), await text(grid, '#dialog p'));
+  await grid.screenshot({ path: `${OUT}/8d-import-drop-desktop.jpg` });
+  await click(grid, '#dialog .btn.primary');
+  check('confirming imports the dropped file', await waitFor(grid, `/Importada 1/.test(document.querySelector('.toast.show')?.textContent || '')`, 15000), await toast(grid));
+  check('the dialog closes after import', !(await dialogOpen(grid)));
+  await waitFor(grid, `!document.querySelector('.toast.show')`, 5000);
+  await dropFile('photo.png', 'not a list');
+  check('a dropped unsupported file is refused', await waitFor(grid, `/Solo se importan/.test(document.querySelector('.toast.show')?.textContent || '')`, 5000) && !(await dialogOpen(grid)), await toast(grid));
+
   // help and language
   await grid.eval(`document.activeElement.blur()`);
   await press(grid, '?');
@@ -336,10 +375,34 @@ try {
   check('the list menu opens the shortcuts', await grid.eval(`document.getElementById('help').open`));
   await press(grid, 'Escape');
   await sleep(200);
-  await click(grid, '.top button[lang=en]');
+  const openLanguages = async () => {
+    await click(grid, '#list-menu');
+    await click(grid, '#menu .sub');
+    await sleep(100);
+  };
+  const pickLanguage = async (locale) => {
+    await openLanguages();
+    await click(grid, `#menu [role=menuitemradio][lang=${locale}]`);
+    await sleep(100);
+  };
+  await openLanguages();
+  check('the language page lists every language', (await grid.eval(`document.querySelectorAll('#menu [role=menuitemradio]').length`)) === 12);
+  check('the language page marks the current one', (await grid.eval(`document.querySelector('#menu [aria-checked=true]')?.lang`)) === 'es');
+  check('the language page focuses its back item', await grid.eval(`document.activeElement === document.querySelector('#menu [role=menuitem]')`));
+  await grid.screenshot({ path: `${OUT}/9b-languages-desktop.jpg` });
+  await press(grid, 'Escape');
+  await sleep(100);
+  check('esc goes back to the list menu', await exists(grid, '#menu .sub'));
+  await press(grid, 'Escape');
+  await sleep(100);
+  check('a second esc closes the menu', !(await exists(grid, '#menu')));
+  await pickLanguage('en');
   check('EN switches texts', (await grid.eval(`document.querySelector('.top .add').getAttribute('aria-label')`)) === 'Add station');
   check('html lang updated', (await grid.eval(`document.documentElement.lang`)) === 'en');
-  await click(grid, '.top button[lang=es]');
+  await pickLanguage('zh');
+  check('ZH switches texts', (await grid.eval(`document.documentElement.lang`)) === 'zh');
+  await pickLanguage('es');
+  check('back to ES', (await grid.eval(`document.documentElement.lang`)) === 'es');
 
   check('no uncaught exceptions (desktop)', page.consoleErrors.length + grid.consoleErrors.length === 0, [...page.consoleErrors, ...grid.consoleErrors].join(' | '));
   await page.close();

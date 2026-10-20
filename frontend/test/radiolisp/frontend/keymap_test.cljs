@@ -98,7 +98,9 @@
     (is (= [:menu/close] (press menu "Escape")))
     (is (= [:menu/move 1] (press menu "ArrowDown")))
     (is (= [:menu/move -1] (press menu "k")))
-    (is (nil? (press menu "1")))))
+    (is (nil? (press menu "1"))))
+  (testing "esc on the language page goes back to the list menu"
+    (is (= [:menu/page nil] (press (assoc grid :menu {:kind :list :anchor "list-menu" :page :language}) "Escape")))))
 
 (deftest keys-that-do-nothing
   (is (nil? (press (assoc grid :help? true) "/")) "the help dialog handles its own keys")

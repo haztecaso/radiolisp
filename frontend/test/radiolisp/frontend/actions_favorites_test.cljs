@@ -12,9 +12,11 @@
   (second (f/find-effect effects :storage/save)))
 
 (deftest init-reads-storage-and-asks-for-servers
-  (let [{:keys [state effects]} (a/handle store/initial-state [:app/init {:locale :es}])]
+  (let [{:keys [state effects]} (a/handle store/initial-state [:app/init {:locale :es
+                                                                          :theme  {:current :dark :chosen? false}}])]
     (is (= :es (:locale state)))
-    (is (= [[:dom/lang :es] [:audio/volume 1] [:storage/load] [:storage/persist] [:api/servers]]
+    (is (= {:current :dark :chosen? false} (:theme state)))
+    (is (= [[:dom/lang :es] [:dom/theme :dark] [:audio/volume 1] [:storage/load] [:storage/persist] [:api/servers]]
            effects))))
 
 (deftest stations-are-fetched-once-storage-and-servers-are-known
@@ -154,7 +156,14 @@
     (let [{:keys [state effects]} (a/handle state [:menu/close])]
       (is (nil? (:menu state)))
       (is (= [[:dom/focus "more-j1"]] effects)))
-    (is (= [[:dom/focus-step "menu" 1]] (:effects (a/handle state [:menu/move 1]))))))
+    (is (= [[:dom/focus-step "menu" 1]] (:effects (a/handle state [:menu/move 1]))))
+    (is (= {:state ready :effects []} (a/handle ready [:menu/page :language]))))
+  (testing "the list menu opens its language page in place"
+    (let [{:keys [state]} (a/handle ready [:menu/open {:kind :list :anchor "list-menu"}])
+          {:keys [state effects]} (a/handle state [:menu/page :language])]
+      (is (= :language (get-in state [:menu :page])))
+      (is (= [[:dom/place-menu "list-menu"]] effects))
+      (is (nil? (get-in (:state (a/handle state [:menu/page nil])) [:menu :page]))))))
 
 (deftest voting-and-copying
   (is (= [[:api/vote {:server "s1" :id "j1"}]] (:effects (a/handle ready [:station/vote "j1"]))))
@@ -224,7 +233,27 @@
     (testing "other files are refused"
       (let [{:keys [state effects]} (a/handle ready [:import/read m3u "radios.pls"])]
         (is (empty? (filter #(= :api/import (first %)) effects)))
-        (is (= [[:toast/import-unsupported {}]] (:toast state))))))
+        (is (= [[:toast/import-unsupported {}]] (:toast state)))))
+    (testing "a file dragged over the page shows the drop zone until it leaves"
+      (let [{:keys [state effects]} (a/handle ready [:file-drag/over])]
+        (is (:file-drag? state))
+        (is (= [[:timer/start :file-drag a/file-drag-ms [:file-drag/end]]] effects))
+        (is (false? (:file-drag? (:state (a/handle state [:file-drag/end])))))))
+    (testing "a dropped file asks first, then imports"
+      (let [{:keys [state effects]} (a/handle ready [:import/offer m3u "radios.m3u"])]
+        (is (= {:kind :import :filename "radios.m3u" :text m3u :count 3} (:dialog state)))
+        (is (= [[:dom/show-dialog "dialog"]] effects))
+        (let [{:keys [state effects]} (a/handle state [:import-dialog/confirm])]
+          (is (nil? (:dialog state)))
+          (is (= [[:dom/close-dialog "dialog"]
+                  [:api/import {:server "s1" :ids ["j1" "h1"] :urls ["http://somewhere.example/s"]}]]
+                 effects)))))
+    (testing "a dropped file that cannot be imported only says so"
+      (let [{:keys [state effects]} (a/handle ready [:import/offer nil "photo.png"])]
+        (is (nil? (:dialog state)))
+        (is (not-any? #(= :dom/show-dialog (first %)) effects))
+        (is (= [[:toast/import-unsupported {}]] (:toast state))))
+      (is (= [[:toast/import-empty {}]] (:toast (:state (a/handle ready [:import/offer "hello" "x.m3u"])))))))
   (is (= [[:toast/import-failed {}]] (:toast (:state (a/handle ready [:import/failed]))))))
 
 (deftest artwork

@@ -7,9 +7,21 @@
 
 (def dictionaries
   {:es (reader/read-string (rc/inline "i18n/es.edn"))
-   :en (reader/read-string (rc/inline "i18n/en.edn"))})
+   :en (reader/read-string (rc/inline "i18n/en.edn"))
+   :pt (reader/read-string (rc/inline "i18n/pt.edn"))
+   :fr (reader/read-string (rc/inline "i18n/fr.edn"))
+   :it (reader/read-string (rc/inline "i18n/it.edn"))
+   :ca (reader/read-string (rc/inline "i18n/ca.edn"))
+   :gl (reader/read-string (rc/inline "i18n/gl.edn"))
+   :eu (reader/read-string (rc/inline "i18n/eu.edn"))
+   :ro (reader/read-string (rc/inline "i18n/ro.edn"))
+   :bg (reader/read-string (rc/inline "i18n/bg.edn"))
+   :ru (reader/read-string (rc/inline "i18n/ru.edn"))
+   :zh (reader/read-string (rc/inline "i18n/zh.edn"))})
 
-(def locales [:es :en])
+(def locales
+  "Every supported locale, in the order the language picker lists them."
+  [:es :en :pt :fr :it :ca :gl :eu :ro :bg :ru :zh])
 
 (def default-locale :en)
 

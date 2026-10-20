@@ -4,6 +4,8 @@
 (def initial-state
   {:locale       :en
    :help?        false
+   :theme        {:current :light       ; :light | :dark
+                  :chosen? false}       ; true once picked with the button: the browser's no longer applies
    :player       {:station nil
                   :status  :stopped     ; :stopped :connecting :playing :paused :error
                   :error   nil          ; [:error/stream {}] | [:error/unsupported {}]
@@ -18,6 +20,7 @@
    :filter       ""
    :filter-open? false                  ; the filter field shows only while in use
    :drag         nil                    ; {:id :over} while a tile is dragged
+   :file-drag?   false                  ; true while a file is dragged over the page
    :menu         nil                    ; {:kind :station :id :anchor} | {:kind :list :anchor}
    :dialog       nil                    ; {:kind :remove :id} | {:kind :key :id :pending :message}
    :toast        nil                    ; [[message-key vars] ...]

@@ -5,7 +5,8 @@
 
 (def app-id "radiolisp/0.1.0")
 (def servers-url "https://all.api.radio-browser.info/json/servers")
-(def fallback-servers ["de1.api.radio-browser.info" "de2.api.radio-browser.info"])
+;; all.api resolves, by DNS, to every live Radio Browser server.
+(def fallback-servers ["all.api.radio-browser.info"])
 (def search-limit 50)
 (def top-limit 20)
 (def servers-timeout-ms 3000)

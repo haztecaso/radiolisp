@@ -98,11 +98,11 @@
 }
 
 .t2 {
-  background: #f9eef3;
+  background: var(--tile-2);
 }
 
 .t3 {
-  background: #f3ecef;
+  background: var(--tile-3);
 }
 
 // The name hugs its text, so short names hide less of the image.
@@ -112,7 +112,7 @@
   bottom: 0;
   max-width: 100%;
   padding: 2px 4px;
-  background: rgba(255, 255, 255, .94);
+  background: var(--veil);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -278,4 +278,10 @@
   @media (max-width: $phone) {
     padding: 24px;
   }
+}
+
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }

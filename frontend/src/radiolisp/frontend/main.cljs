@@ -1,6 +1,7 @@
 (ns radiolisp.frontend.main
   "Wiring: one dispatch function, the render loop, the keyboard, the media keys."
   (:require [clojure.walk :as walk]
+            [radiolisp.common.favorites :as favs]
             [radiolisp.frontend.actions :as actions]
             [radiolisp.frontend.audio :as audio]
             [radiolisp.frontend.effects :as effects]
@@ -85,6 +86,42 @@
       (try (.setActionHandler session media-action #(dispatch! action))
            (catch :default _ nil)))))
 
+(defn- system-theme!
+  "Follows the browser's light or dark preference while it changes."
+  []
+  (.addEventListener (js/matchMedia effects/dark-query) "change"
+                     (fn [^js e] (dispatch! [:theme/system-changed (if (.-matches e) :dark :light)]))))
+
+(defn- dragging-files? [^js e]
+  (.includes (js/Array.from (.. e -dataTransfer -types)) "Files"))
+
+(defn- file-drops!
+  "A file dragged over the page shows where it can go; dropped anywhere, it
+  is offered for import. The listeners capture, so tiles never take a file
+  for a favourite being moved. Only a file with a known extension is read."
+  []
+  (.addEventListener js/window "dragover"
+                     (fn [^js e]
+                       (when (dragging-files? e)
+                         (.preventDefault e)
+                         (.stopPropagation e)
+                         (set! (.. e -dataTransfer -dropEffect) "copy")
+                         (when-not (:file-drag? @store/state)
+                           (dispatch! [:file-drag/over]))
+                         (effects/execute! dispatch! [:timer/start :file-drag actions/file-drag-ms [:file-drag/end]])))
+                     true)
+  (.addEventListener js/window "drop"
+                     (fn [^js e]
+                       (when (dragging-files? e)
+                         (.preventDefault e)
+                         (.stopPropagation e)
+                         (dispatch! [:file-drag/end])
+                         (when-let [^js file (aget (.. e -dataTransfer -files) 0)]
+                           (if (favs/file-format (.-name file))
+                             (effects/read-file! dispatch! file :import/offer)
+                             (dispatch! [:import/offer nil (.-name file)])))))
+                     true))
+
 (defn ^:dev/after-load reload []
   (render! @store/state))
 
@@ -95,7 +132,10 @@
   (audio/init! dispatch!)
   (js/document.addEventListener "keydown" on-keydown)
   (media-keys!)
+  (system-theme!)
+  (file-drops!)
   (render! @store/state)
   (dispatch! [:app/init {:locale (i18n/detect-locale
                                   (js->clj (or js/navigator.languages
-                                               #js [js/navigator.language])))}]))
+                                               #js [js/navigator.language])))
+                         :theme  (effects/initial-theme)}]))
