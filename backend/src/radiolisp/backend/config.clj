@@ -1,5 +1,7 @@
 (ns radiolisp.backend.config
-  "Settings from the environment, with defaults, and the fixed constants.")
+  "Settings from the environment, with defaults, and the fixed constants."
+  (:require [clojure.string :as str])
+  (:import (java.io File)))
 
 (def version "0.1.0")
 (def user-agent (str "radiolisp/" version))
@@ -62,3 +64,22 @@
                  config))
              defaults
              variables))
+
+(defn public-dir-beside
+  "The `public` folder next to `path` when it is a jar, else nil."
+  [path]
+  (when (some-> path (str/ends-with? ".jar"))
+    (.getPath (File. (.getParentFile (File. ^String path)) "public"))))
+
+(defn- running-jar []
+  (some-> (class public-dir-beside) .getProtectionDomain .getCodeSource .getLocation
+          .toURI File. .getPath))
+
+(defn with-bundled-public-dir
+  "`env` with `PUBLIC_DIR` pointing at the `public` folder next to the running
+  jar (as `bb build` lays out `dist/`), unless it is set or that folder is missing."
+  [env]
+  (let [dir (public-dir-beside (running-jar))]
+    (if (and dir (nil? (get env "PUBLIC_DIR")) (.isDirectory (File. ^String dir)))
+      (assoc env "PUBLIC_DIR" dir)
+      env)))

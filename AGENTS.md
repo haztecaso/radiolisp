@@ -9,7 +9,7 @@ Ideas that need a backend are collected in `docs/ideas/backend.md`.
 
 ## Hard rules
 
-- Never `git push` or touch remotes. The user pushes.
+- Never `git push` or touch remotes. The user pushes. Never run `bb deploy`.
 - Run `bb lint`, `bb fmt:check` and `bb test` before you call a change done.
 - Never pipe test output into `head`, `tail` or `grep`; redirect to a file first.
 - UI strings live only in `frontend/resources/i18n/<locale>.edn` (es, en, pt, fr,
@@ -34,7 +34,8 @@ Ideas that need a backend are collected in `docs/ideas/backend.md`.
 - `common/`: pure `.cljc` shared by frontend and backend (`radiolisp.common.*`),
   including the WebSocket messages (`radiolisp.common.protocol`).
 - `frontend/`: shadow-cljs + Replicant SPA (`radiolisp.frontend.*`), SCSS in
-  `resources/styles/`.
+  `resources/styles/`. `resources/public/` holds dev output only; release builds
+  go to `dist/`.
 - `backend/`: Clojure on the JVM (`radiolisp.backend.*`): Ring + Jetty 12 on
   virtual threads, one relay session per station for the stream proxy and the
   ICY titles.
@@ -43,5 +44,7 @@ Ideas that need a backend are collected in `docs/ideas/backend.md`.
 
 `bb setup` · `bb dev` (http://localhost:8080, plus the backend on :8090 with debug
 logs) · `bb backend` (http://localhost:8090 alone, serves the frontend build too) · `bb test` (Node and JVM) · `bb lint` · `bb fmt` ·
-`bb fmt:check` · `bb build` · `bb e2e` (browser check; needs `bb dev` running or
+`bb fmt:check` · `bb build` (everything into `dist/`: the web in `dist/public/`,
+the backend uberjar in `dist/radiolisp-backend.jar`; also `build:frontend`,
+`build:backend`) · `bb clean` · `bb e2e` (browser check; needs `bb dev` running or
 `URL=…`, uses the real Radio Browser API and real streams)

@@ -306,7 +306,7 @@ Variables de entorno (`radiolisp.backend.config`), con sus valores por defecto:
 |---|---|---|
 | `PORT` | `8090` | Puerto HTTP |
 | `HOST` | `127.0.0.1` | Interfaz; en producción, detrás de Caddy o nginx con TLS |
-| `PUBLIC_DIR` | `../frontend/resources/public` | El build del frontend |
+| `PUBLIC_DIR` | `public/` junto al jar; si no, `../frontend/resources/public` | El build del frontend |
 | `TRUST_PROXY` | `false` | Si `true`, la IP del cliente es la última de `X-Forwarded-For` |
 | `MAX_SESSIONS` | `32` | Emisoras leídas a la vez (conexiones de subida) |
 | `MAX_LISTENERS` | `200` | Oyentes del proxy a la vez, en total |
@@ -362,9 +362,10 @@ IP en los logs** (privacidad: datos de escucha).
   sirve la salida de `bb dev` y la recarga en caliente sigue funcionando (shadow
   conecta con su propio puerto). El 8080 sigue siendo el frontend solo, sin
   backend.
-- **Producción:** `bb build` y `bb backend` (o `clojure -M -m
-  radiolisp.backend.main` en `backend/`) detrás de un proxy con TLS. El empaquetado
-  (uberjar, servicio NixOS) queda para cuando haya dónde desplegar.
+- **Producción:** `bb build` deja en `dist/` la web (`dist/public/`) y el uberjar
+  (`dist/radiolisp-backend.jar`, con tools.build en `backend/build.clj`). El jar,
+  sin `PUBLIC_DIR`, sirve el `public/` que tenga al lado, y va detrás de un proxy
+  con TLS. El servicio NixOS queda para cuando haya dónde desplegar.
 
 ## 10. Errores
 

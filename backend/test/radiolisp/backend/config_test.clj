@@ -18,3 +18,10 @@
     (is (= 5 (:max-sessions c)))
     (is (= "/srv/www" (:public-dir c)))
     (is (= 200 (:max-listeners c)) "an unparsable value keeps the default")))
+
+(deftest public-dir-beside
+  (is (= "/srv/radiolisp/public" (config/public-dir-beside "/srv/radiolisp/radiolisp-backend.jar"))
+      "a jar looks for public/ in its own folder")
+  (is (nil? (config/public-dir-beside "/home/me/radiolisp/backend/src/"))
+      "classes from a folder (bb backend) keep the default")
+  (is (nil? (config/public-dir-beside nil))))

@@ -56,7 +56,7 @@
   (relay/stop! relay))
 
 (defn -main [& _]
-  (let [config (config/from-env (System/getenv))
+  (let [config (config/from-env (config/with-bundled-public-dir (into {} (System/getenv))))
         system (start! config)]
     (log/infof "radiolisp backend %s on http://%s:%d, serving %s" config/version
                (:host config) (port system) (:public-dir config))
