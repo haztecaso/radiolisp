@@ -1,7 +1,8 @@
 (ns radiolisp.common.favorites
   "The list of favourite stations: a vector of `{:id :name :key}` whose order
   is the order of the grid, plus `:custom-name` on the favourites the user
-  renamed. Pure and shared with the future backend."
+  renamed and `:display` on those whose look they chose. Pure and shared
+  with the future backend."
   (:refer-clojure :exclude [remove])
   (:require #?(:clj [clojure.edn :as edn] :cljs [cljs.reader :as edn])
             [clojure.string :as str]))
@@ -55,6 +56,24 @@
               (or (nil? custom) (= custom original))  (dissoc fav :custom-name)
               :else                                   (assoc fav :custom-name custom)))
           favorites)))
+
+(def display-modes
+  "How a favourite with artwork may be shown: the image, the image with a
+  margin, or its name. Absent means automatic."
+  #{:image :pad :text})
+
+(defn set-display
+  "Shows the favourite `id` as `mode`; nil (or an unknown mode) makes it
+  automatic again."
+  [favorites id mode]
+  (if (or (nil? mode) (contains? display-modes mode))
+    (mapv (fn [fav]
+            (cond
+              (not= id (:id fav)) fav
+              mode                (assoc fav :display mode)
+              :else               (dissoc fav :display)))
+          favorites)
+    favorites))
 
 (defn add-imported
   "Appends the imported `stations` that are not favourites yet. `names` maps
@@ -146,7 +165,8 @@
         (mapv (fn [fav]
                 (let [custom (when (string? (:custom-name fav)) (clean-name (:custom-name fav)))]
                   (cond-> (select-keys (merge {:key nil} fav) [:id :name :key])
-                    custom (assoc :custom-name custom))))
+                    custom                                  (assoc :custom-name custom)
+                    (contains? display-modes (:display fav)) (assoc :display (:display fav)))))
               favs)))))
 
 ;; ---------------------------------------------------------------- M3U

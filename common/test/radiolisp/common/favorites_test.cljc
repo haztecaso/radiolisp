@@ -189,6 +189,20 @@
   (is (= ["j1"] (ids (favs/matching renamed stations "jazz r"))))
   (is (= ["b1"] (ids (favs/matching [{:id "b1" :name "Blues FM" :key nil :custom-name "Delta"}] stations "delta")))))
 
+(deftest set-display-chooses-how-a-tile-looks
+  (let [favs [{:id "a" :name "A" :key nil} {:id "b" :name "B" :key nil}]]
+    (is (= [{:id "a" :name "A" :key nil :display :pad} {:id "b" :name "B" :key nil}]
+           (favs/set-display favs "a" :pad)))
+    (is (= favs (favs/set-display (favs/set-display favs "a" :text) "a" nil)) "nil removes it")
+    (is (= favs (favs/set-display favs "a" :weird)) "unknown modes are ignored")))
+
+(deftest display-travels-in-storage
+  (let [shown [{:id "a" :name "A" :key nil :display :text}]]
+    (is (= shown (favs/deserialize (favs/serialize shown)))))
+  (is (= [{:id "a" :name "A" :key nil}]
+         (favs/deserialize "{:version 1 :favorites [{:id \"a\" :name \"A\" :display :huge}]}"))
+      "an unknown mode is dropped"))
+
 (deftest custom-names-travel
   (testing "storage"
     (is (= renamed (favs/deserialize (favs/serialize renamed))))

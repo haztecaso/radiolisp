@@ -6,12 +6,17 @@
 (def playing-jazz
   (:state (run-all ready [:favorites/play "j1"] [:audio/playing])))
 
+(def connecting-jazz
+  "Trying the station for the first time: failures are errors, not cuts."
+  (:state (a/handle ready [:favorites/play "j1"])))
+
 (deftest playing-a-favourite
   (let [{:keys [state effects]} (a/handle ready [:favorites/play "b1"])]
     (is (= blues (get-in state [:player :station])))
     (is (= :connecting (get-in state [:player :status])))
     (is (= [[:audio/play "http://blues.example/stream" false "b1"]
             [:timer/start :connect a/connect-timeout-ms [:audio/timeout]]
+            [:timer/cancel :reconnect]
             [:api/click {:server "s1" :id "b1"}]
             [:media/update {:title "Blues FM" :artist "radiolisp" :artwork nil}]]
            effects))))
@@ -19,7 +24,7 @@
 (deftest playing-the-station-that-plays-pauses-it
   (let [{:keys [state effects]} (a/handle playing-jazz [:favorites/play "j1"])]
     (is (= :paused (get-in state [:player :status])))
-    (is (= [[:audio/pause] [:timer/cancel :connect] [:socket/unsubscribe]] effects))
+    (is (= [[:audio/pause] [:timer/cancel :connect] [:timer/cancel :reconnect] [:socket/unsubscribe]] effects))
     (testing "and again resumes it without counting another click"
       (let [{:keys [effects]} (a/handle state [:favorites/play "j1"])]
         (is (= [:audio/play "http://jazz.example/stream" false "j1"] (first effects)))
@@ -46,7 +51,7 @@
 (deftest toggle-pauses-and-resumes
   (let [{:keys [state effects]} (a/handle playing-jazz [:player/toggle])]
     (is (= :paused (get-in state [:player :status])))
-    (is (= [[:audio/pause] [:timer/cancel :connect] [:socket/unsubscribe]] effects))
+    (is (= [[:audio/pause] [:timer/cancel :connect] [:timer/cancel :reconnect] [:socket/unsubscribe]] effects))
     (let [{:keys [state effects]} (a/handle state [:player/toggle])]
       (is (= :connecting (get-in state [:player :status])))
       (is (= [:audio/play "http://jazz.example/stream" false "j1"] (first effects))))))
@@ -76,16 +81,16 @@
       (is (= :connecting (get-in state [:player :status])))
       (is (= [[:timer/start :connect a/connect-timeout-ms [:audio/timeout]]] effects))))
   (testing "a stream error is shown"
-    (let [state (:state (a/handle playing-jazz [:audio/failed]))]
+    (let [state (:state (a/handle connecting-jazz [:audio/failed]))]
       (is (= :error (get-in state [:player :status])))
       (is (= [:error/stream {}] (get-in state [:player :error])))))
   (testing "the HTTP status of the failed stream picks the message"
     (is (= [:error/blocked {}]
-           (get-in (:state (a/handle playing-jazz [:audio/failed 451])) [:player :error])))
+           (get-in (:state (a/handle connecting-jazz [:audio/failed 451])) [:player :error])))
     (is (= [:error/refused {:status 403}]
-           (get-in (:state (a/handle playing-jazz [:audio/failed 403])) [:player :error])))
+           (get-in (:state (a/handle connecting-jazz [:audio/failed 403])) [:player :error])))
     (is (= [:error/stream {}]
-           (get-in (:state (a/handle playing-jazz [:audio/failed 200])) [:player :error]))
+           (get-in (:state (a/handle connecting-jazz [:audio/failed 200])) [:player :error]))
         "a stream that answers fine but does not play is not a refusal"))
   (testing "a stream that only exists over http, on an https page"
     (let [connecting (:state (a/handle ready [:favorites/play "j1"]))
@@ -108,6 +113,60 @@
     (is (= :playing (get-in (:state (a/handle playing-jazz [:audio/timeout])) [:player :status])))
     (let [connecting (:state (a/handle ready [:favorites/play "j1"]))]
       (is (= :error (get-in (:state (a/handle connecting [:audio/timeout])) [:player :status]))))))
+
+(deftest a-cut-reconnects
+  (let [{:keys [state effects]} (a/handle playing-jazz [:audio/failed])]
+    (is (= :reconnecting (get-in state [:player :status])))
+    (is (= 1 (get-in state [:player :retries])))
+    (is (= [[:timer/cancel :connect] [:audio/stop] [:timer/start :reconnect 1000 [:audio/reconnect]]] effects))
+    (testing "the stream is loaded again, still reconnecting"
+      (let [{:keys [state effects]} (a/handle state [:audio/reconnect])]
+        (is (= :reconnecting (get-in state [:player :status])))
+        (is (= [[:audio/play "http://jazz.example/stream" false "j1"]
+                [:timer/start :connect a/connect-timeout-ms [:audio/timeout]]]
+               effects))
+        (testing "and once it plays the count starts over"
+          (let [state (:state (a/handle state [:audio/playing]))]
+            (is (= :playing (get-in state [:player :status])))
+            (is (zero? (get-in state [:player :retries])))))))
+    (testing "pausing stops trying"
+      (let [{:keys [state effects]} (a/handle state [:player/toggle])]
+        (is (= :paused (get-in state [:player :status])))
+        (is (some #{[:timer/cancel :reconnect]} effects)))))
+  (testing "a stall that outlasts the timeout reconnects too"
+    (let [stalled (:state (a/handle playing-jazz [:audio/waiting]))]
+      (is (= :reconnecting (get-in (:state (a/handle stalled [:audio/timeout])) [:player :status])))))
+  (testing "1, 2, 4 and 8 s, then the error"
+    (let [delays (fn [state] (keep (fn [[t id ms]] (when (and (= :timer/start t) (= :reconnect id)) ms))
+                                   (:effects state)))
+          step   (fn [state] (run-all state [:audio/reconnect] [:audio/failed]))
+          runs   (take 5 (iterate (fn [r] (step (:state r))) (a/handle playing-jazz [:audio/failed])))]
+      (is (= [1000 2000 4000 8000] (mapcat delays (take 4 runs))))
+      (is (= :error (get-in (:state (last runs)) [:player :status])))
+      (is (= [:error/stream {}] (get-in (:state (last runs)) [:player :error])))))
+  (testing "a station that never played fails as before"
+    (is (= :error (get-in (:state (a/handle connecting-jazz [:audio/failed])) [:player :status]))))
+  (testing "a new station starts with a clean slate"
+    (let [state (:state (run-all playing-jazz [:audio/failed] [:favorites/play "b1"]))]
+      (is (= :connecting (get-in state [:player :status])))
+      (is (false? (get-in state [:player :played?])))
+      (is (zero? (get-in state [:player :retries]))))))
+
+(deftest the-now-playing-panel
+  (is (= {:state ready :effects []} (a/handle ready [:panel/toggle])) "nothing to show without a station")
+  (let [{:keys [state effects]} (a/handle playing-jazz [:panel/toggle])]
+    (is (:panel? state))
+    (is (= [[:dom/focus "panel-close"]] effects))
+    (let [{:keys [state effects]} (a/handle state [:panel/toggle])]
+      (is (not (:panel? state)))
+      (is (= [[:dom/focus "now-btn"]] effects) "the focus goes back to the bar"))
+    (is (not (:panel? (:state (a/handle state [:panel/close])))))))
+
+(deftest the-brand-goes-to-the-top
+  (let [{:keys [state effects]} (a/handle (assoc ready :filter "jazz" :filter-open? true) [:brand/top])]
+    (is (= "" (:filter state)))
+    (is (false? (:filter-open? state)))
+    (is (= [[:dom/scroll-top]] effects))))
 
 (deftest misc-actions
   (let [{:keys [state effects]} (a/handle ready [:i18n/set :es])]

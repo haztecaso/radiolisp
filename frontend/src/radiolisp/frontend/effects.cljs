@@ -4,7 +4,8 @@
   (:require [radiolisp.common.favorites :as favs]
             [radiolisp.frontend.api :as api]
             [radiolisp.frontend.audio :as audio]
-            [radiolisp.frontend.socket :as socket]))
+            [radiolisp.frontend.socket :as socket]
+            [radiolisp.frontend.views.art :as art]))
 
 (def storage-key "radiolisp/favorites")
 (def cache-key "radiolisp/station-cache")
@@ -62,9 +63,17 @@
   (try (js/localStorage.setItem storage-key (favs/serialize favorites))
        (catch :default e (js/console.warn "radiolisp: could not save the favourites" e))))
 
-(defn- cache-entry [[id {:strs [favicon] station-name "name"}]]
+(defn- cache-probe [{:strs [src edge] :as probe}]
+  (when (and (map? probe) (string? src))
+    {:src    src
+     :alpha? (true? (get probe "alpha?"))
+     :dark?  (get probe "dark?")
+     :edge   (when (string? edge) edge)}))
+
+(defn- cache-entry [[id {:strs [favicon probe] station-name "name"}]]
   (when (and (string? id) (string? station-name))
-    [id {:name station-name :favicon (when (string? favicon) favicon)}]))
+    [id (cond-> {:name station-name :favicon (when (string? favicon) favicon)}
+          (cache-probe probe) (assoc :probe (cache-probe probe)))]))
 
 (defmethod execute! :cache/load [dispatch _]
   ;; Only a speed-up: anything unreadable is simply an empty cache.
@@ -116,6 +125,33 @@
   (-> (api/resolve-import server ids urls)
       (.then #(dispatch [:import/resolved (assoc % :names names)]))
       (.catch #(dispatch [:import/failed]))))
+
+;; artwork detection
+
+(def ^:private probe-side 32)
+
+(defn- read-pixels
+  "The RGBA pixels of `img` drawn at `probe-side` × `probe-side`, or nil
+  when the canvas refuses to give them."
+  [^js img]
+  (try
+    (let [canvas (js/document.createElement "canvas")
+          _      (set! (.-width canvas) probe-side)
+          _      (set! (.-height canvas) probe-side)
+          ^js ctx (.getContext canvas "2d")]
+      (.drawImage ctx img 0 0 probe-side probe-side)
+      (vec (js/Array.from (.-data (.getImageData ctx 0 0 probe-side probe-side)))))
+    (catch :default _ nil)))
+
+(defmethod execute! :art/probe [dispatch [_ id src]]
+  ;; A second copy, asked for with CORS: the one on screen must not be, or it
+  ;; would not load at all from servers without it.
+  (let [img (js/Image.)]
+    (set! (.-crossOrigin img) "anonymous")
+    (set! (.-referrerPolicy img) "no-referrer")
+    (.addEventListener img "load" #(dispatch [:art/probed id src (some-> (read-pixels img) (art/probe-result probe-side))]))
+    (.addEventListener img "error" #(dispatch [:art/probed id src nil]))
+    (set! (.-src img) src)))
 
 ;; files and clipboard
 
@@ -182,13 +218,25 @@
 (defmethod execute! :dom/focus [_ [_ target]]
   (some-> (element target) (.focus)))
 
-(defmethod execute! :dom/select-contents [_ [_ id]]
-  ;; Focuses an editable element with all its text selected, ready to be typed over.
+(defmethod execute! :dom/select [_ [_ id]]
+  ;; Focuses a text field with its text selected, ready to be typed over.
   (when-let [^js el (js/document.getElementById id)]
     (.focus el)
-    (doto (js/window.getSelection)
-      (.removeAllRanges)
-      (.selectAllChildren el))))
+    (.select el)))
+
+(def ^:private default-tile-px 180)
+
+(defmethod execute! :dom/preview-size [_ _]
+  ;; The preview in «Personalizar» is as wide as the tiles of the grid now.
+  (when-let [^js dialog (js/document.getElementById "dialog")]
+    (let [w (some-> (js/document.querySelector ".grid .tile") .-offsetWidth)]
+      (.setProperty (.-style dialog) "--tile-w" (str (or w default-tile-px) "px")))))
+
+(defmethod execute! :dom/scroll-top [_ _]
+  (js/window.scrollTo #js {:top      0
+                           :behavior (if (.-matches (js/matchMedia "(prefers-reduced-motion: reduce)"))
+                                       "auto"
+                                       "smooth")}))
 
 (defmethod execute! :dom/blur [_ [_ target]]
   (some-> (element target) (.blur)))

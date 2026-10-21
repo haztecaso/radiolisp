@@ -270,8 +270,25 @@
       (is (= [[:toast/import-empty {}]] (:toast (:state (a/handle ready [:import/offer "hello" "x.m3u"])))))))
   (is (= [[:toast/import-failed {}]] (:toast (:state (a/handle ready [:import/failed]))))))
 
+(def logo "https://jazz.example/logo.png")
+
 (deftest artwork
-  (is (= :cover (get-in (:state (a/handle ready [:art/sized "j1" 300 300])) [:art "j1"])))
+  (let [{:keys [state effects]} (a/handle ready [:art/sized "j1" logo 300 300])]
+    (is (= {:w 300 :h 300} (get-in state [:art "j1"])))
+    (is (= [[:art/probe "j1" logo]] effects) "the image is probed once")
+    (let [{:keys [state effects]} (a/handle state [:art/probed "j1" logo {:alpha? true :dark? true :edge nil}])]
+      (is (= {:src logo :alpha? true :dark? true :edge nil} (get-in state [:probes "j1"])))
+      (is (= [:cache/save {"j1" {:name "Jazz Radio" :favicon logo :probe {:src logo :alpha? true :dark? true :edge nil}}
+                           "b1" {:name "Blues FM" :favicon nil}}]
+             (f/find-effect effects :cache/save))
+          "the result is cached with the favourite")
+      (is (= [] (:effects (a/handle state [:art/sized "j1" logo 300 300]))) "not probed again")))
+  (testing "without CORS the extension decides"
+    (is (= {:src logo :alpha? true} (get-in (:state (a/handle ready [:art/probed "j1" logo nil])) [:probes "j1"]))))
+  (testing "the cache brings the probes back"
+    (is (= {"j1" {:src logo :alpha? false}}
+           (:probes (:state (a/handle ready [:cache/loaded {"j1" {:name "J" :favicon logo :probe {:src logo :alpha? false}}
+                                                            "b1" {:name "B" :favicon nil}}]))))))
   (is (= :broken (get-in (:state (a/handle ready [:art/failed "j1"])) [:art "j1"]))))
 
 (deftest toast-hides
@@ -328,33 +345,35 @@
                   (assoc :cache {"j1" {:name "Jazz Radio" :favicon nil}}))]
     (is (nil? (get-in (:state (a/handle state [:favorites/play "j1"])) [:player :station])))))
 
-(deftest renaming-in-place
-  (let [{:keys [state effects]} (a/handle ready [:rename/start "j1"])]
-    (is (= {:id "j1" :initial "Jazz Radio" :text "Jazz Radio"} (:rename state)))
-    (is (= [[:dom/select-contents "rename-input"]] effects))
-    (testing "Enter saves the typed name and gives the focus back to the tile"
-      (let [{:keys [state effects]} (run-all state [:rename/typed "  Jazz\nclub "] [:rename/commit])]
-        (is (nil? (:rename state)))
-        (is (= "Jazz club" (:custom-name (first (get-in state [:favorites :items])))))
+(deftest customizing
+  (let [{:keys [state effects]} (a/handle ready [:customize/open "j1"])]
+    (is (= {:kind :customize :id "j1" :name "Jazz Radio" :display nil} (:dialog state)))
+    (is (= [[:dom/show-dialog "dialog"] [:dom/preview-size] [:dom/select "customize-name"]] effects))
+    (testing "Guardar keeps the typed name and the chosen look"
+      (let [{:keys [state effects]} (run-all state [:customize/name "  Jazz\nclub "] [:customize/display :text] [:customize/save])
+            fav (first (get-in state [:favorites :items]))]
+        (is (nil? (:dialog state)))
+        (is (= "Jazz club" (:custom-name fav)))
+        (is (= :text (:display fav)))
         (is (= "Jazz club" (a/favorite-name state "j1")))
-        (is (= "Jazz club" (:custom-name (first (saved effects)))))
-        (is (= [:dom/focus "more-j1"] (last effects)))
-        (testing "the menu brings the original name back"
-          (let [{:keys [state effects]} (a/handle state [:favorites/reset-name "j1"])]
-            (is (nil? (:custom-name (first (get-in state [:favorites :items])))))
-            (is (saved effects))
-            (is (= [[:toast/name-reset {:name "Jazz Radio"}]] (:toast state)))))))
-    (testing "leaving the field saves; an unchanged name writes nothing"
-      (let [{:keys [state effects]} (a/handle state [:rename/save])]
-        (is (nil? (:rename state)))
-        (is (nil? (saved effects)))
-        (is (= [] (:effects (a/handle state [:rename/save]))) "nothing left to save")))
-    (testing "Esc leaves the name as it was"
-      (let [{:keys [state effects]} (run-all state [:rename/typed "X"] [:rename/cancel] [:rename/save])]
-        (is (nil? (:rename state)))
+        (is (= fav (first (saved effects))))
+        (is (some #{[:dom/focus "more-j1"]} effects) "the focus goes back to the tile")
+        (testing "the original name comes back from the dialog"
+          (let [{:keys [state effects]} (run-all state [:customize/open "j1"] [:customize/use-original] [:customize/save])
+                fav (first (get-in state [:favorites :items]))]
+            (is (nil? (:custom-name fav)))
+            (is (= :text (:display fav)) "an untouched look stays")
+            (is (saved effects))))))
+    (testing "unknown looks are ignored"
+      (is (nil? (get-in (:state (a/handle state [:customize/display :huge])) [:dialog :display]))))
+    (testing "closing without saving changes nothing"
+      (let [{:keys [state effects]} (run-all state [:customize/name "X"] [:dialog/close])]
+        (is (nil? (:dialog state)))
         (is (= "Jazz Radio" (a/favorite-name state "j1")))
-        (is (= [[:dom/focus "more-j1"]] effects)))))
-  (is (nil? (:rename (:state (a/handle ready [:rename/start "zz"])))) "only favourites"))
+        (is (nil? (saved effects)))
+        (is (some #{[:dom/focus "more-j1"]} effects)))))
+  (is (nil? (:dialog (:state (a/handle ready [:customize/open "zz"])))) "only favourites")
+  (is (= [] (:effects (a/handle ready [:customize/save]))) "nothing to save without the dialog"))
 
 (deftest renamed-favourites-show-their-name
   (let [state (assoc-in ready [:favorites :items 0 :custom-name] "Jazz")]

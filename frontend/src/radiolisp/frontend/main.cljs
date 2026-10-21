@@ -55,7 +55,6 @@
   (cond
     (= "search-input" (.-id el))                             :search-input
     (= "filter-input" (.-id el))                             :filter-input
-    (= "rename-input" (.-id el))                             :rename-input
     (and (= "INPUT" (.-tagName el)) (= "range" (.-type el))) :slider
     (= "BUTTON" (.-tagName el))                              :button
     :else                                                    :other))
@@ -75,7 +74,10 @@
 (defonce ^:private root (atom nil))
 
 (defn- render! [state]
-  (r/render @root (shell/app state)))
+  (r/render @root (shell/app state))
+  (let [title (shell/page-title state)]
+    (when (not= title js/document.title)
+      (set! js/document.title title))))
 
 (defn- media-keys!
   "System media keys: play and pause, and next or previous favourite."

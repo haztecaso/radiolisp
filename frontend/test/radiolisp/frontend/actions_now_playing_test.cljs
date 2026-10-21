@@ -61,8 +61,12 @@
           "the media session forgets the song")))
   (testing "outside pause"
     (is (nil? (get-in (:state (a/handle titled-jazz [:audio/paused])) [:player :now-playing]))))
-  (testing "failure"
-    (let [{:keys [state effects]} (a/handle titled-jazz [:audio/failed nil])]
+  (testing "a cut keeps following while it reconnects"
+    (is (= {:id "j1" :title "Artist - Song"}
+           (get-in (:state (a/handle titled-jazz [:audio/failed nil])) [:player :now-playing]))))
+  (testing "failure, once the reconnections are spent"
+    (let [{:keys [state effects]} (a/handle (assoc-in titled-jazz [:player :retries] (count a/reconnect-delays-ms))
+                                            [:audio/failed nil])]
       (is (nil? (get-in state [:player :now-playing])))
       (is (some #{[:socket/unsubscribe]} effects))))
   (testing "another station"

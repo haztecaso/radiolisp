@@ -1,0 +1,16 @@
+// Artwork in its three modes (views/art.cljs): the image (covering the box
+// when squarish, whole otherwise), the image with a margin, or the name.
+// Tiles (.art) and thumbnails (.thumb) share the rules.
+.art, .thumb {
+  img { display: block; width: 100%; height: 100%; object-fit: contain; }
+  &.cover.image img { object-fit: cover; }
+  &.pad img { width: 72%; height: 72%; }
+  // Small icons carry their doubled width inline; they never outgrow the margin.
+  &.small img { height: auto; max-width: 72%; max-height: 72%; }
+  &.plate { background: var(--plate); }
+}
+
+// In dark, a logo the detection knows is light keeps the dark tint.
+:root[data-theme="dark"] {
+  .art.plate.lit, .thumb.plate.lit { background: var(--raised); }
+}

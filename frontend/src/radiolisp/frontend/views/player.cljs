@@ -1,24 +1,28 @@
 (ns radiolisp.frontend.views.player
   "The player: a bar fixed at the bottom."
   (:require [radiolisp.common.favorites :as favs]
+            [radiolisp.frontend.actions :as actions]
             [radiolisp.frontend.views.art :as art]
             [radiolisp.frontend.views.icons :as icons]
             [radiolisp.frontend.views.station :as sv]))
 
-(defn- meta-line [t {:keys [station status error now-playing]}]
+(defn- meta-line
+  "Line 2 of the bar: what is going on now."
+  [t {:keys [station status error now-playing retries]}]
   (let [title (:title now-playing)]
     [:div.meta-line {:aria-live "polite"}
      (cond
-       (nil? station)                     [:span.tags (t :player/idle-hint)]
-       (= :error status)                  [:span.err-line (t (first error))]
-       (= :connecting status)             [:span.tags (t :player/connecting)]
-       (and title (= :playing status))    [:span.now-title {:title title} title]
-       :else                              (list (sv/quality station)
-                                                [:span.tags (sv/tags-line station)]))]))
+       (nil? station)                   [:span.tags (t :player/idle-hint)]
+       (= :error status)                [:span.err-line (apply t error)]
+       (= :reconnecting status)         [:span.wait (t :player/reconnecting {:n   retries
+                                                                             :max (count actions/reconnect-delays-ms)})]
+       (= :connecting status)           [:span.wait (t :player/connecting)]
+       (and title (= :playing status))  [:span.now-title {:title title} title]
+       :else                            [:span.tags (sv/tags-line station)])]))
 
 (defn- volume-control [t {:keys [volume muted?]}]
   (let [shown (if muted? 0 volume)]
-    [:div.vol
+    [:div.vol.hide-s
      [:div.slider
       [:div.slider-in
        [:span.track]
@@ -33,36 +37,29 @@
        :on         {:click [[:player/mute]]}}
       (if muted? icons/mute icons/volume)]]))
 
-(defn view [{:keys [player favorites] :as state} t]
+(defn view [{:keys [player favorites panel?] :as state} t]
   (let [{:keys [station status]} player
-        {:keys [id homepage]} station
-        station-name (when station
-                       (favs/display-name (favs/find-favorite (:items favorites) id) station))
-        active?   (contains? #{:playing :connecting} status)
-        favorite? (and station (favs/member? (:items favorites) id))]
+        {:keys [id]} station
+        favorite     (when station (favs/find-favorite (:items favorites) id))
+        station-name (when station (favs/display-name favorite station))
+        active?      (contains? #{:playing :connecting :reconnecting} status)]
     [:footer#player.bar {:class      [(when (= :playing status) "is-playing")
                                       (when-not station "idle")]
                          :aria-label (t :player/label)}
-     (if station
-       (art/view (:art state) (assoc station :name station-name) "thumb")
-       [:div.thumb])
-     [:div.now
-      [:b (when station icons/waves)
-       [:span {:title station-name} (or station-name (t :player/idle-title))]]
-      (meta-line t player)]
+     [:button#now-btn.now-btn {:disabled      (nil? station)
+                               :aria-expanded (str (boolean panel?))
+                               :aria-controls "panel"
+                               :title         (when station (t :panel/title))
+                               :on            {:click [[:panel/toggle]]}}
+      (if station
+        (art/view state (assoc station :name station-name :display (:display favorite)) "thumb")
+        [:div.thumb])
+      [:div.now
+       [:b (when station icons/waves)
+        [:span.nm (or station-name (t :player/idle-title))]
+        (when station icons/chevron-up)]
+       (meta-line t player)]]
      [:div.ctrls
-      (when homepage
-        [:a.icon-btn.hide-s {:href       homepage :target "_blank" :rel "noopener"
-                             :aria-label (t :player/homepage {:name station-name})
-                             :title      (t :menu/homepage)}
-         icons/globe])
-      (when station
-        [:button.icon-btn.fav {:class        (when favorite? "on")
-                               :aria-pressed (str favorite?)
-                               :aria-label   (t (if favorite? :fav/remove :fav/add))
-                               :title        (t (if favorite? :fav/remove :fav/add))
-                               :on           {:click [[:favorites/toggle id]]}}
-         (if favorite? icons/heart-on icons/heart)])
       (volume-control t player)
       [:button#player-toggle.toggle
        {:disabled   (nil? station)

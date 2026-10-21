@@ -69,3 +69,12 @@
     (let [date (js/Date. iso)]
       (when-not (js/isNaN (.getTime date))
         (.format (js/Intl.DateTimeFormat. (name locale) #js {:day "numeric" :month "short"}) date)))))
+
+(defn country-name
+  "The name of the country with ISO code `code` in `locale`, or the code
+  itself when the browser cannot name it."
+  [locale code]
+  (when code
+    (or (try (.of (js/Intl.DisplayNames. #js [(name locale)] #js {:type "region"}) code)
+             (catch :default _ nil))
+        code)))

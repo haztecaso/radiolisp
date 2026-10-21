@@ -55,6 +55,8 @@
 
 (def chevron-right (stroke "0 0 16 16" "M6 3.5L10.5 8 6 12.5"))
 
+(def chevron-up (stroke "0 0 16 16" "M3.5 10L8 5.5l4.5 4.5"))
+
 (def chevron-left (stroke "0 0 16 16" "M10 3.5L5.5 8l4.5 4.5"))
 
 (def check (stroke "0 0 16 16" "M3 8.5l3.25 3.25L13 5"))
@@ -74,9 +76,8 @@
   [:svg {:viewBox "0 0 18 18" :fill "currentColor" :stroke "currentColor" :stroke-width "1.5" :aria-hidden "true"}
    [:path {:d heart-path}]])
 
-(def edit (stroke "0 0 16 16" "M10.5 2.5l3 3L6 13H3v-3z"))
-(def rename (stroke "0 0 16 16" "M2 4h7.5M5.75 4v8.5M12.5 2.5v11M11 2.5h3M11 13.5h3"))
-(def undo (stroke "0 0 16 16" "M2.5 8a5.5 5.5 0 105.5-5.5c-1.6 0-3 .7-4 1.8M3.5 1.5v3h3"))
+(def external (stroke "0 0 16 16" "M9.5 2.5h4v4M13.5 2.5L7.5 8.5" "M11.5 9.5v4h-9v-9h4"))
+(def sliders (stroke "0 0 16 16" "M2 4.5h7M12.5 4.5H14M2 11.5h1.5M7 11.5h7" "M9 3h3.5v3H9z" "M3.5 10H7v3H3.5z"))
 (def up (stroke "0 0 16 16" "M8 13V3M3.5 7.5L8 3l4.5 4.5"))
 (def thumb (stroke "0 0 16 16" "M5 7v6.5H2.5V7zM5 7l3-4.5c1 0 1.6.8 1.4 1.8L9 6.5h3.6c.9 0 1.5.8 1.3 1.7l-1 4.2c-.2.6-.7 1.1-1.4 1.1H5"))
 (def link (stroke "0 0 16 16" "M6.5 9.5l3-3M5 7.5L3.5 9a2.5 2.5 0 003.5 3.5L8.5 11M7.5 5L9 3.5A2.5 2.5 0 0112.5 7L11 8.5"))
