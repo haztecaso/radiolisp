@@ -81,8 +81,9 @@ lista.
 | `bb test` | todos los tests: `common` y `frontend` en Node; `common` y `backend` en la JVM |
 | `bb lint` | clj-kondo |
 | `bb fmt` / `bb fmt:check` | aplica o comprueba el formato con cljfmt |
-| `bb css` | compila el SCSS una vez, comprimido |
-| `bb build` | build de release en `frontend/resources/public/` |
+| `bb build` | build de release de todo en `dist/` (frontend y jar del backend) |
+| `bb build:frontend` / `bb build:backend` | solo la web en `dist/public/` / solo `dist/radiolisp-backend.jar` |
+| `bb clean` | borra `dist/` y las clases compiladas del backend |
 | `bb e2e` | prueba de extremo a extremo en Chromium (ver [Tests](#tests)) |
 
 Antes de dar un cambio por terminado: `bb lint && bb fmt:check && bb test`.
@@ -94,6 +95,7 @@ Está organizado por módulos, como [Penpot](https://github.com/penpot/penpot):
 ```
 radiolisp/
 ├── flake.nix  bb.edn  deps.edn   # entorno, tareas y deps.edn raíz (solo para clojure-lsp)
+├── dist/                          # salida de `bb build`: public/ y radiolisp-backend.jar (fuera de git)
 ├── common/                        # .cljc puro, compartido por frontend y backend
 │   ├── src/radiolisp/common/      #   station (normaliza Radio Browser), favorites (lista, M3U, .list, Radiolise),
 │   │                              #   protocol (mensajes del WebSocket)
@@ -119,7 +121,7 @@ radiolisp/
 │   ├── test/
 │   └── e2e/check.mjs              # prueba en navegador (bb e2e)
 ├── backend/                       # Clojure en la JVM: Ring + Jetty 12 con virtual threads
-│   ├── deps.edn
+│   ├── deps.edn  build.clj        # build.clj: el uberjar (tools.build)
 │   ├── src/radiolisp/backend/
 │   │   ├── main.clj  http.clj     # arranque, rutas y ficheros estáticos
 │   │   ├── stream.clj  socket.clj # /api/stream/<uuid> y /api/ws
@@ -246,12 +248,29 @@ Para curiosear el estado en vivo:
 bb build
 ```
 
-Deja una web estática en `frontend/resources/public/`: `index.html`, `css/`, `js/`
-y `fonts/`. Se sirve con `bb backend`, o sin backend con cualquier servidor de
-ficheros estáticos, por ejemplo:
+Todo lo que sale de un build va a `dist/` (fuera de git):
+
+```
+dist/
+├── public/                  # la web estática: index.html, css/, js/, fonts/
+└── radiolisp-backend.jar    # el backend con todas sus dependencias (JDK 21)
+```
+
+`frontend/resources/public/` queda solo para desarrollo: ahí escriben `bb dev` y
+sass en modo watch.
+
+Se ejecuta con:
 
 ```sh
-cd frontend/resources/public && python3 -m http.server 8000
+java -jar dist/radiolisp-backend.jar
+```
+
+Sin `PUBLIC_DIR`, el jar sirve la carpeta `public/` que tenga al lado, así que se
+pueden mover juntos a cualquier sitio. La web también se sirve sin backend con
+cualquier servidor de ficheros estáticos, por ejemplo:
+
+```sh
+cd dist/public && python3 -m http.server 8000
 ```
 
 ## Backend
@@ -278,7 +297,7 @@ Se configura con variables de entorno:
 | Variable | Defecto | Qué es |
 |---|---|---|
 | `PORT` / `HOST` | `8090` / `127.0.0.1` | dónde escucha; en producción, detrás de un proxy con TLS |
-| `PUBLIC_DIR` | `../frontend/resources/public` | el build del frontend |
+| `PUBLIC_DIR` | `public/` junto al jar; si no, `../frontend/resources/public` | el build del frontend |
 | `TRUST_PROXY` | `false` | `true` para tomar la IP de `X-Forwarded-For` |
 | `LOG_LEVEL` | `info` | `debug` añade cada petición a `/api`, los títulos y los oyentes |
 | `MAX_SESSIONS` | `32` | emisoras abiertas a la vez |
@@ -289,8 +308,27 @@ Se configura con variables de entorno:
 Los logs salen por la consola (logback, `backend/resources/logback.xml`): qué
 emisoras se abren, conectan, se cortan o se cierran, y los errores. Nunca IPs.
 
-En producción: `bb build` y `bb backend` (o `clojure -M -m radiolisp.backend.main`
-en `backend/`) detrás de Caddy o nginx con TLS.
+En producción: `bb build` y `java -jar dist/radiolisp-backend.jar` (con
+`dist/public/` al lado) detrás de Caddy o nginx con TLS, con `TRUST_PROXY=true`.
+El proxy tiene que dejar pasar el upgrade a WebSocket en `/api/ws`.
+
+## Despliegue
+
+Vive en <https://radio.example.org>, en el servidor `host` (NixOS). Su
+configuración está en `/etc/nixos/radiolisp.nix`: un usuario
+`radiolisp`, el servicio `radiolisp.service` (`java -jar` sobre
+`/var/www/radiolisp/current/`) y nginx, que sirve `public/` y pasa `/api/` al
+backend.
+
+```sh
+bb deploy
+```
+
+Hace `bb build`, guarda lo desplegado en `/var/www/radiolisp/previous/`, sube
+`dist/` a `current/` con rsync, reinicia el servicio y espera a que conteste
+`/api/health`. Si no contesta en 30 s, vuelve a poner lo anterior.
+`DEPLOY_SERVER` y `DEPLOY_URL` cambian el destino (por defecto `user@host` y
+`https://radio.example.org`).
 
 ## Limitaciones conocidas
 
