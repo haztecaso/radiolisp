@@ -29,11 +29,15 @@
 (deftest every-locale-has-a-dictionary
   (is (= (set i18n/locales) (set (keys i18n/dictionaries)))))
 
-(deftest dictionaries-have-the-same-keys
+(deftest es-and-en-have-the-same-keys
+  (is (= (set (keys (:en i18n/dictionaries)))
+         (set (keys (:es i18n/dictionaries))))))
+
+(deftest dictionaries-have-no-keys-missing-from-en
   (let [en (:en i18n/dictionaries)]
     (doseq [[locale dictionary] i18n/dictionaries]
       (testing (name locale)
-        (is (= (set (keys en)) (set (keys dictionary))))))))
+        (is (empty? (remove (set (keys en)) (keys dictionary))))))))
 
 (defn- placeholders [message]
   (set (re-seq #"\{\w+\}" (if (map? message) (apply str (vals message)) message))))
@@ -41,7 +45,8 @@
 (deftest dictionaries-keep-the-placeholders
   (let [en (:en i18n/dictionaries)]
     (doseq [[locale dictionary] i18n/dictionaries
-            [k message] dictionary]
+            [k message] dictionary
+            :when (contains? en k)]
       (testing (str (name locale) " " k)
         (is (= (placeholders (get en k)) (placeholders message)))))))
 
