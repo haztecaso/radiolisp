@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>radiolisp · prototipo 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+/* Iteration 3 prototype: only what changes.
+   - Artwork: every image contained with a margin, on a "plate" (white in light,
+     light or tinted in dark: ?plate=light|tint). Per station, the image can be
+     swapped for the name (menu ⋯ → «Mostrar el nombre en vez del logo»).
+   - Rename: a <textarea> over the tile instead of contenteditable.
+   - Player bar: name over what is playing, always. Tapping it opens the
+     «sonando ahora» panel (popover on desktop, sheet on phone) with quality,
+     tags, country and the station actions. Phone bar: thumb · text · play.
+   - Brand: no reload. Reconnecting state for dropped streams.
+   Prototype chrome (the strip at the top) is not part of the design. */
+:root {
+  --accent:#b8336a; --accent-soft:#fdf2f7; --accent-track:#f8dbe8; --accent-ink:#6b1d3e;
+  --ground:#fbf8f9; --surface:#ffffff; --raised:#f5f1f3; --active:#f1ebee;
+  --border:#ebe4e7; --rule:#f3eef0; --control:#d8cfd3;
+  --text:#181214; --muted:#665a5f; --faint:#72656b;
+  --negative:#c4242a; --negative-ink:#831c1e; --negative-soft:#ffedea;
+  --on-accent:#fff; --tile-2:#f9eef3; --tile-3:#f3ecef;
+  --veil:rgba(255,255,255,.94); --shadow:rgba(24,18,20,.14); --scrim:rgba(24,18,20,.24);
+  --plate:#ffffff; --art-margin:14%;
+  --edge:24px; --top:56px; --bar:72px;
+  --font:"DM Sans", Inter, system-ui, sans-serif; --display:"DM Serif Display", Georgia, serif;
+  --ease:cubic-bezier(.2,.7,.2,1);
+  color-scheme: light;
+}
+.dark {
+  --accent:#e0679a; --accent-soft:#2a1720; --accent-track:#4a2335; --accent-ink:#f4a8c8;
+  --ground:#141012; --surface:#1c1719; --raised:#262022; --active:#2d2629;
+  --border:#30282c; --rule:#221c1f; --control:#4a3f44;
+  --text:#f3eef0; --muted:#b0a3a9; --faint:#998b91;
+  --negative:#f0565b; --negative-ink:#ff9b94; --negative-soft:#331617;
+  --tile-2:#2a1b22; --tile-3:#231d20;
+  --veil:rgba(20,16,18,.9); --shadow:rgba(0,0,0,.5); --scrim:rgba(0,0,0,.5);
+  --plate:#ece6e9;
+  color-scheme: dark;
+}
+.dark.plate-tint { --plate: var(--raised); }
+
+*, *::before, *::after { box-sizing: border-box; border-radius: 0; }
+html, body { margin: 0; }
+body { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100vh; background: #8a8086; font: 400 14px/20px var(--font); -webkit-font-smoothing: antialiased; }
+button, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+svg { display: block; }
+
+/* ---------- prototype chrome ---------- */
+.chrome { position: sticky; top: 0; z-index: 50; display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center;
+  padding: 8px 12px; background: #201a1d; color: #e9e3e6; font-size: 12px; }
+.chrome label { display: flex; align-items: center; gap: 6px; }
+.chrome select { background: #2e272a; color: #fff; border: 1px solid #4a3f44; padding: 2px 4px; font-size: 12px; }
+.chrome b { color: #f4a8c8; font-weight: 600; }
+.stage { display: grid; place-items: start center; padding: 16px; min-height: 0; }
+.stage.desktop { padding: 0; place-items: stretch; }
+
+/* ---------- the app frame ---------- */
+.app { position: relative; container: app / inline-size; overflow: hidden; background: var(--ground); color: var(--text);
+  width: 100%; height: 100%; display: grid; grid-template-rows: var(--top) 1fr; }
+.phone .app { width: 390px; height: min(800px, 100%); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+.scroll { overflow: auto; padding-bottom: var(--bar); }
+@container app (max-width: 760px) { .app * { --edge: 16px; } }
+
+.icon-btn { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer; flex: none; text-decoration: none; }
+.icon-btn:hover { border-color: var(--control); color: var(--text); }
+.icon-btn svg { width: 18px; height: 18px; }
+.icon-btn.on { color: var(--accent); }
+
+.top { height: var(--top); display: flex; align-items: center; gap: 16px; padding: 0 var(--edge); background: var(--ground); border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none; cursor: pointer; font-weight: 600; font-size: 16px; color: var(--text); }
+.mark { width: 28px; height: 20px; color: var(--accent); }
+.top .spacer { flex: 1; }
+
+/* ---------- grid and tiles ---------- */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(180px, 50%), 1fr)); }
+.tile { position: relative; container-type: inline-size; --name-min: 14px; --name-max: 40px; background: var(--surface); }
+.tile::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.tile:hover::after { box-shadow: inset 0 0 0 2px var(--control); }
+.tile.playing::after { box-shadow: inset 0 0 0 3px var(--accent); }
+.tile .play { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; }
+
+/* NEW: one rule for every image. Contained with a margin on the plate, so
+   transparent logos breathe, wide or tall ones are never cropped, and black
+   logos stay legible in dark. */
+.art { position: relative; aspect-ratio: 1; overflow: hidden; display: grid; place-items: center; background: var(--raised); }
+.art.image { background: var(--plate); }
+.art.image img { position: absolute; inset: var(--art-margin); width: calc(100% - 2 * var(--art-margin)); height: calc(100% - 2 * var(--art-margin)); object-fit: contain; }
+/* small icons (< 96 px) are never enlarged past twice their size, so they don't blur */
+.art.image.small img { inset: 0; margin: auto; width: auto; height: auto; max-width: calc(100% - 2 * var(--art-margin)); transform: scale(2); image-rendering: auto; }
+.t0 { background: var(--accent-soft); } .t1 { background: var(--raised); } .t2 { background: var(--tile-2); } .t3 { background: var(--tile-3); }
+.full-name { max-width: 84%; max-height: 84%; overflow: hidden; font: italic 400 clamp(var(--name-min), 15cqi, var(--name-max))/1.1 var(--display);
+  letter-spacing: -0.01em; text-align: center; overflow-wrap: anywhere; color: var(--accent-ink); }
+.tile .name { position: absolute; left: 0; bottom: 0; max-width: 100%; padding: 2px 4px; background: var(--veil); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.keycap, .more { position: absolute; top: 0; z-index: 2; height: 28px; display: grid; place-items: center; border: 0; background: var(--surface); cursor: pointer; }
+.keycap { left: 0; min-width: 28px; padding: 0 3px; font-weight: 600; font-size: 13px; }
+.more { right: 0; width: 28px; opacity: 0; }
+.more svg { width: 16px; height: 16px; }
+.tile:hover .more, .more[aria-expanded="true"] { opacity: 1; }
+@container app (max-width: 760px) { .more { opacity: 1; width: 36px; height: 36px; } }
+.flag { position: absolute; left: 0; bottom: 24px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px;
+  background: var(--negative-soft); color: var(--negative-ink); font-size: 12px; font-weight: 500; }
+.flag::before { content: ""; width: 6px; height: 6px; background: var(--negative); }
+.tile:not(:has(.name)) .flag { bottom: 0; }
+
+/* NEW: renaming with a textarea (opens the keyboard everywhere). */
+.rename { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; background: var(--veil); box-shadow: inset 0 0 0 3px var(--accent); }
+.rename textarea { width: 84%; height: 84%; padding: 0; border: 0; resize: none; background: none; outline: none; overflow: hidden;
+  font: italic 400 clamp(var(--name-min), 15cqi, var(--name-max))/1.1 var(--display); text-align: center; color: var(--text);
+  display: flex; align-content: center; field-sizing: content; max-height: 84%; height: auto; border-bottom: 2px solid var(--accent); }
+.tile.editing .keycap, .tile.editing .more, .tile.editing .name, .tile.editing .flag { visibility: hidden; }
+
+/* ---------- menu ---------- */
+.menu { position: absolute; z-index: 20; min-width: 260px; padding: 6px 0; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 8px 24px var(--shadow); }
+.menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 14px; border: 0; background: none; text-align: left; cursor: pointer; }
+.menu button:hover { background: var(--active); }
+.menu svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
+.menu hr { margin: 6px 0; border: 0; border-top: 1px solid var(--rule); }
+.menu .danger { color: var(--negative-ink); }
+.menu .meta { margin-left: auto; color: var(--faint); font-size: 12px; }
+
+/* ---------- player bar ---------- */
+.bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 9; height: var(--bar); padding: 0 var(--edge);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  background: var(--surface); border-top: 1px solid var(--border); }
+/* thumb + text are one button that opens the panel */
+.now-btn { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 12px; min-width: 0; height: 100%;
+  padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
+.now-btn:disabled { cursor: default; }
+.thumb { width: 48px; height: 48px; position: relative; overflow: hidden; display: grid; place-items: center; background: var(--raised); flex: none; }
+.thumb.image { background: var(--plate); }
+.thumb.image img { position: absolute; inset: 12%; width: 76%; height: 76%; object-fit: contain; }
+.thumb .mono { font: italic 400 22px/1 var(--display); color: var(--accent-ink); }
+.now { min-width: 0; }
+.now .line1 { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; line-height: 20px; }
+.now .line1 .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.now .line1 .up { width: 14px; height: 14px; color: var(--faint); flex: none; transition: transform 160ms var(--ease); }
+.now-btn[aria-expanded="true"] .up { transform: rotate(180deg); }
+.now .line2 { margin-top: 3px; font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.now .line2.muted { color: var(--muted); }
+.now .line2.err { color: var(--negative-ink); }
+.now .line2.wait { color: var(--muted); }
+.now .line2.wait::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; vertical-align: 1px; background: var(--accent); animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.bar.idle .line1 { color: var(--muted); }
+.waves { width: 20px; height: 14px; flex: none; color: var(--accent); }
+.waves .w1, .waves .w2 { opacity: .25; }
+.is-playing .waves .w1 { animation: wave 1.6s ease-in-out infinite; }
+.is-playing .waves .w2 { animation: wave 1.6s ease-in-out .3s infinite; }
+@keyframes wave { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
+.ctrls { display: flex; align-items: center; gap: 6px; }
+.toggle { display: grid; place-items: center; width: 48px; height: 48px; margin-left: 8px; border: 0; background: var(--accent); color: var(--on-accent); cursor: pointer; }
+.toggle svg { width: 20px; height: 20px; }
+.toggle:disabled { background: var(--raised); color: var(--faint); }
+@container app (max-width: 760px) {
+  .bar { gap: 8px; }
+  .ctrls .wide-only { display: none; }
+  .toggle { margin-left: 0; }
+}
+
+/* ---------- «sonando ahora» panel ---------- */
+.scrim { position: absolute; inset: 0; z-index: 7; background: transparent; }
+.panel { position: absolute; z-index: 8; left: var(--edge); bottom: calc(var(--bar) + 8px); width: 380px;
+  background: var(--surface); border: 1px solid var(--border); box-shadow: 0 12px 32px var(--shadow); }
+.panel-head { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 14px; padding: 16px; align-items: start; }
+.panel-head .art { width: 96px; }
+.panel-head .art .full-name { font-size: 18px; }
+.panel h2 { margin: 0; font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.panel .playing-title { margin-top: 6px; font-size: 14px; }
+.panel .playing-title small { display: block; color: var(--faint); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.panel .close { margin: -8px -8px 0 0; }
+.panel-meta { display: grid; gap: 10px; padding: 0 16px 16px; }
+.facts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; color: var(--muted); font-size: 13px; }
+.q { display: inline-flex; align-items: center; height: 22px; padding: 0 6px; border: 1px solid var(--control); font-size: 12px; font-weight: 600; color: var(--text); }
+.q .unit { margin-left: 3px; font-weight: 400; color: var(--muted); }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tags span { padding: 1px 8px; background: var(--raised); color: var(--muted); font-size: 12px; }
+.panel-actions { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--rule); }
+.panel-actions button, .panel-actions a { display: grid; justify-items: center; gap: 4px; padding: 12px 4px; border: 0; background: none;
+  color: var(--text); font-size: 12px; text-decoration: none; cursor: pointer; }
+.panel-actions > * + * { border-left: 1px solid var(--rule); }
+.panel-actions button:hover, .panel-actions a:hover { background: var(--active); }
+.panel-actions svg { width: 18px; height: 18px; color: var(--muted); }
+.panel-actions .on svg { color: var(--accent); }
+.panel-actions .num { color: var(--faint); font-variant-numeric: tabular-nums; }
+.vol-row { display: none; }
+@container app (max-width: 760px) {
+  .scrim { background: var(--scrim); }
+  .panel { left: 0; right: 0; bottom: var(--bar); width: auto; border: 0; border-top: 1px solid var(--border); }
+  .panel::before { content: ""; display: block; width: 36px; height: 4px; margin: 8px auto 0; background: var(--control); }
+  .panel-head { grid-template-columns: 112px minmax(0, 1fr) auto; }
+  .panel-head .art { width: 112px; }
+}
+/* ?margin=transparent: opaque images go edge to edge. Squarish ones cover the
+   square; wide or tall ones are contained on their own edge colour. */
+.art.image.flush img, .thumb.image.flush img { inset: 0; width: 100%; height: 100%; }
+.art.image.flush.cover img, .thumb.image.flush.cover img { object-fit: cover; }
+
+/* ---------- «Personalizar» dialog ---------- */
+.dlg-scrim { position: absolute; inset: 0; z-index: 30; background: var(--scrim); display: grid; place-items: center; padding: 16px; }
+.dlg { width: min(100%, 640px); max-height: 100%; overflow: auto; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 16px 40px var(--shadow); }
+.dlg h2 { margin: 0; padding: 18px 24px 0; font-size: 17px; line-height: 22px; font-weight: 600; }
+.dlg-body { display: grid; grid-template-columns: var(--tile-w, 180px) minmax(0, 1fr); gap: 24px; align-items: start; padding: 18px 24px 24px; }
+.dlg .tile.preview { width: var(--tile-w, 180px); pointer-events: none; }
+.dlg .tile.preview::after { box-shadow: inset 0 0 0 1px var(--border); }
+.dlg-fields { display: grid; gap: 18px; min-width: 0; }
+.field { display: grid; gap: 6px; }
+.field > label, .field > .label { font-size: 13px; font-weight: 600; }
+.field input { height: 40px; padding: 0 12px; border: 1px solid var(--control); background: var(--surface); font-size: 15px; }
+.field input:focus { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.field .hint { font-size: 12px; color: var(--muted); }
+.field .hint button { padding: 0; border: 0; background: none; color: var(--text); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--control); }
+.seg button { display: flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 6px; border: 0; background: none; font-size: 13px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--control); }
+.seg button:hover { background: var(--active); }
+.seg button[aria-checked="true"], .seg button[aria-checked="true"]:hover { background: var(--text); color: var(--surface); }
+.dlg-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 24px; border-top: 1px solid var(--rule); }
+.btn { height: 36px; padding: 0 14px; border: 1px solid var(--control); background: var(--surface); font-weight: 500; cursor: pointer; }
+.btn:hover { border-color: var(--text); }
+.btn.primary { background: var(--text); border-color: var(--text); color: var(--surface); }
+@container app (max-width: 760px) {
+  .dlg-scrim { place-items: end stretch; padding: 0; }
+  .dlg { width: 100%; border: 0; }
+  .dlg h2 { padding: 16px 16px 0; }
+  .dlg-body { grid-template-columns: 1fr; justify-items: center; gap: 18px; padding: 16px; }
+  .dlg-fields { width: 100%; }
+  .dlg-actions { padding: 12px 16px; }
+  .dlg-actions .btn { flex: 1; height: 44px; }
+}
+
+/* ---------- panel content variants ---------- */
+.pc-head { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 14px 16px; }
+.pc-head .thumb { width: 56px; height: 56px; }
+.pc-head h2 { font-size: 15px; line-height: 20px; }
+.pc-head .sub { color: var(--text); font-size: 13px; }
+.pc-icons { display: flex; align-items: center; }
+.pc-icons .icon-btn { width: 36px; height: 36px; }
+/* 2 · ficha */
+.sheet-dl { display: grid; grid-template-columns: 96px minmax(0, 1fr); margin: 0; border-top: 1px solid var(--rule); }
+.sheet-dl dt, .sheet-dl dd { margin: 0; padding: 8px 0; border-bottom: 1px solid var(--rule); font-size: 13px; }
+.sheet-dl dt { padding-left: 16px; color: var(--muted); }
+.sheet-dl dd { padding-right: 16px; min-width: 0; }
+.sheet-dl dd.now { font-weight: 600; }
+.sheet-dl .ok::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; vertical-align: 1px; background: #2f8a55; }
+/* 3 · título protagonista */
+.hero { padding: 14px 16px 16px; border-bottom: 1px solid var(--rule); }
+.hero .eyebrow { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.hero .eyebrow .thumb { width: 28px; height: 28px; }
+.hero .eyebrow .thumb .mono { font-size: 13px; }
+.hero .eyebrow .close { margin: 0 -10px 0 auto; }
+.hero .song { margin: 10px 0 0; font: italic 400 28px/1.15 var(--display); letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.hero .artist { margin-top: 4px; font-size: 14px; color: var(--muted); }
+.hero .song.none { font-size: 20px; color: var(--muted); }
+.history { padding: 10px 16px 12px; border-bottom: 1px solid var(--rule); }
+.history h3 { margin: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.history ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.history li { display: grid; grid-template-columns: 44px minmax(0, 1fr); font-size: 13px; }
+.history time { color: var(--faint); font-variant-numeric: tabular-nums; }
+.history li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hero-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 16px 10px; font-size: 13px; color: var(--muted); }
+.links { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 0 16px 14px; }
+.links button, .links a { padding: 0; border: 0; background: none; color: var(--text); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--control); cursor: pointer; }
+/* 4 · compacto */
+.panel.compact { width: 320px; }
+.compact-line { padding: 0 16px 12px; font-size: 13px; color: var(--muted); }
+.compact-line .q { margin-right: 6px; }
+.compact-acts { display: flex; border-top: 1px solid var(--rule); }
+.compact-acts > * { flex: 1; display: grid; place-items: center; height: 44px; border: 0; background: none; color: var(--muted); cursor: pointer; }
+.compact-acts > * + * { border-left: 1px solid var(--rule); }
+.compact-acts > *:hover { background: var(--active); color: var(--text); }
+.compact-acts svg { width: 18px; height: 18px; }
+.compact-acts .on { color: var(--accent); }
+@container app (max-width: 760px) { .panel.compact { width: auto; } }
+
+.note { margin: 24px var(--edge); padding: 12px 16px; border: 1px dashed var(--control); color: var(--muted); font-size: 13px; max-width: 720px; }
+.note b { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="chrome" id="chrome">
+  <b>prototipo 3</b>
+  <label>ancho <select data-k="frame"><option value="desktop">escritorio</option><option value="phone">móvil 390</option></select></label>
+  <label>tema <select data-k="theme"><option value="light">claro</option><option value="dark">oscuro</option></select></label>
+  <label>placa en oscuro <select data-k="plate"><option value="light">clara</option><option value="tint">tinte (como ahora)</option></select></label>
+  <label>reproductor <select data-k="player">
+    <option value="title">sonando, con título</option><option value="notitle">sonando, sin título</option>
+    <option value="connecting">conectando</option><option value="reconnecting">reconectando</option>
+    <option value="error">error</option><option value="idle">parado</option></select></label>
+  <label>emisora <select data-k="current"></select></label>
+  <label>contenido panel <select data-k="pc"><option value="actual">1 · actual</option><option value="ficha">2 · ficha</option><option value="titulo">3 · título protagonista</option><option value="compacto">4 · compacto</option></select></label>
+  <label>panel <select data-k="panel"><option value="closed">cerrado</option><option value="open">abierto</option></select></label>
+  <label>menú ⋯ <select data-k="menu"></select></label>
+  <label>personalizar <select data-k="custom"></select></label>
+</div>
+<div class="stage" id="stage"></div>
+
+<script>
+// ---------- sample artwork: inline SVGs standing for each kind of favicon ----------
+const svg = (w, h, body) => 'data:image/svg+xml,' + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`);
+const ART = {
+  opaque: svg(256, 256, `<rect width="256" height="256" fill="#bb1919"/>
+    ${[0,1,2].map(i => `<rect x="${38+i*62}" y="60" width="54" height="54" fill="#fff"/><text x="${65+i*62}" y="102" font-family="Arial" font-weight="700" font-size="40" text-anchor="middle" fill="#bb1919">${'BBC'[i]}</text>`).join('')}
+    <text x="128" y="160" font-family="Arial" font-weight="700" font-size="30" text-anchor="middle" fill="#fff">WORLD</text>
+    <text x="128" y="196" font-family="Arial" font-weight="700" font-size="30" text-anchor="middle" fill="#fff">SERVICE</text>`),
+  black: svg(240, 240, `<circle cx="120" cy="120" r="104" fill="none" stroke="#000" stroke-width="12"/>
+    <text x="120" y="138" font-family="Georgia" font-weight="700" font-size="58" text-anchor="middle" fill="#000">jazz24</text>`),
+  wide: svg(480, 120, `<rect x="0" y="20" width="80" height="80" fill="#0a5bb5"/><text x="40" y="76" font-family="Arial" font-weight="700" font-size="44" text-anchor="middle" fill="#fff">rne</text>
+    <text x="98" y="58" font-family="Arial" font-weight="700" font-size="38" fill="#0a5bb5">RADIO</text><text x="98" y="98" font-family="Arial" font-size="34" fill="#0a5bb5">NACIONAL</text>`),
+  tall: svg(120, 300, `<path d="M60 10 L100 290 H20 Z" fill="none" stroke="#e8661c" stroke-width="10"/>
+    <circle cx="60" cy="40" r="16" fill="#e8661c"/><text x="60" y="200" font-family="Arial" font-weight="700" font-size="34" text-anchor="middle" fill="#222">KEXP</text>`),
+  photo: svg(300, 300, `<defs><radialGradient id="g" cx=".35" cy=".3" r=".9"><stop offset="0" stop-color="#f6c48a"/><stop offset=".5" stop-color="#b85a3c"/><stop offset="1" stop-color="#2b1720"/></radialGradient></defs>
+    <rect width="300" height="300" fill="url(#g)"/><circle cx="210" cy="190" r="70" fill="#1d1016" opacity=".55"/><text x="20" y="280" font-family="Georgia" font-style="italic" font-size="34" fill="#fff">smooth jazz</text>`),
+  banner: svg(320, 160, `<rect width="320" height="160" fill="#fff"/><text x="160" y="78" font-family="Arial" font-weight="700" font-size="76" text-anchor="middle" fill="#333">sky</text>
+    <rect y="100" width="320" height="60" fill="#d4001a"/><text x="160" y="146" font-family="Arial" font-size="44" text-anchor="middle" fill="#fff">news</text>`),
+  small: svg(32, 32, `<rect width="32" height="32" fill="#2f7d4f"/><text x="16" y="23" font-family="Arial" font-weight="700" font-size="18" text-anchor="middle" fill="#fff">K</text>`),
+};
+
+// alpha: the image has a transparent border; edge: its border colour when opaque
+const DIMS = { opaque: [256, 256], black: [240, 240], wide: [480, 120], tall: [120, 300], photo: [300, 300], banner: [320, 160], small: [32, 32] };
+const ALPHA = { black: true, wide: true, tall: true };
+const EDGE = { banner: '#ffffff' };
+const LANG = { a: 'inglés', b: 'inglés', c: 'español', d: 'inglés', e: 'inglés', f: 'español', g: 'inglés', h: 'inglés', i: 'español' };
+const HISTORY = {
+  b: [['21:42', 'John Coltrane — Naima'], ['21:37', 'Bill Evans — Peace Piece'], ['21:31', 'Nina Simone — Feeling Good']],
+  d: [['21:40', 'Little Simz — Gorilla'], ['21:36', 'Japanese Breakfast — Be Sweet']],
+  h: [['21:39', 'Four Tet — Baby']],
+};
+const STATIONS = [
+  { id: 'a', name: 'BBC World Service', art: 'opaque', key: '1', q: ['MP3', '56'], tags: ['news', 'talk', 'world'], country: 'Reino Unido', votes: 12400, title: 'Newshour — Global headlines' },
+  { id: 'b', name: 'Jazz24', art: 'black', key: 'j', q: ['AAC', '128'], tags: ['jazz', 'bebop'], country: 'Estados Unidos', votes: 2310, title: 'Miles Davis — So What' },
+  { id: 'c', name: 'Radio Nacional', art: 'wide', q: ['MP3', '128'], tags: ['public', 'news', 'spanish'], country: 'España', votes: 980, title: 'Las mañanas de RNE' },
+  { id: 'd', name: 'KEXP 90.3 Seattle', art: 'tall', q: ['HLS'], tags: ['indie', 'alternative', 'eclectic'], country: 'Estados Unidos', votes: 5120, title: 'Khruangbin — Maria También' },
+  { id: 'e', name: '101 SMOOTH JAZZ', art: 'photo', q: ['MP3', '128'], tags: ['smooth jazz', 'lounge'], country: 'Estados Unidos', votes: 7340, title: null },
+  { id: 'f', name: 'Los 40 Classic', art: 'opaque', display: 'name', q: ['AAC', '64'], tags: ['pop', '80s', '90s'], country: 'España', votes: 410, title: 'Mecano — Hijo de la luna' },
+  { id: 'g', name: 'sky news UK', art: 'banner', sick: true, q: ['MP3', '64'], tags: ['news'], country: 'Reino Unido', votes: 220, title: null },
+  { id: 'h', name: 'KCRW Eclectic24', art: 'small', q: ['MP3', '192'], tags: ['eclectic'], country: 'Estados Unidos', votes: 1880, title: 'Floating Points — Silhouettes' },
+  { id: 'i', name: 'Radio Clásica', art: null, key: 'c', q: ['MP3', '128'], tags: ['classical'], country: 'España', votes: 640, title: 'Debussy — Clair de lune' },
+];
+
+// ---------- icons ----------
+const I = {
+  mark: `<svg class="mark" viewBox="0 0 28 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 Q1 10 6 18"/><path d="M10 5 Q7 10 10 15"/><rect x="12" y="8" width="4" height="4" fill="currentColor" stroke="none"/><path d="M18 5 Q21 10 18 15"/><path d="M22 2 Q27 10 22 18"/></svg>`,
+  waves: `<svg class="waves" viewBox="0 0 22 16" fill="none" stroke="currentColor" stroke-width="1.75"><path class="w2" d="M4 1.5 Q0 8 4 14.5"/><path class="w1" d="M7.5 4 Q5 8 7.5 12"/><rect x="9.5" y="6.5" width="3" height="3" fill="currentColor" stroke="none"/><path class="w1" d="M14.5 4 Q17 8 14.5 12"/><path class="w2" d="M18 1.5 Q22 8 18 14.5"/></svg>`,
+  play: `<svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg>`,
+  pause: `<svg viewBox="0 0 16 16" fill="currentColor"><rect x="3.5" y="2.5" width="3" height="11"/><rect x="9.5" y="2.5" width="3" height="11"/></svg>`,
+  dots: `<svg viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="7" width="2.5" height="2.5"/><rect x="6.75" y="7" width="2.5" height="2.5"/><rect x="11.5" y="7" width="2.5" height="2.5"/></svg>`,
+  down: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3.5 6L8 10.5 12.5 6"/></svg>`,
+  up: `<svg class="up" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3.5 10L8 5.5l4.5 4.5"/></svg>`,
+  close: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>`,
+  heart: `<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 15S2.5 11 2.5 6.5A3.25 3.25 0 019 5a3.25 3.25 0 016.5 1.5C15.5 11 9 15 9 15z"/></svg>`,
+  heartOn: `<svg viewBox="0 0 18 18" fill="currentColor"><path d="M9 15S2.5 11 2.5 6.5A3.25 3.25 0 019 5a3.25 3.25 0 016.5 1.5C15.5 11 9 15 9 15z"/></svg>`,
+  volume: `<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7h3l4-3v10l-4-3H3z"/><path d="M13 6.5a3.5 3.5 0 010 5M15 4.5a6.5 6.5 0 010 9"/></svg>`,
+  globe: `<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="9" r="6.5"/><path d="M2.5 9h13M9 2.5c2 2 2 11 0 13M9 2.5c-2 2-2 11 0 13"/></svg>`,
+  vote: `<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 8l4-5.5 1 1.5-1 4h5.5l-1.5 7H5zM2.5 8H5v7H2.5z"/></svg>`,
+  link: `<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7.5 10.5a3 3 0 004.2 0l2.6-2.6a3 3 0 00-4.2-4.2l-1 1M10.5 7.5a3 3 0 00-4.2 0l-2.6 2.6a3 3 0 004.2 4.2l1-1"/></svg>`,
+  image: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="12" height="11"/><path d="M2 11l3.5-3.5L9 11l2-2 3 3"/></svg>`,
+  text: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4V2.5h10V4M8 2.5v11M6 13.5h4"/></svg>`,
+  rename: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.5 2.5l3 3-8 8h-3v-3z"/></svg>`,
+  key: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="4" width="13" height="8"/><path d="M4 7h1M7 7h2M11 7h1M5 9.5h6"/></svg>`,
+  external: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9.5 2.5h4v4M13.5 2.5L7.5 8.5"/><path d="M11.5 9.5v4h-9v-9h4"/></svg>`,
+  sliders: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5h7M12 4.5h2M2 11.5h2M7 11.5h7"/><rect x="9" y="3" width="3" height="3"/><rect x="4" y="10" width="3" height="3"/></svg>`,
+  trash: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.75 9.5h6.5L12 4"/></svg>`,
+};
+
+// ---------- state ----------
+const S = { frame: 'desktop', theme: 'light', plate: 'light', pc: 'actual', player: 'title', current: 'b', panel: 'closed', menu: 'none', rename: 'none', custom: 'none' };
+const qs = new URLSearchParams(location.search);
+for (const k in S) if (qs.has(k)) S[k] = qs.get(k);
+const ORIGINAL = { c: 'RNE Radio Nacional de España' };
+STATIONS.forEach(st => { st.orig = ORIGINAL[st.id] || st.name; });
+const station = id => STATIONS.find(s => s.id === id);
+// display: null (automatic, from the canvas or the extension) or what the user chose
+const autoDisplay = s => ALPHA[s.art] ? 'pad' : 'logo';
+const display = s => !s.art ? 'name' : (s.display || autoDisplay(s));
+const shows = s => display(s) !== 'name';
+const initials = n => n.replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const tint = id => 't' + (id.charCodeAt(0) % 4);
+const fmt = n => n >= 1000 ? (n / 1000).toFixed(1).replace('.', ',') + ' k' : String(n);
+
+function art(s, cls) {
+  if (shows(s)) {
+    const small = s.art === 'small', [w, h] = DIMS[s.art];
+    const flush = display(s) === 'logo' && !small;
+    const square = w / h > 0.8 && w / h < 1.25;
+    const style = flush && !square && EDGE[s.art] ? ` style="background:${EDGE[s.art]}"` : '';
+    return `<div class="${cls} image ${small ? 'small' : ''} ${flush ? 'flush' : ''} ${flush && square ? 'cover' : ''}"${style}><img src="${ART[s.art]}" alt=""></div>`;
+  }
+  if (cls === 'thumb') return `<div class="thumb ${tint(s.id)}"><span class="mono">${esc(initials(s.name))}</span></div>`;
+  return `<div class="${cls} ${tint(s.id)}"><span class="full-name">${esc(s.name)}</span></div>`;
+}
+
+function tile(s) {
+  const playing = S.current === s.id && S.player !== 'idle';
+  const editing = S.rename === s.id;
+  return `<article class="tile ${playing ? 'playing' : ''} ${editing ? 'editing' : ''}" data-id="${s.id}">
+    <button class="play" data-act="play" aria-label="Reproducir ${esc(s.name)}">${art(s, 'art')}
+      ${shows(s) ? `<span class="name">${esc(s.name)}</span>` : ''}</button>
+    ${editing ? `<div class="rename"><textarea id="rename-input" rows="1" aria-label="Nuevo nombre para ${esc(s.name)}" spellcheck="false">${esc(s.name)}</textarea></div>` : ''}
+    ${s.key ? `<button class="keycap">${s.key}</button>` : ''}
+    <button class="more" id="more-${s.id}" data-act="menu" aria-expanded="${S.menu === s.id}" aria-label="Opciones de ${esc(s.name)}">${I.dots}</button>
+    ${s.sick ? `<span class="flag">Sin señal</span>` : ''}
+  </article>`;
+}
+
+function menu(s) {
+  return `<div class="menu" id="menu" role="menu">
+    <button>${I.globe} Visitar la web</button>
+    <button>${I.vote} Votar <span class="meta">${fmt(s.votes)}</span></button>
+    <button>${I.key} ${s.key ? 'Cambiar el atajo' : 'Asignar un atajo'}</button>
+    <button data-act="custom">${I.sliders} Personalizar…</button>
+    <button>${I.link} Copiar el enlace del stream</button>
+    <button>${I.external} Ver en radio-browser.info</button>
+    <hr><button class="danger">${I.trash} Quitar de favoritas</button>
+  </div>`;
+}
+
+function line2(s) {
+  switch (S.player) {
+    case 'idle': return `<div class="line2 muted">Elige una emisora</div>`;
+    case 'connecting': return `<div class="line2 wait">Conectando…</div>`;
+    case 'reconnecting': return `<div class="line2 wait">Se cortó · reconectando (2/4)…</div>`;
+    case 'error': return `<div class="line2 err">No se pudo conectar con la emisora</div>`;
+    case 'notitle': return `<div class="line2 muted">${esc(s.tags.join(' · '))}</div>`;
+    default: return `<div class="line2" title="${esc(s.title || '')}">${esc(s.title || s.tags.join(' · '))}</div>`;
+  }
+}
+
+function bar() {
+  const s = station(S.current), idle = S.player === 'idle';
+  const active = ['title', 'notitle', 'connecting', 'reconnecting'].includes(S.player);
+  return `<footer class="bar ${S.player === 'title' || S.player === 'notitle' ? 'is-playing' : ''} ${idle ? 'idle' : ''}">
+    <button class="now-btn" data-act="panel" ${idle ? 'disabled' : ''} aria-expanded="${S.panel === 'open'}" aria-controls="panel"
+      aria-label="${idle ? '' : 'Sonando ahora: ' + esc(s.name)}">
+      ${idle ? '<div class="thumb"></div>' : art(s, 'thumb')}
+      <div class="now">
+        <div class="line1">${idle ? '' : I.waves}<span class="nm">${idle ? 'Nada sonando' : esc(s.name)}</span>${idle ? '' : I.up}</div>
+        ${line2(s)}
+      </div>
+    </button>
+    <div class="ctrls">
+      ${idle ? '' : `<button class="icon-btn on wide-only" aria-label="Quitar de favoritas">${I.heartOn}</button>
+      <button class="icon-btn wide-only" aria-label="Volumen">${I.volume}</button>`}
+      <button class="toggle" ${idle ? 'disabled' : ''} aria-label="${active ? 'Pausar' : 'Reproducir'}">${active ? I.pause : I.play}</button>
+    </div>
+  </footer>`;
+}
+
+function playingTitle(s) {
+  const title = S.player === 'title' && s.title;
+  return title ? esc(title) : '<span style="color:var(--muted)">La emisora no lo dice</span>';
+}
+const facts = s => `<div class="facts"><span class="q">${s.q[0]}${s.q[1] ? `<span class="unit">${s.q[1]} kbps</span>` : ''}</span><span>${esc(s.country)}</span></div>`;
+const tagList = s => `<div class="tags">${s.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>`;
+const actions = s => `<div class="panel-actions">
+      <a href="#" onclick="return false">${I.globe}Web</a>
+      <button class="on">${I.heartOn}Favorita</button>
+      <button>${I.vote}Votar <span class="num">${fmt(s.votes)}</span></button>
+      <button>${I.link}Copiar stream</button>
+    </div>`;
+
+function panel() {
+  const s = station(S.current);
+  const title = S.player === 'title' && s.title;
+  const [artist, song] = title && title.includes(' — ') ? title.split(' — ') : [null, title];
+  const scrim = `<div class="scrim" data-act="panel"></div>`;
+  const close = `<button class="icon-btn close" data-act="panel" aria-label="Cerrar">${I.close}</button>`;
+  const quality = `<span class="q">${s.q[0]}${s.q[1] ? `<span class="unit">${s.q[1]} kbps</span>` : ''}</span>`;
+  const hist = HISTORY[s.id] && title
+    ? `<div class="history"><h3>Antes sonó</h3><ol>${HISTORY[s.id].map(([t, x]) => `<li><time>${t}</time><span>${esc(x)}</span></li>`).join('')}</ol></div>`
+    : '';
+
+  if (S.pc === 'ficha') return scrim + `<section class="panel" id="panel" role="dialog" aria-label="Sonando ahora">
+    <div class="pc-head">${art(s, 'thumb')}<div><h2>${esc(s.name)}</h2></div>
+      <div class="pc-icons">
+        <button class="icon-btn on" title="Quitar de favoritas" aria-label="Quitar de favoritas">${I.heartOn}</button>
+        <a class="icon-btn" href="#" onclick="return false" title="Web de la emisora" aria-label="Web de la emisora">${I.globe}</a>
+        <button class="icon-btn" title="Votar · ${fmt(s.votes)}" aria-label="Votar">${I.vote}</button>
+        <button class="icon-btn" title="Copiar enlace del stream" aria-label="Copiar enlace del stream">${I.link}</button>
+        ${close}</div></div>
+    <dl class="sheet-dl">
+      <dt>Sonando</dt><dd class="now">${playingTitle(s)}</dd>
+      <dt>Calidad</dt><dd>${quality}</dd>
+      <dt>País</dt><dd>${esc(s.country)}</dd>
+      <dt>Idioma</dt><dd>${LANG[s.id]}</dd>
+      <dt>Etiquetas</dt><dd>${esc(s.tags.join(', '))}</dd>
+      <dt>Votos</dt><dd>${fmt(s.votes)}</dd>
+      <dt>Estado</dt><dd class="ok">Comprobada hoy</dd>
+    </dl>
+  </section>`;
+
+  if (S.pc === 'titulo') return scrim + `<section class="panel" id="panel" role="dialog" aria-label="Sonando ahora">
+    <div class="hero">
+      <div class="eyebrow">${art(s, 'thumb')}<span>${esc(s.name)}</span>${close}</div>
+      ${title ? `<p class="song">${esc(song)}</p>${artist ? `<div class="artist">${esc(artist)}</div>` : ''}`
+              : `<p class="song none">La emisora no dice qué suena</p>`}
+    </div>
+    ${hist}
+    <div class="hero-foot">${quality}<span>${esc(s.country)}</span><span>${esc(s.tags.join(' · '))}</span></div>
+    <div class="links">
+      ${title ? '<button>Copiar título</button>' : ''}
+      <button>Quitar de favoritas</button><a href="#" onclick="return false">Web</a><button>Votar (${fmt(s.votes)})</button><button>Copiar stream</button>
+    </div>
+  </section>`;
+
+  if (S.pc === 'compacto') return scrim + `<section class="panel compact" id="panel" role="dialog" aria-label="Sonando ahora">
+    <div class="pc-head">${art(s, 'thumb')}<div><h2>${esc(s.name)}</h2><div class="sub">${playingTitle(s)}</div></div>${close}</div>
+    <div class="compact-line">${quality}${esc(s.country)} · ${esc(s.tags.join(' · '))}</div>
+    <div class="compact-acts">
+      <a href="#" onclick="return false" title="Web de la emisora" aria-label="Web de la emisora">${I.globe}</a>
+      <button class="on" title="Quitar de favoritas" aria-label="Quitar de favoritas">${I.heartOn}</button>
+      <button title="Votar · ${fmt(s.votes)}" aria-label="Votar">${I.vote}</button>
+      <button title="Copiar enlace del stream" aria-label="Copiar enlace del stream">${I.link}</button>
+    </div>
+  </section>`;
+
+  return scrim + `<section class="panel" id="panel" role="dialog" aria-label="Sonando ahora">
+    <div class="panel-head">
+      ${art(s, 'art')}
+      <div><h2>${esc(s.name)}</h2><div class="playing-title"><small>Sonando</small>${playingTitle(s)}</div></div>
+      ${close}
+    </div>
+    <div class="panel-meta">${facts(s)}${tagList(s)}</div>
+    ${actions(s)}
+  </section>`;
+}
+
+// The draft being edited in «Personalizar»; saved only on «Guardar».
+let draft = null;
+function customDialog(s) {
+  if (!draft || draft.id !== s.id) draft = { id: s.id, name: s.name, display: s.display };
+  return `<div class="dlg-scrim" data-act="custom-cancel">
+    <section class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-title" data-stop>
+      <h2 id="dlg-title">Personalizar</h2>
+      <div class="dlg-body">
+        <div id="preview">${preview(s)}</div>
+        <div class="dlg-fields">
+          <div class="field">
+            <label for="custom-name">Nombre</label>
+            <input id="custom-name" value="${esc(draft.name)}" autocomplete="off" spellcheck="false" enterkeyhint="done">
+            <div class="hint" id="name-hint" ${nameHint(s) ? '' : 'hidden'}>${nameHint(s)}</div>
+          </div>
+          <div class="field">
+            <span class="label" id="show-label">En la cuadrícula</span>
+            ${s.art ? `<div class="seg" role="radiogroup" aria-labelledby="show-label" id="show-seg">${seg(s)}</div>
+`
+            : `<div class="hint">Esta emisora no tiene imagen: se muestra el nombre.</div>`}
+          </div>
+        </div>
+      </div>
+      <div class="dlg-actions"><button class="btn" data-act="custom-cancel">Cancelar</button><button class="btn primary" data-act="custom-save">Guardar</button></div>
+    </section>
+  </div>`;
+}
+const draftStation = s => ({ ...s, name: draft.name.trim() || s.orig, display: draft.display });
+const seg = s => [['logo', 'Imagen'], ['pad', 'Con margen'], ['name', 'Texto']].map(([v, l]) =>
+  `<button role="radio" data-act="draft-display" data-v="${v}" aria-checked="${display(draftStation(s)) === v}">${l}</button>`).join('');
+const nameHint = s => draft.name.trim() && draft.name.trim() !== s.orig
+  ? `En Radio Browser: «${esc(s.orig)}» · <button data-act="draft-orig">Usar el original</button>`
+  : '';
+function preview(s) {
+  const d = draftStation(s);
+  return `<article class="tile preview">${art(d, 'art')}${shows(d) ? `<span class="name">${esc(d.name)}</span>` : ''}</article>`;
+}
+function refreshDraft() {
+  const s = station(S.custom);
+  document.getElementById('preview').innerHTML = preview(s);
+  const h = document.getElementById('name-hint'); h.innerHTML = nameHint(s); h.hidden = !h.innerHTML;
+  const g = document.getElementById('show-seg'); if (g) g.innerHTML = seg(s);
+}
+
+function render() {
+  const root = document.documentElement;
+  const stage = document.getElementById('stage');
+  stage.className = 'stage ' + S.frame;
+  const open = S.panel === 'open' && S.player !== 'idle';
+  stage.innerHTML = `<div class="app ${S.theme === 'dark' ? 'dark' : ''} ${S.plate === 'tint' ? 'plate-tint' : ''}" id="app">
+    <header class="top">
+      <button class="brand" data-act="brand" aria-label="radiolisp, ir arriba">${I.mark}<b>radiolisp</b></button>
+      <span class="spacer"></span>
+      <button class="icon-btn" aria-label="Más">${I.dots}</button>
+    </header>
+    <div class="scroll" id="scroll">
+      <div class="grid">${STATIONS.map(tile).join('')}</div>
+      <p class="note"><b>Notas.</b> La marca ya no recarga: lleva arriba y vacía el filtro.
+        Menú ⋯ → «Personalizar…»: nombre y apariencia en un modal con vista previa («Los 40 Classic» está en texto; «Radio Nacional» tiene nombre propio).
+        Calidad, tags y país pasan al panel «sonando ahora» (toca la barra).</p>
+    </div>
+    ${bar()}
+    ${open ? panel() : ''}
+    ${S.menu !== 'none' ? menu(station(S.menu)) : ''}
+    ${S.custom !== 'none' ? customDialog(station(S.custom)) : ''}
+  </div>`;
+  if (S.custom === 'none') draft = null;
+  else {
+    const w = document.querySelector('.grid .tile').offsetWidth;
+    document.querySelector('.dlg').style.setProperty('--tile-w', w + 'px');
+    const i = document.getElementById('custom-name'); i.focus(); i.select();
+  }
+  if (S.menu !== 'none') placeMenu();
+  if (S.rename !== 'none') { const t = document.getElementById('rename-input'); t.focus(); t.select(); }
+  for (const el of document.querySelectorAll('#chrome select')) el.value = S[el.dataset.k];
+  history.replaceState(null, '', '?' + new URLSearchParams(S));
+}
+
+function placeMenu() {
+  const app = document.getElementById('app').getBoundingClientRect();
+  const btn = document.getElementById('more-' + S.menu).getBoundingClientRect();
+  const m = document.getElementById('menu');
+  const w = m.offsetWidth, h = m.offsetHeight;
+  let left = Math.min(btn.right - app.left - w, app.width - w - 8);
+  let top = btn.bottom - app.top + 4;
+  if (top + h > app.height - 80) top = Math.max(8, btn.top - app.top - h - 4);
+  m.style.left = Math.max(8, left) + 'px'; m.style.top = top + 'px';
+}
+
+// ---------- chrome ----------
+const opts = (none) => (none ? `<option value="none">${none}</option>` : '') + STATIONS.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+document.querySelector('[data-k=current]').innerHTML = opts();
+document.querySelector('[data-k=menu]').innerHTML = opts('cerrado');
+document.querySelector('[data-k=custom]').innerHTML = opts('cerrado');
+document.getElementById('chrome').addEventListener('change', e => { S[e.target.dataset.k] = e.target.value; render(); });
+
+// ---------- interactions ----------
+document.getElementById('stage').addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) { if (S.menu !== 'none' && !e.target.closest('.menu')) { S.menu = 'none'; render(); } return; }
+  const id = el.closest('[data-id]')?.dataset.id;
+  switch (el.dataset.act) {
+    case 'brand': document.getElementById('scroll').scrollTo({ top: 0, behavior: 'smooth' }); break;
+    case 'play':
+      if (S.current === id && S.player !== 'idle') S.player = 'idle'; else { S.current = id; S.player = station(id).title ? 'title' : 'notitle'; }
+      S.menu = 'none'; render(); break;
+    case 'menu': S.menu = S.menu === id ? 'none' : id; render(); break;
+    case 'custom': S.custom = S.menu; S.menu = 'none'; render(); break;
+    case 'custom-cancel': if (e.target.closest('[data-stop]') && el.classList.contains('dlg-scrim')) break; S.custom = 'none'; render(); break;
+    case 'custom-save': { const s = station(S.custom); s.name = draft.name.trim() || s.orig; s.display = draft.display; S.custom = 'none'; render(); break; }
+    case 'draft-display': draft.display = el.dataset.v; refreshDraft(); break;
+    case 'draft-orig': draft.name = station(S.custom).orig; document.getElementById('custom-name').value = draft.name; refreshDraft(); break;
+    case 'panel': S.panel = S.panel === 'open' ? 'closed' : 'open'; render(); break;
+  }
+});
+document.getElementById('stage').addEventListener('input', e => {
+  if (e.target.id === 'custom-name') { draft.name = e.target.value; refreshDraft(); }
+});
+document.getElementById('stage').addEventListener('keydown', e => {
+  if (e.target.id === 'custom-name' && e.key === 'Enter') { e.preventDefault(); document.querySelector('[data-act=custom-save]').click(); return; }
+  if (e.target.id !== 'rename-input') return;
+  if (e.key === 'Enter' || e.key === 'Escape') {
+    e.preventDefault();
+    if (e.key === 'Enter') station(S.rename).name = e.target.value.trim() || station(S.rename).name;
+    S.rename = 'none'; render();
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && (S.panel === 'open' || S.menu !== 'none' || S.custom !== 'none')) { S.panel = 'closed'; S.menu = 'none'; S.custom = 'none'; render(); } });
+window.addEventListener('resize', () => S.menu !== 'none' && placeMenu());
+render();
+</script>
+</body>
+</html>

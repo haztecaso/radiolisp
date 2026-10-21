@@ -141,7 +141,7 @@ https://icecast.radiofrance.fr/franceinfo-midfi.mp3
   - Recuperar el nombre original (solo si tiene uno propio).
   - Mover al principio.
   - Copiar el enlace del stream.
-  - Editar en radio-browser.info (`https://www.radio-browser.info/history/{id}`).
+  - Ver en radio-browser.info (`https://www.radio-browser.info/history/{id}`).
   - Una línea de salud.
   - Quitar de favoritas.
 - **Salud:** si `:check-ok?` es falso, la etiqueta «Sin señal» aparece sobre la
