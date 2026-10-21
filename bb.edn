@@ -18,12 +18,26 @@
   dev:cljs   (shell frontend "npx shadow-cljs watch app")
   dev:css    (shell frontend "sass --watch --no-source-map resources/styles/main.scss:resources/public/css/main.css")
 
-  css        {:doc  "Compile the SCSS once, compressed"
-              :task (shell frontend "sass --no-source-map --style=compressed resources/styles/main.scss resources/public/css/main.css")}
+  css        {:doc  "Compile the SCSS once, compressed, into dist/public"
+              :task (shell frontend "sass --no-source-map --style=compressed resources/styles/main.scss ../dist/public/css/main.css")}
 
-  build      {:doc     "Release build into frontend/resources/public"
-              :depends [css]
-              :task    (shell frontend "npx shadow-cljs release app")}
+  ;; Every build result goes to dist/: the web in public/, the backend jar beside it.
+  build      {:doc     "Frontend and backend into dist/"
+              :depends [build:frontend build:backend]}
+
+  build:frontend {:doc     "Release build of the frontend into dist/public"
+                  :depends [css]
+                  :task    (do (fs/create-dirs "dist/public")
+                               (fs/copy "frontend/resources/public/index.html" "dist/public/index.html" {:replace-existing true})
+                               (fs/copy-tree "frontend/resources/public/fonts" "dist/public/fonts" {:replace-existing true})
+                               (shell frontend "npx shadow-cljs release app"))}
+
+  build:backend {:doc  "Backend jar into dist/radiolisp-backend.jar (it serves dist/public)"
+                 :task (shell backend "clojure -T:build uber")}
+
+  clean      {:doc  "Remove dist/ and the backend's compiled classes"
+              :task (do (fs/delete-tree "dist")
+                        (fs/delete-tree "backend/target"))}
 
   backend    {:doc  "Run the backend on http://localhost:8090 (API, WebSocket and the frontend build)"
               :task (shell backend "clojure -M -m radiolisp.backend.main")}
