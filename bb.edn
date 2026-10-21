@@ -1,10 +1,11 @@
-{:tasks
+{:paths ["scripts"]
+ :tasks
  {:requires  ([babashka.fs :as fs])
   :init      (do (def frontend {:dir "frontend"})
                  (def backend {:dir "backend"})
                  ;; Only the source folders that exist, so lint and fmt work from day one.
                  (def clj-dirs (filterv fs/exists? ["common/src" "common/test" "frontend/src" "frontend/test"
-                                                    "backend/src" "backend/test"])))
+                                                    "backend/src" "backend/test" "scripts"])))
 
   setup      {:doc  "Install the npm dependencies of the frontend"
               :task (shell frontend "npm install")}
@@ -34,6 +35,10 @@
 
   build:backend {:doc  "Backend jar into dist/radiolisp-backend.jar (it serves dist/public)"
                  :task (shell backend "clojure -T:build uber")}
+
+  deploy     {:doc     "Build and deploy to radio.example.org (DEPLOY_SERVER, DEPLOY_URL)"
+              :depends [build]
+              :task    (exec 'deploy/run)}
 
   clean      {:doc  "Remove dist/ and the backend's compiled classes"
               :task (do (fs/delete-tree "dist")
