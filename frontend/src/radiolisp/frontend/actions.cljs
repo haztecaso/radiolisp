@@ -9,6 +9,10 @@
 (def min-query-length 2)
 (def debounce-ms 300)
 (def connect-timeout-ms 15000)
+(def reconnect-delays-ms
+  "Waits before each new try when a station that was playing gets cut (a
+  locked phone, a network that dozes off); the error comes after the last."
+  [1000 2000 4000 8000])
 (def toast-ms 2500)
 (def file-drag-ms
   "How long a dragged file counts as over the page after its last dragover.
@@ -55,12 +59,15 @@
 
 (defn- station-cache
   "What the grid needs to draw each favourite before Radio Browser answers:
-  name and artwork, never the stream (that always comes from the API)."
+  name and artwork, and what the artwork detection found, never the stream
+  (that always comes from the API)."
   [{:keys [stations cache] :as state}]
   (into {}
         (keep (fn [{:keys [id]}]
                 (when-let [station (or (get stations id) (get cache id))]
-                  [id (select-keys station [:name :favicon])])))
+                  (let [probe (art/probe state (assoc station :id id))]
+                    [id (cond-> (select-keys station [:name :favicon])
+                          probe (assoc :probe probe))]))))
         (get-in state [:favorites :items])))
 
 (defn- update-cache
@@ -131,7 +138,9 @@
 ;; ---------------------------------------------------------------- favourites: loading
 
 (defmethod handle :cache/loaded [state [_ cache]]
-  (ok (assoc state :cache cache)))
+  (ok (assoc state
+             :cache cache
+             :probes (into {} (keep (fn [[id {:keys [probe]}]] (when probe [id probe]))) cache))))
 
 (defmethod handle :favorites/loaded [state [_ loaded]]
   (-> (ok (update state :favorites assoc
@@ -171,7 +180,7 @@
 ;; ---------------------------------------------------------------- player
 
 (defn- active? [player]
-  (contains? #{:playing :connecting} (:status player)))
+  (contains? #{:playing :connecting :reconnecting} (:status player)))
 
 (defn- media-effect
   "Media Session metadata: the song over the station when the station says
@@ -199,9 +208,10 @@
   "Connects to the station in the player and arms the connect timeout."
   [state]
   (let [{:keys [id url hls?]} (get-in state [:player :station])]
-    (ok (update state :player assoc :status :connecting :error nil)
+    (ok (update state :player assoc :status :connecting :error nil :retries 0)
         [[:audio/play url hls? id]
-         [:timer/start :connect connect-timeout-ms [:audio/timeout]]])))
+         [:timer/start :connect connect-timeout-ms [:audio/timeout]]
+         [:timer/cancel :reconnect]])))
 
 (defmethod handle :player/toggle [state _]
   (let [{:keys [station] :as player} (:player state)]
@@ -212,7 +222,7 @@
       (active? player)
       (stop-now-playing
        (ok (assoc-in state [:player :status] :paused)
-           [[:audio/pause] [:timer/cancel :connect]]))
+           [[:audio/pause] [:timer/cancel :connect] [:timer/cancel :reconnect]]))
 
       :else
       (start-playback state))))
@@ -232,7 +242,7 @@
     (let [{:keys [effects] :as stopped} (stop-now-playing (ok state))
           ;; The old station's Media Session entry is replaced right below.
           effects (filterv #(not= :media/update (first %)) effects)]
-      (-> (start-playback (assoc-in (:state stopped) [:player :station] station))
+      (-> (start-playback (update (:state stopped) :player assoc :station station :played? false))
           (update :effects #(into effects %))
           (add-effects [:api/click {:server (current-server state) :id (:id station)}]
                        [:media/update {:title (or (favorite-name state (:id station)) (:name station))
@@ -260,7 +270,7 @@
 (defmethod handle :audio/playing [state _]
   (let [{:keys [station now-playing]} (:player state)
         id (:id station)]
-    (cond-> (ok (update state :player assoc :status :playing :error nil)
+    (cond-> (ok (update state :player assoc :status :playing :error nil :played? true :retries 0)
                 [[:timer/cancel :connect]])
       ;; Titles come from the backend, which reads ICY streams, not HLS.
       (and id (not (:hls? station)) (not= id (:id now-playing)))
@@ -302,9 +312,29 @@
     (contains? #{429 503} status)     [:error/busy {}]
     :else                             [:error/stream {}]))
 
+(defn- reconnect-or
+  "A station that was playing and got cut is loaded again after a while,
+  up to `reconnect-delays-ms`; otherwise `failed` stands."
+  [state failed]
+  (let [{:keys [played? retries]} (:player state)
+        retries (or retries 0)]
+    (if (and played? (< retries (count reconnect-delays-ms)))
+      (ok (update state :player assoc :status :reconnecting :retries (inc retries))
+          [[:timer/cancel :connect]
+           [:audio/stop]
+           [:timer/start :reconnect (get reconnect-delays-ms retries) [:audio/reconnect]]])
+      failed)))
+
+(defmethod handle :audio/reconnect [state _]
+  (if (status-in? state #{:reconnecting})
+    (let [{:keys [id url hls?]} (get-in state [:player :station])]
+      (ok state [[:audio/play url hls? id]
+                 [:timer/start :connect connect-timeout-ms [:audio/timeout]]]))
+    (ok state)))
+
 (defmethod handle :audio/failed [state [_ status {:keys [proxy?]}]]
-  (if (status-in? state #{:playing :connecting})
-    (fail state (if proxy? (proxy-error status) (stream-error status)))
+  (if (status-in? state #{:playing :connecting :reconnecting})
+    (reconnect-or state (fail state (if proxy? (proxy-error status) (stream-error status))))
     (ok state)))
 
 (defmethod handle :audio/http-only [state _]
@@ -318,10 +348,11 @@
     (ok state)))
 
 (defmethod handle :audio/timeout [state _]
-  (if (status-in? state #{:connecting})
-    (stop-now-playing
-     (ok (update state :player assoc :status :error :error [:error/stream {}])
-         [[:audio/stop]]))
+  (if (status-in? state #{:connecting :reconnecting})
+    (reconnect-or state
+                  (stop-now-playing
+                   (ok (update state :player assoc :status :error :error [:error/stream {}])
+                       [[:audio/stop]])))
     (ok state)))
 
 ;; ---------------------------------------------------------------- now playing (backend)
@@ -376,11 +407,15 @@
       :else
       (ok state))))
 
-(defn- close-dialog [result]
-  (if (get-in result [:state :dialog])
-    (-> result
-        (assoc-in [:state :dialog] nil)
-        (add-effects [:dom/close-dialog "dialog"]))
+(defn- close-dialog
+  "Closes the dialog. After «Personalizar», the focus goes back to the menu
+  button of the tile, since the menu item that opened it is gone."
+  [result]
+  (if-let [{:keys [kind id]} (get-in result [:state :dialog])]
+    (cond-> (-> result
+                (assoc-in [:state :dialog] nil)
+                (add-effects [:dom/close-dialog "dialog"]))
+      (= :customize kind) (add-effects [:dom/focus (str "more-" id)]))
     result))
 
 (defmethod handle :favorites/remove [state [_ id]]
@@ -399,7 +434,7 @@
       save
       (toast [:toast/moved {:name (favorite-name state id)}])))
 
-;; ---------------------------------------------------------------- favourites: renaming
+;; ---------------------------------------------------------------- favourites: customizing
 
 (defn- original-name
   "The name Radio Browser gives `id`, else the stored one."
@@ -407,44 +442,37 @@
   (or (:name (station-by-id state id))
       (:name (favs/find-favorite (items state) id))))
 
-(defn- rename [result id text]
-  (let [state  (:state result)
-        before (items state)
-        after  (favs/rename before id text (original-name state id))]
-    (cond-> (assoc-in result [:state :favorites :items] after)
-      (not= before after) save)))
-
-(defmethod handle :rename/start [state [_ id]]
-  (if (favs/member? (items state) id)
-    (let [current (favorite-name state id)]
-      (ok (assoc state :rename {:id id :initial current :text current})
-          [[:dom/select-contents "rename-input"]]))
+(defmethod handle :customize/open [state [_ id]]
+  (if-let [{:keys [display]} (favs/find-favorite (items state) id)]
+    (ok (assoc state :dialog {:kind :customize :id id :name (favorite-name state id) :display display})
+        [[:dom/show-dialog "dialog"] [:dom/preview-size] [:dom/select "customize-name"]])
     (ok state)))
 
-(defmethod handle :rename/typed [state [_ text]]
-  (if (:rename state)
-    (ok (assoc-in state [:rename :text] text))
+(defn- customizing? [state]
+  (= :customize (get-in state [:dialog :kind])))
+
+(defmethod handle :customize/name [state [_ text]]
+  (ok (cond-> state (customizing? state) (assoc-in [:dialog :name] text))))
+
+(defmethod handle :customize/display [state [_ mode]]
+  (ok (cond-> state
+        (and (customizing? state) (contains? favs/display-modes mode)) (assoc-in [:dialog :display] mode))))
+
+(defmethod handle :customize/use-original [state _]
+  (if (customizing? state)
+    (ok (assoc-in state [:dialog :name] (original-name state (get-in state [:dialog :id])))
+        [[:dom/focus "customize-name"]])
     (ok state)))
 
-(defmethod handle :rename/save [state _]
-  (if-let [{:keys [id text]} (:rename state)]
-    (rename (ok (assoc state :rename nil)) id text)
+(defmethod handle :customize/save [state _]
+  (if (customizing? state)
+    (let [{:keys [id display] text :name} (:dialog state)]
+      (-> (ok (update-in state [:favorites :items]
+                         #(-> (favs/rename % id text (original-name state id))
+                              (favs/set-display id display))))
+          close-dialog
+          save))
     (ok state)))
-
-(defmethod handle :rename/commit [state _]
-  (if-let [{:keys [id]} (:rename state)]
-    (-> (handle state [:rename/save])
-        (add-effects [:dom/focus (str "more-" id)]))
-    (ok state)))
-
-(defmethod handle :rename/cancel [state _]
-  (if-let [{:keys [id]} (:rename state)]
-    (ok (assoc state :rename nil) [[:dom/focus (str "more-" id)]])
-    (ok state)))
-
-(defmethod handle :favorites/reset-name [state [_ id]]
-  (-> (rename (ok state) id nil)
-      (toast [:toast/name-reset {:name (original-name state id)}])))
 
 ;; ---------------------------------------------------------------- drag and drop
 
@@ -813,6 +841,22 @@
 (defmethod handle :import/failed [state _]
   (toast (ok state) [:toast/import-failed {}]))
 
+;; ---------------------------------------------------------------- «sonando ahora» panel and brand
+
+(defmethod handle :panel/toggle [state _]
+  (cond
+    (:panel? state)                   (handle state [:panel/close])
+    (get-in state [:player :station]) (ok (assoc state :panel? true) [[:dom/focus "panel-close"]])
+    :else                             (ok state)))
+
+(defmethod handle :panel/close [state _]
+  (if (:panel? state)
+    (ok (assoc state :panel? false) [[:dom/focus "now-btn"]])
+    (ok state)))
+
+(defmethod handle :brand/top [state _]
+  (ok (assoc state :filter "" :filter-open? false) [[:dom/scroll-top]]))
+
 ;; ---------------------------------------------------------------- toast, art, misc
 
 (defmethod handle :toast/show [state [_ messages]]
@@ -821,8 +865,16 @@
 (defmethod handle :toast/hide [state _]
   (ok (assoc state :toast nil)))
 
-(defmethod handle :art/sized [state [_ id w h]]
-  (ok (assoc-in state [:art id] (art/fit w h))))
+(defmethod handle :art/sized [state [_ id src w h]]
+  (ok (assoc-in state [:art id] {:w w :h h})
+      (when-not (art/probe state {:id id :favicon src})
+        [[:art/probe id src]])))
+
+(defmethod handle :art/probed [state [_ id src result]]
+  ;; No result: the server does not allow reading the pixels, so the file
+  ;; extension decides.
+  (let [state (assoc-in state [:probes id] (assoc (or result (art/guess-by-url src)) :src src))]
+    (update-cache (ok state) (station-cache state))))
 
 (defmethod handle :art/failed [state [_ id]]
   (ok (assoc-in state [:art id] :broken)))

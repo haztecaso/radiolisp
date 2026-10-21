@@ -1,11 +1,13 @@
 (ns radiolisp.frontend.views.shell
   (:require [clojure.string :as str]
+            [radiolisp.common.favorites :as favs]
             [radiolisp.frontend.i18n :as i18n]
             [radiolisp.frontend.views.dialogs :as dialogs]
             [radiolisp.frontend.views.grid :as grid]
             [radiolisp.frontend.views.help :as help]
             [radiolisp.frontend.views.icons :as icons]
             [radiolisp.frontend.views.menu :as menu]
+            [radiolisp.frontend.views.panel :as panel]
             [radiolisp.frontend.views.player :as player]
             [radiolisp.frontend.views.search :as search]))
 
@@ -15,6 +17,16 @@
   (fn
     ([k] (i18n/t locale k))
     ([k vars] (i18n/t locale k vars))))
+
+(defn page-title
+  "The browser tab's title: the station on air before the app's name, or
+  the app's name alone when nothing plays."
+  [{:keys [player favorites locale]}]
+  (let [{:keys [station status]} player
+        app (i18n/t locale :brand/name)]
+    (if (and station (contains? #{:playing :connecting :reconnecting} status))
+      (str (favs/display-name (favs/find-favorite (:items favorites) (:id station)) station) " - " app)
+      app)))
 
 (defn- filter-field
   "A funnel button that unfolds into the filter field, which folds back once
@@ -38,7 +50,7 @@
 
 (defn- top-bar [{:keys [menu] :as state} t]
   [:header.top
-   [:a.brand {:href "/"} icons/mark [:b (t :brand/name)]]
+   [:button.brand {:title (t :brand/top) :on {:click [[:brand/top]]}} icons/mark [:b (t :brand/name)]]
    [:div.tools
     [:button.icon-btn.add {:aria-label (t :search/open)
                            :title      (str (t :search/open) " (a)")
@@ -69,6 +81,7 @@
      (top-bar state t)
      [:main (grid/view state t)]
      (player/view state t)
+     (panel/view state t)
      (search/view state t)
      (menu/view state t)
      (toast state t)

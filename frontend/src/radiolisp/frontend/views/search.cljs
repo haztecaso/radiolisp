@@ -24,7 +24,7 @@
               :aria-selected (str highlight?)
               :class         [(when highlight? "hl") (when current? "playing")]
               :on            {:click [[:search/choose index]]}}
-     (art/view (:art state) station "thumb")
+     (art/view state station "thumb")
      [:div.info
       [:b {:title station-name} station-name]
       [:div.meta-line (sv/quality station) [:span.tags (sv/tags-line station true)]]]

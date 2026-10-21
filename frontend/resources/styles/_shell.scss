@@ -9,12 +9,13 @@
   @media (max-width: $phone) { gap: 12px; }
 }
 
+// The brand takes the grid back to the top; it never reloads.
 .brand {
   display: flex; align-items: center; gap: 10px; flex: none;
+  padding: 0; border: 0; background: none; cursor: pointer;
   font-weight: 600; font-size: 16px; letter-spacing: -0.01em;
-  color: var(--text); text-decoration: none;
+  color: var(--text);
   .mark { width: 28px; height: 20px; color: var(--accent); }
-  @media (max-width: $phone) { b { display: none; } }
 }
 
 .tools { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }

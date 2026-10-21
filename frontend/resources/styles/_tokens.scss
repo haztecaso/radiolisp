@@ -41,6 +41,7 @@ $dark: (
   on-text: #141012,
   tile-2: #2a1b22,
   tile-3: #231d20,
+  plate: #ece6e9,                         // light, so black logos on transparent still show
   veil: rgba(20, 16, 18, .9),
   shadow: rgba(0, 0, 0, .5),
   scrim: rgba(0, 0, 0, .5),
@@ -71,6 +72,7 @@ $tablet: 1024px;
   --on-accent: #fff;                      // ink on an --accent fill, both themes
   --tile-2: #f9eef3;                      // placeholder tile tints
   --tile-3: #f3ecef;
+  --plate: #ffffff;                       // behind contained artwork
   --veil: rgba(255, 255, 255, .94);       // behind names over artwork
   --shadow: rgba(24, 18, 20, .14);        // floating panels
   --scrim: rgba(24, 18, 20, .24);

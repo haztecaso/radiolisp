@@ -1,0 +1,62 @@
+@use "tokens" as *;
+
+// «Sonando ahora»: a popover over the bar on wide screens, a sheet over it on
+// phones (the bar stays visible and above the veil).
+.panel-scrim {
+  position: fixed; inset: 0; z-index: 7;
+  @media (max-width: $phone) { background: var(--scrim); }
+}
+
+.panel {
+  position: fixed; z-index: 8; left: var(--edge); bottom: calc(var(--bar) + 8px);
+  width: 380px; max-width: calc(100vw - 2 * var(--edge));
+  max-height: calc(100vh - var(--bar) - var(--top) - 16px); overflow: auto;
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: 0 12px 32px var(--shadow);
+  @media (max-width: $phone) {
+    left: 0; right: 0; bottom: var(--bar); width: auto; max-width: none;
+    border-width: 1px 0 0;
+  }
+}
+
+.panel-head {
+  display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 14px; align-items: start;
+  padding: 16px;
+  .art { width: 96px; container-type: inline-size; --name-min: 12px; --name-max: 22px; }
+  @media (max-width: $phone) {
+    grid-template-columns: 112px minmax(0, 1fr) auto;
+    .art { width: 112px; }
+  }
+}
+.panel-title {
+  min-width: 0;
+  h2 { margin: 0; font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+}
+.panel-playing {
+  margin-top: 6px; font-size: 14px; overflow-wrap: anywhere;
+  small { display: block; color: var(--faint); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+  .none { color: var(--muted); }
+}
+#panel-close { margin: -8px -8px 0 0; }
+
+.panel-meta { display: grid; gap: 10px; padding: 0 16px 16px; }
+.facts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; color: var(--muted); font-size: 13px; }
+.chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  span { padding: 1px 8px; background: var(--raised); color: var(--muted); font-size: 12px; }
+}
+
+.panel-actions {
+  display: flex; border-top: 1px solid var(--rule);
+  > * {
+    flex: 1; display: grid; justify-items: center; align-content: center; gap: 4px;
+    padding: 12px 4px; border: 0; background: none;
+    color: var(--text); font-size: 12px; line-height: 16px; text-align: center; text-decoration: none; cursor: pointer;
+    &:hover { background: var(--active); }
+    &:focus-visible { outline-offset: -2px; }
+  }
+  > * + * { border-left: 1px solid var(--rule); }
+  svg { width: 18px; height: 18px; color: var(--muted); }
+  .on svg { color: var(--accent); }
+  .num { color: var(--faint); }
+}

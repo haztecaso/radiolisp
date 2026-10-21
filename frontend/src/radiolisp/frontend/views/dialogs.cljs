@@ -1,8 +1,10 @@
 (ns radiolisp.frontend.views.dialogs
-  "The one native <dialog> for confirmations: removing a favourite, choosing
-  its key, exporting the list and importing a dropped file. It always exists; `effects` opens and
-  closes it and its content follows `:dialog` in the state."
-  (:require [radiolisp.common.favorites :as favs]))
+  "The one native <dialog>: removing a favourite, choosing its key,
+  customizing it, exporting the list and importing a dropped file. It always
+  exists; `effects` opens and closes it and its content follows `:dialog` in
+  the state."
+  (:require [radiolisp.common.favorites :as favs]
+            [radiolisp.frontend.views.art :as art]))
 
 (defn- favorite [{:keys [stations favorites]} id]
   (let [stored (favs/find-favorite (:items favorites) id)]
@@ -35,6 +37,54 @@
       [:button.btn {:autofocus true :on {:click [[:dialog/close]]}} (t :dialog/cancel)]
       [:button.btn.primary {:disabled (nil? pending) :on {:click [[:key-dialog/save]]}}
        (t :key/save)]])))
+
+(def ^:private display-labels
+  [[:image :customize/image] [:pad :customize/pad] [:text :customize/text]])
+
+(defn- customize-body
+  "Name and look of a favourite, with a preview of its tile as wide as the
+  tiles of the grid (`--tile-w`, set by :dom/preview-size)."
+  [{:keys [stations cache] :as state} t {:keys [id display] text :name}]
+  (let [shown    (or (get stations id) (get cache id))
+        original (:name shown)
+        custom   (favs/clean-name text)
+        preview  {:id id :name (or custom original) :favicon (:favicon shown) :display display}
+        current  (art/mode state preview)]
+    [:form {:on {:submit [[:customize/save]]}}
+     [:h2#dialog-title (t :customize/title)]
+     [:div.customize
+      [:div.tile.preview {:aria-hidden "true"}
+       (art/view state preview "art")
+       (when (not= :text current)
+         [:span.name (:name preview)])]
+      [:div.fields
+       [:div.field
+        [:label.field-label {:for "customize-name"} (t :customize/name)]
+        [:input#customize-name {:type         "text"
+                                :autocomplete "off"
+                                :spellcheck   false
+                                :enterkeyhint "done"
+                                :value        text
+                                :placeholder  original
+                                :on           {:input [[:customize/name :event.target/value]]}}]
+        (when (and custom original (not= custom original))
+          [:p.hint (t :customize/original {:name original}) " · "
+           [:button.text-btn {:type "button" :on {:click [[:customize/use-original]]}}
+            (t :customize/use-original)]])]
+       (when (art/shows-image? state preview)
+         [:div.field
+          [:span#customize-show.field-label (t :customize/show)]
+          [:div.seg {:role "radiogroup" :aria-labelledby "customize-show"}
+           (for [[mode label] display-labels]
+             [:button {:replicant/key (name mode)
+                       :type          "button"
+                       :role          "radio"
+                       :aria-checked  (str (= mode current))
+                       :on            {:click [[:customize/display mode]]}}
+              (t label)])]])]]
+     [:div.actions
+      [:button.btn {:type "button" :on {:click [[:dialog/close]]}} (t :dialog/cancel)]
+      [:button.btn.primary {:type "submit"} (t :customize/save)]]]))
 
 (def ^:private format-text
   {:m3u  [:export/m3u-label :export/m3u-hint]
@@ -81,10 +131,12 @@
 
 (defn view [{:keys [dialog] :as state} t]
   [:dialog#dialog {:aria-labelledby "dialog-title"
+                   :class           (some-> (:kind dialog) name)
                    :on              {:close [[:dialog/close]]}}
    (case (:kind dialog)
-     :remove (remove-body state t (:id dialog))
-     :key    (key-body state t dialog)
-     :export (export-body t dialog)
-     :import (import-body t dialog)
+     :remove    (remove-body state t (:id dialog))
+     :key       (key-body state t dialog)
+     :customize (customize-body state t dialog)
+     :export    (export-body t dialog)
+     :import    (import-body t dialog)
      nil)])

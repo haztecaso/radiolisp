@@ -199,8 +199,16 @@ try {
   check('clicking a tile plays it', (await barName(grid)) === 'BBC World Service', await barName(grid));
   check('playing counts a click in Radio Browser', count(grid, /\/json\/url\//) === 1);
   check('stream plays', await playing(grid), await text(grid, '.bar .meta-line'));
+  check('the tab title names the station', (await grid.eval('document.title')) === `${await barName(grid)} - radiolisp`, await grid.eval('document.title'));
+  await click(grid, '#now-btn');
+  await sleep(150);
+  check('the bar opens «sonando ahora»', await exists(grid, '#panel .panel-actions') && (await activeId(grid)) === 'panel-close');
+  check('the panel shows the quality', /MP3/.test((await text(grid, '#panel .q')) || ''), await text(grid, '#panel .facts'));
+  await grid.screenshot({ path: `${OUT}/4b-panel-desktop.jpg` });
+  await press(grid, 'Escape');
+  check('esc closes the panel', !(await exists(grid, '#panel')) && (await activeId(grid)) === 'now-btn');
   check('playing tile outlined', await exists(grid, '.tile.playing'));
-  check('quality chip in the bar', /MP3/.test((await text(grid, '.bar .q')) || ''), await text(grid, '.bar .q'));
+  check('the bar leaves the quality to the panel', !(await exists(grid, '.bar .q')));
   await grid.screenshot({ path: `${OUT}/4-playing-desktop.jpg` });
   await click(grid, '.tile:nth-child(1) .play');
   check('a second click pauses', await waitFor(grid, `window.__audio.paused`, 3000));
@@ -249,35 +257,60 @@ try {
   check('vote request sent (blocked here) and reported', await waitFor(grid, `/votar/i.test(document.querySelector('.toast.show')?.textContent || '')`, 5000), await toast(grid));
   check('vote went to /json/vote', count(grid, /\/json\/vote\//) === 1);
 
-  // renaming in place, from the station menu
-  const renameMenu = (re) => grid.eval(`[...document.querySelectorAll('#menu [role=menuitem]')].find(e => ${re}.test(e.textContent)).click()`);
+  // «Personalizar…», from the station menu: name and look in a dialog
+  const menuItem = (re) => grid.eval(`[...document.querySelectorAll('#menu [role=menuitem]')].find(e => ${re}.test(e.textContent)).click()`);
   const gone = `[...document.querySelectorAll('.tile .art .full-name')].find(e => e.textContent === 'Gone FM')`;
   check('a tile without artwork shows its whole name', await grid.eval(`!!${gone}`), JSON.stringify(await tileNames(grid)));
   const fs = await grid.eval(`parseFloat(getComputedStyle(${gone}).fontSize)`);
   check('its size stays between the bounds', fs >= 14 && fs <= 40, String(fs));
+  const selected = `(() => { const i = document.activeElement; return i.value.slice(i.selectionStart, i.selectionEnd); })()`;
   await click(grid, '.tile:nth-child(3) .more');
-  await renameMenu('/Cambiar nombre/');
-  await sleep(150);
-  check('rename makes the name editable on the tile', (await activeId(grid)) === 'rename-input');
-  check('the whole name is selected to type over', (await grid.eval('String(getSelection())')) === '101 SMOOTH JAZZ', await grid.eval('String(getSelection())'));
+  await menuItem('/Personalizar/');
+  await sleep(200);
+  check('customize opens with the name selected', (await activeId(grid)) === 'customize-name' && (await grid.eval(selected)) === '101 SMOOTH JAZZ', await grid.eval(selected));
+  const widths = await grid.eval(`[document.querySelector('#dialog .tile.preview').offsetWidth, document.querySelector('.grid .tile').offsetWidth]`);
+  check('the preview is as wide as a tile', Math.abs(widths[0] - widths[1]) <= 1, JSON.stringify(widths));
+  check('the look selector shows for an image', await exists(grid, '#dialog .seg [aria-checked=true]'));
   await type(grid, 'Jazz suave', 30);
-  check('typing a / or a key does not trigger shortcuts', !(await exists(grid, '#search-input:focus')) && (await activeId(grid)) === 'rename-input');
-  await grid.screenshot({ path: `${OUT}/6b-rename-desktop.jpg` });
+  check('typing a / or a key does not trigger shortcuts', !(await exists(grid, '#search-input:focus')) && (await activeId(grid)) === 'customize-name');
+  check('the preview follows the name', (await text(grid, '#dialog .tile.preview .name')) === 'Jazz suave', await text(grid, '#dialog .tile.preview .name'));
+  check('the original name is offered back', /Usar el original/.test((await text(grid, '#dialog .hint')) || ''));
+  await grid.eval(`[...document.querySelectorAll('#dialog .seg button')].find(b => /Texto/.test(b.textContent)).click()`);
+  await sleep(100);
+  check('text shows the name in the preview', await exists(grid, '#dialog .tile.preview .full-name'));
+  await grid.screenshot({ path: `${OUT}/6b-customize-desktop.jpg` });
+  await grid.eval(`document.getElementById('customize-name').focus()`);
   await press(grid, 'Enter');
+  await sleep(150);
   check('enter saves the new name', (await tileNames(grid))[2] === 'Jazz suave', JSON.stringify(await tileNames(grid)));
-  check('the new name is stored', /:custom-name "Jazz suave"/.test(await stored(grid)), await stored(grid));
+  check('the name and the look are stored', /:custom-name "Jazz suave"/.test(await stored(grid)) && /:display :text/.test(await stored(grid)), await stored(grid));
+  check('the tile shows its name', await exists(grid, '.tile:nth-child(3) .art .full-name'));
+  check('the focus goes back to the tile', (await activeId(grid)) === (await grid.eval(`document.querySelector('.tile:nth-child(3) .more').id`)));
   await grid.goto(URL, { settleMs: 500 });
   await waitFor(grid, `document.querySelectorAll('.tile .art img, .tile .art .full-name').length >= 4`);
   check('the new name survives a reload', (await tileNames(grid))[2] === 'Jazz suave', JSON.stringify(await tileNames(grid)));
   await click(grid, '.tile:nth-child(3) .more');
-  await renameMenu('/Cambiar nombre/');
+  await menuItem('/Personalizar/');
+  await sleep(150);
   await type(grid, 'xyz', 30);
   await press(grid, 'Escape');
-  check('esc keeps the name', (await tileNames(grid))[2] === 'Jazz suave' && !(await exists(grid, '#rename-input')));
+  await sleep(100);
+  check('esc keeps the name', (await tileNames(grid))[2] === 'Jazz suave' && !(await grid.eval(`document.getElementById('dialog').open`)));
   await click(grid, '.tile:nth-child(3) .more');
-  await renameMenu('/nombre original/');
+  await menuItem('/Personalizar/');
+  await sleep(150);
+  await click(grid, '#dialog .hint .text-btn');
+  await grid.eval(`[...document.querySelectorAll('#dialog .seg button')].find(b => /Imagen/.test(b.textContent)).click()`);
+  await click(grid, '#dialog .btn.primary');
   await sleep(150);
   check('the original name comes back', (await tileNames(grid))[2] === '101 SMOOTH JAZZ' && !/:custom-name/.test(await stored(grid)), JSON.stringify(await tileNames(grid)));
+  check('and the image', await exists(grid, '.tile:nth-child(3) .art img'));
+
+  // the brand goes to the top without reloading
+  await grid.eval(`window.__noReload = true; window.scrollTo(0, 400)`);
+  await click(grid, '.brand');
+  await sleep(600);
+  check('the brand does not reload', await grid.eval(`window.__noReload === true && window.scrollY === 0`));
 
   // drag and drop
   await drag(grid, '.tile:nth-child(1)', '.add-tile');
@@ -308,8 +341,11 @@ try {
   await press(grid, 'Escape');
 
   // removing asks first
-  await click(grid, '.bar .fav');
-  check('the bar heart asks before removing', await dialogOpen(grid), await text(grid, '#dialog h2'));
+  check('the bar has no heart: it lives in the panel', !(await exists(grid, '.bar .fav')));
+  await click(grid, '#now-btn');
+  await sleep(150);
+  await click(grid, '#panel .panel-actions .on');
+  check('the panel heart asks before removing', await dialogOpen(grid), await text(grid, '#dialog h2'));
   await grid.screenshot({ path: `${OUT}/8-remove-desktop.jpg` });
   await click(grid, '#dialog .btn.danger');
   check('removed after confirming', !(await tileNames(grid)).includes('101 SMOOTH JAZZ') && !(await dialogOpen(grid)), JSON.stringify(await tileNames(grid)));
@@ -317,7 +353,6 @@ try {
   check('the station keeps playing', (await barName(grid)) === '101 SMOOTH JAZZ');
 
   // export and import
-  const menuItem = (re) => grid.eval(`[...document.querySelectorAll('#menu [role=menuitem]')].find(e => ${re}.test(e.textContent)).click()`);
   await click(grid, '#list-menu');
   await menuItem('/Exportar/');
   check('export asks for format and name', (await dialogOpen(grid)) && (await grid.eval(`document.getElementById('export-stem')?.value`)) === 'radiolisp-favoritas');
@@ -453,7 +488,10 @@ try {
   await click(hls, '.tile .play');
   check('HLS station plays through hls.js', await playing(hls), await text(hls, '.bar .meta-line'));
   check('hls.js loaded on demand', count(hls, /\/js\/hls\.js/) === 1);
-  check('HLS chip in the bar', (await text(hls, '.bar .q')) === 'HLS');
+  await click(hls, '#now-btn');
+  await sleep(150);
+  check('HLS chip in the panel', (await text(hls, '#panel .q')) === 'HLS', await text(hls, '#panel .q'));
+  await press(hls, 'Escape');
   check('no uncaught exceptions (hls)', hls.consoleErrors.length === 0, hls.consoleErrors.join(' | '));
   await hls.close();
 
@@ -468,6 +506,16 @@ try {
   await sleep(500);
   await phone.screenshot({ path: `${OUT}/11-playing-phone.jpg` });
   check('phone hides the volume slider', await phone.eval(`getComputedStyle(document.querySelector('.vol .slider')).display === 'none'`));
+  check('phone shows the brand name', await phone.eval(`getComputedStyle(document.querySelector('.brand b')).display !== 'none'`));
+  const bar = await phone.eval(`(() => { const n = document.querySelector('.bar .now b .nm').getBoundingClientRect(); const p = document.querySelector('#player-toggle').getBoundingClientRect(); return { nameRight: n.right, playLeft: p.left, playRight: p.right }; })()`);
+  check('phone bar keeps the play button on screen', bar.playRight <= 390 && bar.nameRight <= bar.playLeft, JSON.stringify(bar));
+  check('phone bar keeps only play on the right', await phone.eval(`[...document.querySelectorAll('.bar .ctrls > *')].filter(e => getComputedStyle(e).display !== 'none').length === 1`));
+  await click(phone, '#now-btn');
+  await sleep(200);
+  const sheet = await phone.eval(`(() => { const r = document.getElementById('panel').getBoundingClientRect(); const b = document.querySelector('.bar').getBoundingClientRect(); return { w: r.width, bottom: r.bottom, barTop: b.top }; })()`);
+  check('phone panel is a sheet over the bar', sheet.w === 390 && Math.abs(sheet.bottom - sheet.barTop) <= 1, JSON.stringify(sheet));
+  await phone.screenshot({ path: `${OUT}/11b-panel-phone.jpg` });
+  await click(phone, '#panel-close');
   await click(phone, '.top .add');
   await waitFor(phone, `document.querySelectorAll('#search-list [role=option]').length > 0`);
   await phone.screenshot({ path: `${OUT}/12-palette-phone.jpg` });

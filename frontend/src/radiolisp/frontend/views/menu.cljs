@@ -7,7 +7,7 @@
             [radiolisp.frontend.i18n :as i18n]
             [radiolisp.frontend.views.icons :as icons]))
 
-(def edit-url "https://www.radio-browser.info/history/")
+(def radio-browser-url "https://www.radio-browser.info/history/")
 
 (defn- item
   ([icon label actions] (item icon label actions nil))
@@ -30,7 +30,7 @@
 
 (defn- station-items [{:keys [stations favorites locale] :as state} t id]
   (let [station  (get stations id)
-        {shortcut :key :keys [custom-name]} (favs/find-favorite (:items favorites) id)]
+        {shortcut :key} (favs/find-favorite (:items favorites) id)]
     (list
      (when-let [homepage (:homepage station)]
        (link icons/globe (t :menu/homepage) homepage))
@@ -39,13 +39,11 @@
              [:span.meta.num (i18n/format-number locale (:votes station))]))
      (item icons/key-icon (t (if shortcut :menu/change-key :tile/assign-key)) [[:dialog/open-key id]]
            (when shortcut [:span.meta shortcut]))
-     (item icons/rename (t :menu/rename) [[:rename/start id]])
-     (when custom-name
-       (item icons/undo (t :menu/reset-name) [[:favorites/reset-name id]]))
+     (item icons/sliders (t :menu/customize) [[:customize/open id]])
      (item icons/up (t :menu/move-to-front) [[:favorites/move-to-front id]])
      (when (:url station)
        (item icons/link (t :menu/copy-url) [[:station/copy-url id]]))
-     (link icons/edit (t :menu/edit) (str edit-url id))
+     (link icons/external (t :menu/radio-browser) (str radio-browser-url id))
      (when station
        (list [:hr] (health state t station)))
      [:hr]

@@ -1,10 +1,12 @@
 # radiolisp: guide for AI agents
 
 radiolisp is a minimal web radio player written in ClojureScript, built to learn
-Clojure. The design specs are `docs/specs/2026-10-20-mvp-design.md` and
+Clojure. The design specs are `docs/specs/2026-10-20-mvp-design.md`,
 `docs/specs/2026-10-20-iteration-2-design.md` (favourites; it supersedes the MVP
-layout) and `docs/specs/2026-10-20-backend-design.md` (the backend: http proxy
-and now playing); read them before changing behaviour.
+layout), `docs/specs/2026-10-21-iteration-3-design.md` (artwork modes,
+«Personalizar», the player bar and its panel) and
+`docs/specs/2026-10-20-backend-design.md` (the backend: http proxy and now
+playing); read them before changing behaviour.
 Ideas that need a backend are collected in `docs/ideas/backend.md`.
 
 ## Hard rules
@@ -13,9 +15,12 @@ Ideas that need a backend are collected in `docs/ideas/backend.md`.
 - Run `bb lint`, `bb fmt:check` and `bb test` before you call a change done.
 - Never pipe test output into `head`, `tail` or `grep`; redirect to a file first.
 - UI strings live only in `frontend/resources/i18n/<locale>.edn` (es, en, pt, fr,
-  it, ca, gl, eu, ro, bg, ru, zh), with the same keys and `{placeholders}` in
-  all of them and every plural form `Intl.PluralRules` gives the locale. A new
-  key goes into every file. State holds keys and data, never translated text.
+  it, ca, gl, eu, ro, bg, ru, zh), with the same `{placeholders}` as `en` and
+  every plural form `Intl.PluralRules` gives the locale. State holds keys and
+  data, never translated text.
+- When iterating on features, edit only `es.edn` and `en.edn`: add, change and
+  remove keys there. Leave the other locales out of sync; they are translated
+  in a separate pass, only when the user asks for it.
 - `actions/handle` and `keymap/key->action` stay pure. Side effects go in
   `effects/execute!`, `api`, `audio`.
 - Design changes follow `.agents/skills/design-taste-frontend` (app-screen rules).

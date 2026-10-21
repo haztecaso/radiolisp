@@ -7,7 +7,9 @@
    :theme        {:current :light       ; :light | :dark
                   :chosen? false}       ; true once picked with the button: the browser's no longer applies
    :player       {:station nil
-                  :status  :stopped     ; :stopped :connecting :playing :paused :error
+                  :status  :stopped     ; :stopped :connecting :playing :reconnecting :paused :error
+                  :played? false        ; the station in the player played at least once: a cut reconnects
+                  :retries 0            ; reconnections tried since it last played
                   :error   nil          ; [:error/stream {}] | [:error/unsupported {}]
                   :volume  100
                   :muted?  false
@@ -18,14 +20,15 @@
                   :missing  #{}}        ; ids Radio Browser no longer knows
    :stations     {}                     ; id → normalized station
    :cache        {}                     ; id → {:name :favicon}: favourites as last seen, drawn until :stations has them
-   :art          {}                     ; id → :cover :contain :small or :broken
+   :art          {}                     ; id → {:w :h} (natural size) or :broken
+   :probes       {}                     ; id → {:src :alpha? :dark? :edge}: what the artwork detection found
+   :panel?       false                  ; the «sonando ahora» panel is open
    :filter       ""
    :filter-open? false                  ; the filter field shows only while in use
    :drag         nil                    ; {:id :over} while a tile is dragged
    :file-drag?   false                  ; true while a file is dragged over the page
-   :rename       nil                    ; {:id :initial :text} while a tile's name is edited in place
    :menu         nil                    ; {:kind :station :id :anchor} | {:kind :list :anchor}
-   :dialog       nil                    ; {:kind :remove :id} | {:kind :key :id :pending :message}
+   :dialog       nil                    ; {:kind :remove :id} | {:kind :key :id :pending :message} | {:kind :customize :id :name :display} | …
    :toast        nil                    ; [[message-key vars] ...]
    :search       {:open?     false
                   :query     ""

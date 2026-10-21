@@ -1,19 +1,27 @@
 @use "tokens" as *;
 
-// The player: a bar fixed at the bottom.
+// The player: a bar fixed at the bottom. Its left side (thumbnail, name and
+// what is on) is one button that opens the «sonando ahora» panel.
 .bar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 6;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 9;
   height: var(--bar); padding: 0 var(--edge);
-  display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 14px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px;
   background: var(--surface); border-top: 1px solid var(--border);
+  @media (max-width: $phone) { gap: 8px; }
+}
+
+.now-btn {
+  display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 14px;
+  min-width: 0; height: 100%; padding: 0; border: 0; background: none; color: inherit;
+  text-align: left; cursor: pointer;
+  &:disabled { cursor: default; }
+  &:focus-visible { outline-offset: -2px; }
   @media (max-width: $phone) { gap: 10px; }
 }
 
 .thumb {
   width: 48px; height: 48px; flex: none; overflow: hidden;
   display: grid; place-items: center; background: var(--raised);
-  img { width: 60%; height: 60%; object-fit: contain; }
-  &.cover img { width: 100%; height: 100%; object-fit: cover; }
   .mono { font: italic 400 22px/1 var(--display); color: var(--accent-ink); }
 }
 
@@ -21,7 +29,10 @@
   min-width: 0;
   b { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; line-height: 20px; }
   b span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  // The chevron: the panel opens upwards.
+  b > svg:not(.waves) { width: 14px; height: 14px; flex: none; color: var(--faint); transition: transform 160ms var(--ease); }
 }
+.now-btn[aria-expanded="true"] .now b > svg:not(.waves) { transform: rotate(180deg); }
 .bar.idle .now b { color: var(--muted); }
 
 .meta-line { display: flex; align-items: center; gap: 10px; margin-top: 3px; min-width: 0; }
@@ -33,6 +44,7 @@
 .tags { min-width: 0; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .now-title { min-width: 0; color: var(--text); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .err-line { color: var(--negative-ink); font-size: 13px; }
+.wait { min-width: 0; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .waves {
   width: 20px; height: 14px; flex: none; color: var(--accent);
@@ -69,6 +81,7 @@
 
 .toggle {
   display: grid; place-items: center; width: 48px; height: 48px; margin-left: 8px;
+  @media (max-width: $phone) { margin-left: 0; }
   border: 0; background: var(--accent); color: var(--on-accent); cursor: pointer;
   transition: transform 90ms var(--ease);
   &:active { transform: scale(.94); }
@@ -79,4 +92,5 @@
 @media (prefers-reduced-motion: reduce) {
   .is-playing .waves .w1, .is-playing .waves .w2 { animation: none; opacity: 1; }
   .vol .slider { transition: none; }
+  .now b > svg:not(.waves) { transition: none; }
 }
