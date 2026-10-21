@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- radiolisp: the grid of favourites, the one on air as the mark (parentheses around a dot). -->
+  <style>.t{fill:#d8cfd3}@media (prefers-color-scheme:dark){.t{fill:#4a3f44}}</style>
+  <g transform="scale(0.65625)">
+    <rect width="32" height="32" fill="#b8336a"/>
+    <g fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="square">
+      <path d="M10 6 Q4 16 10 26"/>
+      <path d="M22 6 Q28 16 22 26"/>
+    </g>
+    <rect x="12.5" y="12.5" width="7" height="7" fill="#fff"/>
+  </g>
+  <rect class="t" x="22" y="0" width="10" height="10"/>
+  <rect class="t" x="22" y="11" width="10" height="10"/>
+  <rect class="t" x="0" y="22" width="10" height="10"/>
+  <rect class="t" x="11" y="22" width="10" height="10"/>
+  <rect class="t" x="22" y="22" width="10" height="10"/>
+</svg>

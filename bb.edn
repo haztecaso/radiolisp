@@ -31,6 +31,7 @@
                   :task    (do (fs/create-dirs "dist/public")
                                (fs/copy "frontend/resources/public/index.html" "dist/public/index.html" {:replace-existing true})
                                (fs/copy-tree "frontend/resources/public/fonts" "dist/public/fonts" {:replace-existing true})
+                               (fs/copy-tree "frontend/resources/public/icons" "dist/public/icons" {:replace-existing true})
                                (shell frontend "npx shadow-cljs release app"))}
 
   build:backend {:doc  "Backend jar into dist/radiolisp-backend.jar (it serves dist/public)"

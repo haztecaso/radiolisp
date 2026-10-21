@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>radiolisp · favicon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+/* Favicon proposals. Each is one SVG (the real file would be favicon.svg,
+   plus a 180 px PNG for iOS). "Usar en esta pestaña" puts it in this tab. */
+:root {
+  --accent:#b8336a; --accent-soft:#fdf2f7; --ground:#fbf8f9; --surface:#fff; --raised:#f5f1f3;
+  --border:#ebe4e7; --text:#181214; --muted:#665a5f; --faint:#72656b;
+  --font:"DM Sans", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--text); font: 400 14px/20px var(--font); }
+main { max-width: 1120px; margin: 0 auto; padding: 32px 24px 64px; }
+h1 { margin: 0 0 4px; font-size: 22px; line-height: 28px; font-weight: 600; }
+.lead { margin: 0 0 28px; color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(500px, 1fr)); gap: 24px; }
+@media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--border); padding: 20px; display: grid; gap: 16px; }
+.card header { display: flex; align-items: baseline; gap: 10px; }
+.card h2 { margin: 0; font-size: 17px; font-weight: 600; }
+.card header span { color: var(--faint); font-size: 13px; }
+.card p { margin: 0; color: var(--muted); }
+.sizes { display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
+.size { display: grid; justify-items: center; gap: 6px; color: var(--faint); font-size: 11px; }
+.size img { display: block; image-rendering: auto; }
+.home { border-radius: 40px; box-shadow: 0 0 0 1px var(--border); }
+/* fake tab strips */
+.tabs { display: grid; gap: 8px; }
+.strip { display: flex; align-items: flex-end; gap: 2px; height: 40px; padding: 6px 8px 0; }
+.strip.light { background: #dee1e6; }
+.strip.dark { background: #202124; }
+.tab { display: flex; align-items: center; gap: 8px; width: 230px; height: 34px; padding: 0 12px; font-size: 12px; white-space: nowrap; overflow: hidden; }
+.tab span { overflow: hidden; text-overflow: ellipsis; }
+.light .tab.on { background: #fff; color: #1f1f1f; border-radius: 8px 8px 0 0; }
+.light .tab.off { color: #474747; }
+.dark .tab.on { background: #35363a; color: #e8eaed; border-radius: 8px 8px 0 0; }
+.dark .tab.off { color: #9aa0a6; }
+.tab img { width: 16px; height: 16px; flex: none; }
+.use { justify-self: start; height: 34px; padding: 0 14px; border: 1px solid var(--text); background: var(--surface); font: 500 13px var(--font); cursor: pointer; }
+.use[aria-pressed="true"] { background: var(--text); color: #fff; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Favicon de radiolisp</h1>
+  <p class="lead">Propuestas en el frambuesa de la marca; E y F combinan B y D. Cada una a 180 (icono de inicio en iOS), 48, 32 y 16 px, en pestañas claras y oscuras. «Usar en esta pestaña» la pone de verdad arriba.</p>
+  <div class="grid" id="grid"></div>
+</main>
+<script>
+const A = '#b8336a', INK = '#181214';
+const svg = (body, style = '') =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">${style ? `<style>${style}</style>` : ''}${body}</svg>`;
+
+const PROPOSALS = [
+  {
+    key: 'E', name: 'Bloque en casillas', note: 'B dentro de D: cuatro casillas iguales y la que suena es el bloque frambuesa con los paréntesis. Fiel a la idea, pero a 16 px la casilla activa mide 7 px y los paréntesis se pierden.',
+    svg: svg(`<g transform="translate(1 1) scale(0.4375)"><rect width="32" height="32" fill="${A}"/>
+        <g fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="square">
+          <path d="M10 6 Q4 16 10 26"/><path d="M22 6 Q28 16 22 26"/></g>
+        <rect x="12.5" y="12.5" width="7" height="7" fill="#fff"/></g>
+      <rect x="17" y="1" width="14" height="14" class="t"/>
+      <rect x="1" y="17" width="14" height="14" class="t"/>
+      <rect x="17" y="17" width="14" height="14" class="t"/>`,
+      `.t{fill:#d8cfd3}@media (prefers-color-scheme:dark){.t{fill:#4a3f44}}`),
+  },
+  {
+    key: 'F', name: 'Bloque en casillas, grande', note: 'La misma idea con la casilla activa ocupando dos por dos de una cuadrícula de tres: el bloque se lee a 16 px y las cinco casillas pequeñas siguen diciendo «cuadrícula».',
+    svg: svg(`<g transform="scale(0.65625)"><rect width="32" height="32" fill="${A}"/>
+        <g fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="square">
+          <path d="M10 6 Q4 16 10 26"/><path d="M22 6 Q28 16 22 26"/></g>
+        <rect x="12.5" y="12.5" width="7" height="7" fill="#fff"/></g>
+      <rect x="22" y="0" width="10" height="10" class="t"/>
+      <rect x="22" y="11" width="10" height="10" class="t"/>
+      <rect x="0" y="22" width="10" height="10" class="t"/>
+      <rect x="11" y="22" width="10" height="10" class="t"/>
+      <rect x="22" y="22" width="10" height="10" class="t"/>`,
+      `.t{fill:#d8cfd3}@media (prefers-color-scheme:dark){.t{fill:#4a3f44}}`),
+  },
+  {
+    key: 'A', name: 'Marca', note: 'La marca de la app tal cual: paréntesis como ondas alrededor del punto, en frambuesa sobre transparente. Se adapta al tema con un trazo algo más claro en oscuro.',
+    svg: svg(`<g fill="none" stroke-width="2.6" stroke-linecap="square" class="i">
+        <path d="M7 4 Q1 16 7 28"/><path d="M11.5 9 Q8.5 16 11.5 23"/>
+        <path d="M20.5 9 Q23.5 16 20.5 23"/><path d="M25 4 Q31 16 25 28"/></g>
+      <rect x="13.5" y="13.5" width="5" height="5" class="f"/>`,
+      `.i{stroke:${A}}.f{fill:${A}}@media (prefers-color-scheme:dark){.i{stroke:#e0679a}.f{fill:#e0679a}}`),
+  },
+  {
+    key: 'B', name: 'Bloque', note: 'Un cuadrado frambuesa con la marca en blanco, simplificada a un par de paréntesis para que aguante a 16 px. Se ve igual en cualquier pestaña y es el que mejor queda como icono de inicio.',
+    svg: svg(`<rect width="32" height="32" fill="${A}"/>
+      <g fill="none" stroke="#fff" stroke-width="3" stroke-linecap="square">
+        <path d="M10 6 Q4 16 10 26"/><path d="M22 6 Q28 16 22 26"/></g>
+      <rect x="13" y="13" width="6" height="6" fill="#fff"/>`),
+  },
+  {
+    key: 'C', name: 'Paréntesis', note: 'Tinta y acento: unos paréntesis gruesos en negro (blancos en tema oscuro) y el punto en frambuesa. Más tipográfico y sobrio; el color queda solo en el punto, como en la app.',
+    svg: svg(`<g fill="none" stroke-width="3.4" stroke-linecap="square" class="i">
+        <path d="M10 3 Q2.5 16 10 29"/><path d="M22 3 Q29.5 16 22 29"/></g>
+      <rect x="12.5" y="12.5" width="7" height="7" fill="${A}"/>`,
+      `.i{stroke:${INK}}@media (prefers-color-scheme:dark){.i{stroke:#f3eef0}}`),
+  },
+  {
+    key: 'D', name: 'Casillas', note: 'La cuadrícula de favoritas: cuatro casillas, la que suena en frambuesa con el punto de la marca. Habla de la app más que de la radio; a 16 px se lee como un 2×2.',
+    svg: svg(`<rect x="1" y="1" width="14" height="14" fill="${A}"/>
+      <rect x="17" y="1" width="14" height="14" class="t"/>
+      <rect x="1" y="17" width="14" height="14" class="t"/>
+      <rect x="17" y="17" width="14" height="14" class="t"/>
+      <rect x="5.5" y="5.5" width="5" height="5" fill="#fff"/>`,
+      `.t{fill:#d8cfd3}@media (prefers-color-scheme:dark){.t{fill:#4a3f44}}`),
+  },
+];
+
+const url = (s) => 'data:image/svg+xml,' + encodeURIComponent(s);
+let chosen = null;
+
+function tabStrip(theme, src) {
+  return `<div class="strip ${theme}">
+    <div class="tab on"><img src="${src}" alt=""><span>BBC World Service - radiolisp</span></div>
+    <div class="tab off"><span>Otra pestaña</span></div>
+  </div>`;
+}
+
+function render() {
+  document.getElementById('grid').innerHTML = PROPOSALS.map((p) => {
+    const src = url(p.svg);
+    return `<section class="card">
+      <header><h2>${p.key} · ${p.name}</h2></header>
+      <div class="sizes">
+        <div class="size"><img class="home" src="${url(p.key === 'B' ? p.svg : p.svg.replace('<svg ', '<svg style="background:#fff" '))}" width="120" height="120" alt="">180</div>
+        <div class="size"><img src="${src}" width="48" height="48" alt="">48</div>
+        <div class="size"><img src="${src}" width="32" height="32" alt="">32</div>
+        <div class="size"><img src="${src}" width="16" height="16" alt="">16</div>
+      </div>
+      <div class="tabs">${tabStrip('light', src)}${tabStrip('dark', src)}</div>
+      <p>${p.note}</p>
+      <button class="use" data-key="${p.key}" aria-pressed="${chosen === p.key}">Usar en esta pestaña</button>
+    </section>`;
+  }).join('');
+}
+
+document.getElementById('grid').addEventListener('click', (e) => {
+  const b = e.target.closest('.use'); if (!b) return;
+  chosen = b.dataset.key;
+  let link = document.querySelector('link[rel=icon]');
+  if (!link) { link = document.createElement('link'); link.rel = 'icon'; link.type = 'image/svg+xml'; document.head.append(link); }
+  link.href = url(PROPOSALS.find((p) => p.key === chosen).svg);
+  render();
+});
+render();
+</script>
+</body>
+</html>
