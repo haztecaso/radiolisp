@@ -37,7 +37,7 @@
   build:backend {:doc  "Backend jar into dist/radiolisp-backend.jar (it serves dist/public)"
                  :task (shell backend "clojure -T:build uber")}
 
-  deploy     {:doc     "Build and deploy to radio.example.org (DEPLOY_SERVER, DEPLOY_URL)"
+  deploy     {:doc     "Build and deploy to your server (DEPLOY_SERVER, DEPLOY_URL in .env)"
               :depends [build]
               :task    (exec 'deploy/run)}
 
