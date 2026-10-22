@@ -13,6 +13,12 @@ Ideas that need a backend are collected in `docs/ideas/backend.md`.
 
 - Never `git push` or touch remotes. The user pushes. Never run `bb deploy`.
 - Run `bb lint`, `bb fmt:check` and `bb test` before you call a change done.
+- GitHub flow: work in a branch (`feat/…`, `fix/…`, `docs/…`, `ci/…`), never commit
+  to `main`; changes reach it through a pull request that passes CI
+  (`.github/workflows/ci.yml`).
+- Everything the frontend needs from the backend checks `radiolisp.frontend.config/backend`
+  (false in the `:static` build): the app must keep working without one. Paths in
+  the pages stay relative, so the static build works under `/radiolisp/` on GitHub Pages.
 - Never pipe test output into `head`, `tail` or `grep`; redirect to a file first.
 - UI strings live only in `frontend/resources/i18n/<locale>.edn` (es, en, pt, fr,
   it, ca, gl, eu, ro, bg, ru, zh), with the same `{placeholders}` as `en` and
@@ -51,5 +57,6 @@ Ideas that need a backend are collected in `docs/ideas/backend.md`.
 logs) · `bb backend` (http://localhost:8090 alone, serves the frontend build too) · `bb test` (Node and JVM) · `bb lint` · `bb fmt` ·
 `bb fmt:check` · `bb build` (everything into `dist/`: the web in `dist/public/`,
 the backend uberjar in `dist/radiolisp-backend.jar`; also `build:frontend`,
-`build:backend`) · `bb clean` · `bb e2e` (browser check; needs `bb dev` running or
+`build:backend`) · `bb build:static` (the web without a backend, into `dist/static/`,
+what GitHub Pages serves) · `bb clean` · `bb e2e` (browser check; needs `bb dev` running or
 `URL=…`, uses the real Radio Browser API and real streams)

@@ -1,12 +1,19 @@
 # radiolisp
 
-**English** · [Español](README.es.md)
-
 A minimal internet radio player written in ClojureScript. It searches stations
 in the community directory [Radio Browser](https://www.radio-browser.info/) and
 plays them in the browser. It is inspired by
 [radiolise](https://gitlab.com/radiolise/radiolise.gitlab.io), and it was also
 born as a way to learn Clojure.
+
+Try it at <https://haztecaso.github.io/radiolisp/> (frontend only, without the
+backend).
+
+> **Made with LLMs.** Most of the code, tests and documentation in this
+> repository were written by a language model (Claude, through Claude Code),
+> following my directions and reviewed by me. Expect odd choices, rough edges
+> and mistakes no person would have made. Sorry for that; issues and pull
+> requests are welcome.
 
 - A grid of **favourites** saved in the browser: reorder it by dragging, filter
   it with `/`, and give each station its own key.
@@ -87,6 +94,7 @@ Run them all from the repo root, inside `nix develop`. `bb tasks` lists them.
 | `bb fmt` / `bb fmt:check` | apply or check formatting with cljfmt |
 | `bb build` | release build of everything into `dist/` (frontend and backend jar) |
 | `bb build:frontend` / `bb build:backend` | only the web into `dist/public/` / only `dist/radiolisp-backend.jar` |
+| `bb build:static` | the web without a backend into `dist/static/` (what GitHub Pages serves) |
 | `bb clean` | delete `dist/` and the backend's compiled classes |
 | `bb e2e` | end-to-end check in Chromium (see [Tests](#tests)) |
 
@@ -99,7 +107,7 @@ It is organised by modules, like [Penpot](https://github.com/penpot/penpot):
 ```
 radiolisp/
 ├── flake.nix  bb.edn  deps.edn   # environment, tasks and root deps.edn (only for clojure-lsp)
-├── dist/                          # output of `bb build`: public/ and radiolisp-backend.jar (not in git)
+├── dist/                          # build output: public/, radiolisp-backend.jar and static/ (not in git)
 ├── common/                        # pure .cljc, shared by frontend and backend
 │   ├── src/radiolisp/common/      #   station (normalises Radio Browser), favorites (list, M3U, .list, Radiolise),
 │   │                              #   protocol (WebSocket messages)
@@ -107,7 +115,7 @@ radiolisp/
 ├── frontend/
 │   ├── deps.edn  shadow-cljs.edn  package.json
 │   ├── resources/
-│   │   ├── public/                # index.html, fonts/; css/ and js/ are build output
+│   │   ├── public/                # index.html, fonts/, icons/; css/ and js/ are build output
 │   │   ├── styles/                # main.scss and partials (_tokens, _grid, _player, _search…)
 │   │   └── i18n/                  # one .edn per language (es, en, pt, fr…)
 │   ├── src/radiolisp/frontend/
@@ -119,6 +127,7 @@ radiolisp/
 │   │   ├── api.cljs  audio.cljs   # Radio Browser and the <audio> element
 │   │   ├── stream_url.cljs        # which URLs to try for a stream (https, original, proxy)
 │   │   ├── socket.cljs            # the WebSocket to the backend (now playing)
+│   │   ├── config.cljs            # build flags: is there a backend, the repository URL
 │   │   ├── hls.cljs               # hls.js, in its own module (loaded on demand)
 │   │   ├── i18n.cljs              # translations, plurals and numbers
 │   │   └── views/                 # hiccup for Replicant
@@ -248,16 +257,36 @@ To poke at the live state:
 
 ## Release build
 
-```sh
-bb build
-```
+There are two ways to build radiolisp, depending on whether a backend will be
+there:
+
+| | Frontend alone | Frontend with backend |
+|---|---|---|
+| Command | `bb build:static` | `bb build` (or `bb build:frontend` + `bb build:backend`) |
+| Output | `dist/static/` | `dist/public/` and `dist/radiolisp-backend.jar` |
+| Served by | any static file server, under any path (GitHub Pages: `/radiolisp/`) | the jar, or nginx in front of it |
+| Search, favourites, playback, import/export | yes | yes |
+| Now playing | no | yes |
+| `http://` stations on an `https` page | only if they also stream over `https` | through the proxy |
+
+Both are the same code. The difference is a compile-time flag,
+`radiolisp.frontend.config/backend`, which the `:static` build in
+`frontend/shadow-cljs.edn` sets to `false`: then the app never opens the
+WebSocket and never tries the proxy. All paths in the pages are relative, so
+either build works at the root of a domain or in a subfolder.
+
+The `:app` build (the default one, `bb build:frontend`) also works without a
+backend: it tries the proxy, gets a 404 and tells you the station only streams
+over http, and while a station plays it retries the WebSocket now and then.
+`build:static` just skips those attempts.
 
 Everything a build produces goes to `dist/` (not in git):
 
 ```
 dist/
-├── public/                  # the static website: index.html, css/, js/, fonts/
-└── radiolisp-backend.jar    # the backend with all its dependencies (JDK 21)
+├── public/                  # the website for the backend: index.html, css/, js/, fonts/, icons/
+├── radiolisp-backend.jar    # the backend with all its dependencies (JDK 21)
+└── static/                  # the website without a backend, same layout as public/
 ```
 
 `frontend/resources/public/` is for development only: that is where `bb dev` and
@@ -270,11 +299,12 @@ java -jar dist/radiolisp-backend.jar
 ```
 
 Without `PUBLIC_DIR`, the jar serves the `public/` folder next to it, so the two
-can be moved anywhere together. The website can also be served without the
-backend by any static file server, for example:
+can be moved anywhere together. The website without the backend can be
+served by any static file server, for example:
 
 ```sh
-cd dist/public && python3 -m http.server 8000
+bb build:static
+cd dist/static && python3 -m http.server 8000
 ```
 
 ## Backend
@@ -319,13 +349,29 @@ In production: `bb build` and `java -jar dist/radiolisp-backend.jar` (with
 `TRUST_PROXY=true`. The proxy must let the WebSocket upgrade through on
 `/api/ws`.
 
+## Development workflow and CI
+
+The repository follows GitHub flow: `main` is always deployable, and every
+change goes in a branch (`feat/…`, `fix/…`, `docs/…`, `ci/…`) and reaches `main`
+through a pull request. `main` is protected: no direct pushes, and the pull
+request needs CI to pass.
+
+Two GitHub Actions workflows, in `.github/workflows/`:
+
+- **CI** (`ci.yml`), on every pull request to `main` and every push to `main`:
+  `bb lint`, `bb fmt:check`, `bb test`, `bb build` and `bb build:static`,
+  inside the same `nix develop` shell as locally. `bb e2e` does not run there:
+  it needs real streams and the real Radio Browser API.
+- **Pages** (`pages.yml`), when CI passes on `main` (or by hand): builds the
+  frontend alone with `bb build:static` and publishes `dist/static/` to
+  <https://haztecaso.github.io/radiolisp/>.
+
 ## Deployment
 
-It lives at <https://radio.example.org>, on the `host` server (NixOS). Its
-configuration is in `/etc/nixos/radiolisp.nix`: a `radiolisp`
-user, the `radiolisp.service` service (`java -jar` on
-`/var/www/radiolisp/current/`) and nginx, which serves `public/` and passes
-`/api/` to the backend.
+The copy on GitHub Pages deploys itself (see above). The full one, with the
+backend, runs on a server of your own: a `radiolisp` user, a `radiolisp.service`
+service (`java -jar` on `/var/www/radiolisp/current/`) and nginx, which serves
+`public/` and passes `/api/` to the backend.
 
 ```sh
 bb deploy
@@ -334,8 +380,9 @@ bb deploy
 It runs `bb build`, keeps what was deployed in `/var/www/radiolisp/previous/`,
 uploads `dist/` to `current/` with rsync, restarts the service and waits for
 `/api/health` to answer. If it does not answer within 30 s, it puts the previous
-version back. `DEPLOY_SERVER` and `DEPLOY_URL` change the target (by default
-`user@host` and `https://radio.example.org`).
+version back. The target is not in the repository: set `DEPLOY_SERVER` (the
+ssh destination) and `DEPLOY_URL` (where the app answers) in `.env`, which git
+ignores (copy `.env.example`), or in the environment.
 
 ## Known limitations
 
