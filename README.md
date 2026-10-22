@@ -1,217 +1,221 @@
 # radiolisp
 
-Reproductor de radio por internet, minimalista, escrito en ClojureScript.
-Busca emisoras en el directorio comunitario [Radio Browser](https://www.radio-browser.info/)
-y las reproduce en el navegador. Está inspirado en
-[radiolise](https://gitlab.com/radiolise/radiolise.gitlab.io), y nació también
-para aprender Clojure.
+**English** · [Español](README.es.md)
 
-- Una cuadrícula de **favoritas** que se guarda en el navegador: se reordena
-  arrastrando, se filtra con `/` y cada emisora puede tener su propia tecla.
-- Una paleta (`a`) que busca en todo Radio Browser, con "Más escuchadas hoy" cuando
-  no hay búsqueda.
-- Reproductor fijo abajo: reproducir y pausar, volumen y silencio. Suena MP3, AAC,
-  Ogg y HLS; las teclas multimedia del sistema también funcionan.
-- Exportar las favoritas en M3U o como lista de uuids (`.list`), importar esos
-  ficheros y los `.txt` que exporta Radiolise (desde el menú, el estado vacío o
-  soltando el fichero sobre la página), votar emisoras y copiar su stream.
-- Todo se maneja con teclado, con flechas o con atajos estilo vim (pulsa `?`).
-- Interfaz en doce idiomas: español, inglés, portugués, francés, italiano, catalán, gallego, euskera, rumano, búlgaro, ruso y chino.
-- Con el backend (opcional): **lo que suena** (el título que emite la emisora, en
-  el reproductor y en los controles del sistema) y un **proxy** para las emisoras
-  que solo emiten por `http://` cuando la app se sirve por `https`.
+A minimal internet radio player written in ClojureScript. It searches stations
+in the community directory [Radio Browser](https://www.radio-browser.info/) and
+plays them in the browser. It is inspired by
+[radiolise](https://gitlab.com/radiolise/radiolise.gitlab.io), and it was also
+born as a way to learn Clojure.
 
-El frontend funciona solo, como web estática; el backend añade lo anterior. El
-diseño está en
+- A grid of **favourites** saved in the browser: reorder it by dragging, filter
+  it with `/`, and give each station its own key.
+- A palette (`a`) that searches all of Radio Browser, showing "Most played today"
+  when there is no query.
+- A player fixed at the bottom: play and pause, volume and mute. It plays MP3,
+  AAC, Ogg and HLS; the system media keys work too.
+- Export your favourites as M3U or as a list of uuids (`.list`), import those
+  files and the `.txt` files Radiolise exports (from the menu, the empty state or
+  by dropping the file on the page), vote for stations and copy their stream URL.
+- Everything works from the keyboard, with arrow keys or vim-style shortcuts
+  (press `?`).
+- Interface in twelve languages: Spanish, English, Portuguese, French, Italian,
+  Catalan, Galician, Basque, Romanian, Bulgarian, Russian and Chinese.
+- With the (optional) backend: **now playing** (the title the station
+  broadcasts, in the player and in the system media controls) and a **proxy** for
+  stations that only stream over `http://` when the app is served over `https`.
+
+The frontend works on its own, as a static website; the backend adds the above.
+The design is in
 [`docs/specs/2026-10-20-mvp-design.md`](docs/specs/2026-10-20-mvp-design.md),
 [`docs/specs/2026-10-20-iteration-2-design.md`](docs/specs/2026-10-20-iteration-2-design.md)
-(favoritas) y [`docs/specs/2026-10-20-backend-design.md`](docs/specs/2026-10-20-backend-design.md)
-(backend), y la referencia visual en
-[`docs/design/prototype-2/`](docs/design/prototype-2/).
+(favourites) and [`docs/specs/2026-10-20-backend-design.md`](docs/specs/2026-10-20-backend-design.md)
+(backend), and the visual reference in
+[`docs/design/prototype-2/`](docs/design/prototype-2/). The specs are written in
+Spanish.
 
-## Requisitos
+## Requirements
 
-La forma recomendada es [Nix](https://nixos.org/) con *flakes*. El `flake.nix` trae
-todas las herramientas con versiones fijadas:
+The recommended way is [Nix](https://nixos.org/) with flakes. The `flake.nix`
+provides every tool with pinned versions:
 
-| Herramienta | Para qué |
+| Tool | What for |
 |---|---|
-| JDK 21 + CLI `clojure` | shadow-cljs, el backend y las dependencias (`deps.edn`) |
-| [babashka](https://babashka.org/) | las tareas del proyecto (`bb.edn`) |
-| Node.js 22 | el CLI de shadow-cljs y los tests |
-| dart-sass | compilar el SCSS |
-| clj-kondo, cljfmt, clojure-lsp | lint, formato y editor |
-| Chrome o Chromium | solo para `bb e2e` |
+| JDK 21 + `clojure` CLI | shadow-cljs, the backend and the dependencies (`deps.edn`) |
+| [babashka](https://babashka.org/) | the project tasks (`bb.edn`) |
+| Node.js 22 | the shadow-cljs CLI and the tests |
+| dart-sass | compiling the SCSS |
+| clj-kondo, cljfmt, clojure-lsp | lint, formatting and editor support |
+| Chrome or Chromium | only for `bb e2e` |
 
-Sin Nix, instala esas herramientas a mano y usa los mismos comandos sin el prefijo
-`nix develop`.
+Without Nix, install those tools by hand and run the same commands without the
+`nix develop` prefix.
 
-## Puesta en marcha
+## Getting started
 
 ```sh
-nix develop      # entra en el entorno (o `direnv allow` una vez, si usas direnv)
-bb setup         # instala shadow-cljs y hls.js desde npm (una sola vez)
-bb dev           # compila en modo watch y sirve la app
+nix develop      # enter the environment (or `direnv allow` once, if you use direnv)
+bb setup         # install shadow-cljs and hls.js from npm (only once)
+bb dev           # compile in watch mode and serve the app
 ```
 
-Abre <http://localhost:8080>. La primera compilación descarga las dependencias y
-tarda unos minutos; las siguientes, segundos. `bb dev` arranca también el backend
-en <http://localhost:8090>, y sus logs salen en la misma terminal (en nivel
-`debug`; `LOG_LEVEL=info bb dev` para menos).
+Open <http://localhost:8080>. The first build downloads the dependencies and
+takes a few minutes; later ones take seconds. `bb dev` also starts the backend
+on <http://localhost:8090>, and its logs show up in the same terminal (at
+`debug` level; `LOG_LEVEL=info bb dev` for less).
 
-`bb dev` vigila a la vez el ClojureScript (shadow-cljs) y el SCSS (sass). Al guardar
-un `.cljs`, un `.scss` o un diccionario `.edn`, el navegador se recarga en caliente
-sin perder el estado.
+`bb dev` watches both the ClojureScript (shadow-cljs) and the SCSS (sass). When
+you save a `.cljs`, a `.scss` or an `.edn` dictionary, the browser hot-reloads
+without losing state.
 
-En desarrollo la página del `:8080` habla con el backend del `:8090` (lo fija el
-build de dev con `radiolisp.frontend.socket/backend-origin`). El `:8090` sirve
-también la app, como en producción, y la recarga en caliente funciona en los dos.
-Para el backend solo: `bb backend`.
+In development the page on `:8080` talks to the backend on `:8090` (the dev
+build sets this with `radiolisp.frontend.socket/backend-origin`). `:8090` also
+serves the app, as in production, and hot reload works on both. For the
+backend alone: `bb backend`.
 
-## Tareas
+## Tasks
 
-Todas se lanzan desde la raíz del repo, dentro de `nix develop`. `bb tasks` las
-lista.
+Run them all from the repo root, inside `nix develop`. `bb tasks` lists them.
 
-| Tarea | Qué hace |
+| Task | What it does |
 |---|---|
-| `bb setup` | `npm install` en `frontend/` |
-| `bb dev` | watch de ClojureScript y SCSS en `:8080`, y el backend en `:8090` con sus logs |
-| `bb backend` | el backend en `:8090` (variables en [Backend](#backend)) |
-| `bb test` | todos los tests: `common` y `frontend` en Node; `common` y `backend` en la JVM |
+| `bb setup` | `npm install` in `frontend/` |
+| `bb dev` | watch ClojureScript and SCSS on `:8080`, and the backend on `:8090` with its logs |
+| `bb backend` | the backend on `:8090` (variables in [Backend](#backend)) |
+| `bb test` | all the tests: `common` and `frontend` on Node; `common` and `backend` on the JVM |
 | `bb lint` | clj-kondo |
-| `bb fmt` / `bb fmt:check` | aplica o comprueba el formato con cljfmt |
-| `bb build` | build de release de todo en `dist/` (frontend y jar del backend) |
-| `bb build:frontend` / `bb build:backend` | solo la web en `dist/public/` / solo `dist/radiolisp-backend.jar` |
-| `bb clean` | borra `dist/` y las clases compiladas del backend |
-| `bb e2e` | prueba de extremo a extremo en Chromium (ver [Tests](#tests)) |
+| `bb fmt` / `bb fmt:check` | apply or check formatting with cljfmt |
+| `bb build` | release build of everything into `dist/` (frontend and backend jar) |
+| `bb build:frontend` / `bb build:backend` | only the web into `dist/public/` / only `dist/radiolisp-backend.jar` |
+| `bb clean` | delete `dist/` and the backend's compiled classes |
+| `bb e2e` | end-to-end check in Chromium (see [Tests](#tests)) |
 
-Antes de dar un cambio por terminado: `bb lint && bb fmt:check && bb test`.
+Before calling a change done: `bb lint && bb fmt:check && bb test`.
 
-## Estructura
+## Structure
 
-Está organizado por módulos, como [Penpot](https://github.com/penpot/penpot):
+It is organised by modules, like [Penpot](https://github.com/penpot/penpot):
 
 ```
 radiolisp/
-├── flake.nix  bb.edn  deps.edn   # entorno, tareas y deps.edn raíz (solo para clojure-lsp)
-├── dist/                          # salida de `bb build`: public/ y radiolisp-backend.jar (fuera de git)
-├── common/                        # .cljc puro, compartido por frontend y backend
-│   ├── src/radiolisp/common/      #   station (normaliza Radio Browser), favorites (lista, M3U, .list, Radiolise),
-│   │                              #   protocol (mensajes del WebSocket)
+├── flake.nix  bb.edn  deps.edn   # environment, tasks and root deps.edn (only for clojure-lsp)
+├── dist/                          # output of `bb build`: public/ and radiolisp-backend.jar (not in git)
+├── common/                        # pure .cljc, shared by frontend and backend
+│   ├── src/radiolisp/common/      #   station (normalises Radio Browser), favorites (list, M3U, .list, Radiolise),
+│   │                              #   protocol (WebSocket messages)
 │   └── test/
 ├── frontend/
 │   ├── deps.edn  shadow-cljs.edn  package.json
 │   ├── resources/
-│   │   ├── public/                # index.html, fonts/; css/ y js/ son salida de compilación
-│   │   ├── styles/                # main.scss y parciales (_tokens, _grid, _player, _search…)
-│   │   └── i18n/                  # un .edn por idioma (es, en, pt, fr…)
+│   │   ├── public/                # index.html, fonts/; css/ and js/ are build output
+│   │   ├── styles/                # main.scss and partials (_tokens, _grid, _player, _search…)
+│   │   └── i18n/                  # one .edn per language (es, en, pt, fr…)
 │   ├── src/radiolisp/frontend/
-│   │   ├── main.cljs              # conexión: dispatch, render, teclado, teclas multimedia
-│   │   ├── store.cljs             # el estado inicial y el átomo
-│   │   ├── actions.cljs           # toda la lógica: estado × acción → estado + efectos (puro)
-│   │   ├── keymap.cljs            # tecla + contexto → acción (puro)
-│   │   ├── effects.cljs           # ejecuta efectos: fetch, audio, almacenamiento, ficheros, foco
-│   │   ├── api.cljs  audio.cljs   # Radio Browser y el elemento <audio>
-│   │   ├── stream_url.cljs        # qué URLs probar para un stream (https, original, proxy)
-│   │   ├── socket.cljs            # el WebSocket al backend (lo que suena)
-│   │   ├── hls.cljs               # hls.js, en su propio módulo (se carga bajo demanda)
-│   │   ├── i18n.cljs              # traducciones, plurales y números
-│   │   └── views/                 # hiccup para Replicant
+│   │   ├── main.cljs              # wiring: dispatch, render, keyboard, media keys
+│   │   ├── store.cljs             # the initial state and the atom
+│   │   ├── actions.cljs           # all the logic: state × action → state + effects (pure)
+│   │   ├── keymap.cljs            # key + context → action (pure)
+│   │   ├── effects.cljs           # runs effects: fetch, audio, storage, files, focus
+│   │   ├── api.cljs  audio.cljs   # Radio Browser and the <audio> element
+│   │   ├── stream_url.cljs        # which URLs to try for a stream (https, original, proxy)
+│   │   ├── socket.cljs            # the WebSocket to the backend (now playing)
+│   │   ├── hls.cljs               # hls.js, in its own module (loaded on demand)
+│   │   ├── i18n.cljs              # translations, plurals and numbers
+│   │   └── views/                 # hiccup for Replicant
 │   ├── test/
-│   └── e2e/check.mjs              # prueba en navegador (bb e2e)
-├── backend/                       # Clojure en la JVM: Ring + Jetty 12 con virtual threads
-│   ├── deps.edn  build.clj        # build.clj: el uberjar (tools.build)
+│   └── e2e/check.mjs              # browser check (bb e2e)
+├── backend/                       # Clojure on the JVM: Ring + Jetty 12 with virtual threads
+│   ├── deps.edn  build.clj        # build.clj: the uberjar (tools.build)
 │   ├── src/radiolisp/backend/
-│   │   ├── main.clj  http.clj     # arranque, rutas y ficheros estáticos
-│   │   ├── stream.clj  socket.clj # /api/stream/<uuid> y /api/ws
-│   │   ├── relay.clj              # una sesión por emisora: lector, oyentes, suscritos
-│   │   ├── upstream.clj  icy.clj  # cliente HTTP/1.0 (acepta ICY) y lector de metadatos
-│   │   ├── radio_browser.clj      # uuid → emisora, con caché
-│   │   └── guard.clj  limits.clj  config.clj   # SSRF, límites por IP, configuración
-│   └── test/                      # unitarios e integración contra una emisora falsa
-└── docs/                          # specs, planes, ideas y prototipo
+│   │   ├── main.clj  http.clj     # startup, routes and static files
+│   │   ├── stream.clj  socket.clj # /api/stream/<uuid> and /api/ws
+│   │   ├── relay.clj              # one session per station: reader, listeners, subscribers
+│   │   ├── upstream.clj  icy.clj  # HTTP/1.0 client (accepts ICY) and metadata reader
+│   │   ├── radio_browser.clj      # uuid → station, cached
+│   │   └── guard.clj  limits.clj  config.clj   # SSRF, per-IP limits, configuration
+│   └── test/                      # unit and integration tests against a fake station
+└── docs/                          # specs, plans, ideas and prototype
 ```
 
-## Cómo funciona
+## How it works
 
-El flujo va en un solo sentido y todo son datos:
+Data flows in one direction and everything is data:
 
 ```
-clic / tecla / evento de <audio> / respuesta HTTP
+click / key / <audio> event / HTTP response
         │
         ▼
-   acción (vector)              [:search/typed "jazz"]
+   action (vector)              [:search/typed "jazz"]
         │
         ▼
-   actions/handle               estado × acción → {:state … :effects […]}   (puro)
+   actions/handle               state × action → {:state … :effects […]}   (pure)
         │                               │
         ▼                               ▼
-   store (átomo) ──► render     effects/execute! ──► nuevas acciones
+   store (atom) ──► render      effects/execute! ──► new actions
                    (Replicant)
 ```
 
-- **Vistas** ([Replicant](https://github.com/cjohansen/replicant)): funciones puras
-  de estado a hiccup. Los manejadores de eventos son datos:
+- **Views** ([Replicant](https://github.com/cjohansen/replicant)): pure functions
+  from state to hiccup. Event handlers are data:
   `{:on {:click [[:player/toggle]]}}`.
-- **Acciones**: `actions/handle` es un `defmulti` sobre el primer elemento del
-  vector. No hace I/O: devuelve el estado nuevo y una lista de efectos, como
-  `[:api/fetch {...}]`, `[:storage/save favoritas]`, `[:audio/play url hls?]` o
+- **Actions**: `actions/handle` is a `defmulti` on the first element of the
+  vector. It does no I/O: it returns the new state and a list of effects, such as
+  `[:api/fetch {...}]`, `[:storage/save favourites]`, `[:audio/play url hls?]` or
   `[:timer/start :search 300 [:search/run]]`.
-- **Efectos**: `effects/execute!` es el único sitio con efectos secundarios. Sus
-  resultados vuelven como acciones, por ejemplo `[:search/loaded seq stations]`.
-- **El estado guarda claves, nunca textos.** Un error es
-  `[:error/network {:at ms}]`, y es la vista la que lo traduce.
+- **Effects**: `effects/execute!` is the only place with side effects. Their
+  results come back as actions, for example `[:search/loaded seq stations]`.
+- **State holds keys, never text.** An error is `[:error/network {:at ms}]`, and
+  the view is what translates it.
 
-### Añadir una funcionalidad
+### Adding a feature
 
-1. Escribe un test en `frontend/test/…/actions_*_test.cljs` con el estado de
-   partida, la acción, y el estado y los efectos esperados.
-2. Añade el `defmethod handle :tu/accion` en `actions.cljs`.
-3. Si necesitas un efecto nuevo, añade su `defmethod execute!` en `effects.cljs`.
-4. Si hay una tecla nueva, añádela en `keymap.cljs` y en su test, y también en la
-   ayuda (`views/help.cljs`).
-5. Pinta lo necesario en `views/` y despacha la acción desde `:on`.
+1. Write a test in `frontend/test/…/actions_*_test.cljs` with the starting state,
+   the action, and the expected state and effects.
+2. Add the `defmethod handle :your/action` in `actions.cljs`.
+3. If you need a new effect, add its `defmethod execute!` in `effects.cljs`.
+4. If there is a new key, add it to `keymap.cljs` and its test, and also to the
+   help (`views/help.cljs`).
+5. Render what you need in `views/` and dispatch the action from `:on`.
 
-### Textos e idiomas
+### Text and languages
 
-Todos los textos visibles, `aria-label` incluidos, viven en
-`frontend/resources/i18n/<idioma>.edn` (`es`, `en`, `pt`, `fr`, `it`, `ca`, `gl`,
-`eu`, `ro`, `bg`, `ru`, `zh`), con las mismas claves y los mismos `{marcadores}` en
-todos (unos tests lo comprueban). Desde las vistas: `(t :search/empty {:query q})`.
-Los plurales son un mapa con las formas de `Intl.PluralRules` del idioma
-(`{:one "…" :other "…"}`; el rumano añade `:few` y el ruso `:few` y `:many`), y se
-eligen con `{:count n}`. `:lang/name` es el nombre del idioma en ese idioma: es lo
-que lista el selector. Para añadir uno, crea su `.edn` y súmalo a
-`dictionaries` y `locales` en `i18n.cljs`.
+Every visible string, `aria-label` included, lives in
+`frontend/resources/i18n/<language>.edn` (`es`, `en`, `pt`, `fr`, `it`, `ca`,
+`gl`, `eu`, `ro`, `bg`, `ru`, `zh`), with the same keys and the same
+`{placeholders}` in all of them (tests check this). From the views:
+`(t :search/empty {:query q})`. Plurals are a map with the forms
+`Intl.PluralRules` gives the language (`{:one "…" :other "…"}`; Romanian adds
+`:few` and Russian `:few` and `:many`), picked with `{:count n}`. `:lang/name` is
+the language's name in that language: it is what the selector lists. To add a
+language, create its `.edn` and add it to `dictionaries` and `locales` in
+`i18n.cljs`.
 
-### Estilos
+### Styles
 
-Son SCSS en `frontend/resources/styles/`. Los tokens de color, como la escala
-*raspberry*, están en `_tokens.scss` y se exponen como custom properties. Reglas
-del diseño: radio 0, una sola familia tipográfica (DM Sans, autoalojada), el color
-pleno solo en marcas pequeñas, y nada de degradados ni sombras en reposo. Para
-cambios visuales sigue el skill `.agents/skills/design-taste-frontend` (reglas de
-*app screens*).
+They are SCSS in `frontend/resources/styles/`. The colour tokens, such as the
+*raspberry* scale, are in `_tokens.scss` and exposed as custom properties.
+Design rules: radius 0, a single type family (DM Sans, self-hosted), full colour
+only on small marks, and no gradients or shadows at rest. For visual changes,
+follow the skill `.agents/skills/design-taste-frontend` (*app screens* rules).
 
-Modo oscuro: la paleta oscura es el mapa `$dark` de `_tokens.scss`, que redefine
-los mismos custom properties bajo `:root[data-theme="dark"]`. Un script en
-`index.html` pone `data-theme` antes del primer pintado (la elección guardada en
-`radiolisp/theme`, si no la preferencia del navegador). El botón sol/luna de la
-barra superior la cambia y la guarda; mientras no se pulse, la app sigue los
-cambios de la preferencia del sistema. Un color nuevo necesita su valor en los dos
-temas: nada de hex sueltos en los estilos.
+Dark mode: the dark palette is the `$dark` map in `_tokens.scss`, which
+redefines the same custom properties under `:root[data-theme="dark"]`. A script
+in `index.html` sets `data-theme` before the first paint (the choice saved in
+`radiolisp/theme`, otherwise the browser preference). The sun/moon button in the
+top bar switches and saves it; until it is pressed, the app follows changes to
+the system preference. A new colour needs its value in both themes: no loose hex
+values in the styles.
 
 ## REPL
 
-Con `bb dev` en marcha, shadow-cljs abre un nREPL y escribe su puerto en
+With `bb dev` running, shadow-cljs opens an nREPL and writes its port to
 `frontend/.shadow-cljs/nrepl.port`.
 
-- **Editor** (Calva, CIDER, Conjure…): conéctate a ese nREPL y elige el build
-  `:app`. Con la app abierta en el navegador, lo que evalúes se ejecuta allí.
+- **Editor** (Calva, CIDER, Conjure…): connect to that nREPL and pick the `:app`
+  build. With the app open in the browser, whatever you evaluate runs there.
 - **Terminal**: `cd frontend && npx shadow-cljs cljs-repl app`.
 
-Para curiosear el estado en vivo:
+To poke at the live state:
 
 ```clojure
 (require '[radiolisp.frontend.store :as store])
@@ -222,52 +226,52 @@ Para curiosear el estado en vivo:
 
 ## Tests
 
-- **`bb test`**: tests unitarios con `cljs.test`, compilados con el target
-  `:node-test` de shadow-cljs. Cubren la lógica pura: normalización de emisoras,
-  la lista de favoritas (orden, teclas, filtro, EDN, M3U, `.list` y Radiolise), el encaje de las
-  imágenes, i18n, todas las acciones y el mapa de teclas. Cualquier namespace que
-  acabe en `-test`, en `common/test` o `frontend/test`, entra solo. Después corre
-  los del backend en la JVM (`clojure -X:test` en `backend/`, también los de
-  `common/`): el lector ICY, el cliente, la guardia, los límites y una prueba de
-  integración que arranca el backend delante de una emisora falsa local.
-- **`bb e2e`**: maneja Chromium por CDP contra la app en marcha y comprueba unas 80
-  cosas: añadir desde la paleta, una sola petición `byuuid` al recargar,
-  reproducción real, teclas asignadas, menús, arrastrar y soltar, filtro, quitar con
-  confirmación, exportar (M3U y `.list`) e importar (M3U, `.list` y Radiolise), HLS con hls.js, ayuda, idioma, tema y el layout
-  de móvil. Siembra `localStorage` y bloquea `/json/url` y `/json/vote`, así que no
-  altera las estadísticas de Radio Browser. Hay que
-  tener `bb dev` corriendo; para otra dirección, por ejemplo el backend,
-  usa `URL=http://localhost:8090/ bb e2e`: si contesta `/api/health`, comprueba
-  también que llega lo que suena. Usa la API y los streams reales, así que
-  necesita red y depende de que las emisoras respondan. Las capturas quedan en
-  `frontend/target/e2e/`.
+- **`bb test`**: unit tests with `cljs.test`, compiled with shadow-cljs's
+  `:node-test` target. They cover the pure logic: station normalisation, the
+  favourites list (order, keys, filter, EDN, M3U, `.list` and Radiolise), image
+  fitting, i18n, every action and the key map. Any namespace ending in `-test`,
+  in `common/test` or `frontend/test`, is picked up automatically. Then it runs
+  the backend tests on the JVM (`clojure -X:test` in `backend/`, plus those of
+  `common/`): the ICY reader, the client, the guard, the limits and an
+  integration test that starts the backend in front of a local fake station.
+- **`bb e2e`**: drives Chromium over CDP against the running app and checks about
+  80 things: adding from the palette, a single `byuuid` request on reload, real
+  playback, assigned keys, menus, drag and drop, filter, removing with
+  confirmation, export (M3U and `.list`) and import (M3U, `.list` and Radiolise),
+  HLS with hls.js, help, language, theme and the mobile layout. It seeds
+  `localStorage` and blocks `/json/url` and `/json/vote`, so it does not alter
+  Radio Browser's statistics. `bb dev` must be running; for another address, for
+  example the backend, use `URL=http://localhost:8090/ bb e2e`: if it answers
+  `/api/health`, it also checks that now playing arrives. It uses the real API
+  and real streams, so it needs network access and depends on the stations
+  responding. Screenshots end up in `frontend/target/e2e/`.
 
-## Build de release
+## Release build
 
 ```sh
 bb build
 ```
 
-Todo lo que sale de un build va a `dist/` (fuera de git):
+Everything a build produces goes to `dist/` (not in git):
 
 ```
 dist/
-├── public/                  # la web estática: index.html, css/, js/, fonts/
-└── radiolisp-backend.jar    # el backend con todas sus dependencias (JDK 21)
+├── public/                  # the static website: index.html, css/, js/, fonts/
+└── radiolisp-backend.jar    # the backend with all its dependencies (JDK 21)
 ```
 
-`frontend/resources/public/` queda solo para desarrollo: ahí escriben `bb dev` y
-sass en modo watch.
+`frontend/resources/public/` is for development only: that is where `bb dev` and
+sass in watch mode write.
 
-Se ejecuta con:
+Run it with:
 
 ```sh
 java -jar dist/radiolisp-backend.jar
 ```
 
-Sin `PUBLIC_DIR`, el jar sirve la carpeta `public/` que tenga al lado, así que se
-pueden mover juntos a cualquier sitio. La web también se sirve sin backend con
-cualquier servidor de ficheros estáticos, por ejemplo:
+Without `PUBLIC_DIR`, the jar serves the `public/` folder next to it, so the two
+can be moved anywhere together. The website can also be served without the
+backend by any static file server, for example:
 
 ```sh
 cd dist/public && python3 -m http.server 8000
@@ -275,84 +279,93 @@ cd dist/public && python3 -m http.server 8000
 
 ## Backend
 
-Un solo proceso sirve la app, `GET /api/stream/<uuid>`, el WebSocket `/api/ws` y
-`GET /api/health`.
+A single process serves the app, `GET /api/stream/<uuid>`, the WebSocket
+`/api/ws` and `GET /api/health`.
 
-- **Lo que suena.** Mientras una emisora suena, el frontend se suscribe por
-  WebSocket con su uuid. El backend abre la emisora con `Icy-MetaData: 1`, lee los
-  `StreamTitle` y los manda como acciones EDN (`[:now-playing/title {:id … :title
-  …}]`). Al pausar o cambiar de emisora, se da de baja.
-- **Proxy.** En una página `https`, una emisora `http://` cuya versión `https://`
-  no existe suena a través de `/api/stream/<uuid>`.
-- **Una conexión por emisora**, compartida por todos sus oyentes del proxy y sus
-  suscritos. Un oyente nuevo recibe al momento los últimos 64 KiB; el que se
-  retrasa demasiado se desconecta sin frenar a los demás. Si la emisora se corta, se
-  reintenta tres veces; sin nadie, la conexión se cierra a los 5 s.
-- **No es un proxy abierto**: solo acepta uuids de Radio Browser y resuelve la URL
-  en el servidor; no conecta a direcciones privadas, tampoco tras una redirección.
-  No registra IPs.
+- **Now playing.** While a station plays, the frontend subscribes over the
+  WebSocket with its uuid. The backend opens the station with `Icy-MetaData: 1`,
+  reads the `StreamTitle`s and sends them as EDN actions
+  (`[:now-playing/title {:id … :title …}]`). On pause or when switching stations,
+  it unsubscribes.
+- **Proxy.** On an `https` page, an `http://` station whose `https://` version
+  does not exist plays through `/api/stream/<uuid>`.
+- **One connection per station**, shared by all its proxy listeners and
+  subscribers. A new listener immediately receives the last 64 KiB; one that
+  falls too far behind is disconnected without slowing the others down. If the
+  station drops, it retries three times; with nobody left, the connection closes
+  after 5 s.
+- **It is not an open proxy**: it only accepts Radio Browser uuids and resolves
+  the URL on the server; it does not connect to private addresses, not even after
+  a redirect. It does not log IPs.
 
-Se configura con variables de entorno:
+It is configured with environment variables:
 
-| Variable | Defecto | Qué es |
+| Variable | Default | What it is |
 |---|---|---|
-| `PORT` / `HOST` | `8090` / `127.0.0.1` | dónde escucha; en producción, detrás de un proxy con TLS |
-| `PUBLIC_DIR` | `public/` junto al jar; si no, `../frontend/resources/public` | el build del frontend |
-| `TRUST_PROXY` | `false` | `true` para tomar la IP de `X-Forwarded-For` |
-| `LOG_LEVEL` | `info` | `debug` añade cada petición a `/api`, los títulos y los oyentes |
-| `MAX_SESSIONS` | `32` | emisoras abiertas a la vez |
-| `MAX_LISTENERS` / `MAX_LISTENERS_PER_IP` | `200` / `2` | oyentes del proxy |
-| `MAX_SOCKETS_PER_IP` | `4` | WebSockets por IP |
-| `STREAM_REQUESTS_PER_MINUTE` | `20` | peticiones a `/api/stream` por IP |
+| `PORT` / `HOST` | `8090` / `127.0.0.1` | where it listens; in production, behind a proxy with TLS |
+| `PUBLIC_DIR` | `public/` next to the jar; otherwise `../frontend/resources/public` | the frontend build |
+| `TRUST_PROXY` | `false` | `true` to take the IP from `X-Forwarded-For` |
+| `LOG_LEVEL` | `info` | `debug` adds every `/api` request, the titles and the listeners |
+| `MAX_SESSIONS` | `32` | stations open at once |
+| `MAX_LISTENERS` / `MAX_LISTENERS_PER_IP` | `200` / `2` | proxy listeners |
+| `MAX_SOCKETS_PER_IP` | `4` | WebSockets per IP |
+| `STREAM_REQUESTS_PER_MINUTE` | `20` | requests to `/api/stream` per IP |
 
-Los logs salen por la consola (logback, `backend/resources/logback.xml`): qué
-emisoras se abren, conectan, se cortan o se cierran, y los errores. Nunca IPs.
+Logs go to the console (logback, `backend/resources/logback.xml`): which stations
+open, connect, drop or close, and the errors. Never IPs.
 
-En producción: `bb build` y `java -jar dist/radiolisp-backend.jar` (con
-`dist/public/` al lado) detrás de Caddy o nginx con TLS, con `TRUST_PROXY=true`.
-El proxy tiene que dejar pasar el upgrade a WebSocket en `/api/ws`.
+In production: `bb build` and `java -jar dist/radiolisp-backend.jar` (with
+`dist/public/` next to it) behind Caddy or nginx with TLS, with
+`TRUST_PROXY=true`. The proxy must let the WebSocket upgrade through on
+`/api/ws`.
 
-## Despliegue
+## Deployment
 
-Vive en <https://radio.example.org>, en el servidor `host` (NixOS). Su
-configuración está en `/etc/nixos/radiolisp.nix`: un usuario
-`radiolisp`, el servicio `radiolisp.service` (`java -jar` sobre
-`/var/www/radiolisp/current/`) y nginx, que sirve `public/` y pasa `/api/` al
-backend.
+It lives at <https://radio.example.org>, on the `host` server (NixOS). Its
+configuration is in `/etc/nixos/radiolisp.nix`: a `radiolisp`
+user, the `radiolisp.service` service (`java -jar` on
+`/var/www/radiolisp/current/`) and nginx, which serves `public/` and passes
+`/api/` to the backend.
 
 ```sh
 bb deploy
 ```
 
-Hace `bb build`, guarda lo desplegado en `/var/www/radiolisp/previous/`, sube
-`dist/` a `current/` con rsync, reinicia el servicio y espera a que conteste
-`/api/health`. Si no contesta en 30 s, vuelve a poner lo anterior.
-`DEPLOY_SERVER` y `DEPLOY_URL` cambian el destino (por defecto `user@host` y
-`https://radio.example.org`).
+It runs `bb build`, keeps what was deployed in `/var/www/radiolisp/previous/`,
+uploads `dist/` to `current/` with rsync, restarts the service and waits for
+`/api/health` to answer. If it does not answer within 30 s, it puts the previous
+version back. `DEPLOY_SERVER` and `DEPLOY_URL` change the target (by default
+`user@host` and `https://radio.example.org`).
 
-## Limitaciones conocidas
+## Known limitations
 
-- **Streams `http://`.** Muchas emisoras solo emiten por http. Servida por `https`,
-  el navegador bloquea esos streams (contenido mixto). La app prueba la versión
-  `https://` de cada URL y, si no existe, el proxy del backend. Sin backend, o con
-  una emisora HLS (el proxy no las acepta), avisa de que la emisora solo emite por
-  http.
-- **Bloqueos por región o VPN.** Algunas emisoras (RTVE, por ejemplo) contestan
-  `451` a ciertas IP. La app lo detecta cuando el stream permite CORS y lo dice.
-- **HLS (`.m3u8`)** suena de forma nativa donde el navegador sabe (Safari, Chrome
-  reciente) y con hls.js en el resto. hls.js (unos 600 KB) va en su propio módulo y
-  solo se descarga la primera vez que hace falta. Sin Media Source Extensions, la
-  app avisa de "formato no soportado".
-- **Las favoritas viven en este navegador** (`localStorage`). Para llevarlas a otro,
-  exporta e importa el M3U o el `.list`; los atajos no viajan.
-- **Lo que suena** necesita el backend y una emisora con metadatos ICY. Las HLS no
-  dan títulos (sus metadatos van en ID3, y el backend aún no los lee).
-- **Más ideas** que necesitan backend: [`docs/ideas/backend.md`](docs/ideas/backend.md).
+- **`http://` streams.** Many stations only stream over http. When the app is
+  served over `https`, the browser blocks those streams (mixed content). The app
+  tries the `https://` version of each URL and, if it does not exist, the
+  backend's proxy. Without the backend, or with an HLS station (the proxy does
+  not accept them), it warns that the station only streams over http.
+- **Region or VPN blocks.** Some stations (RTVE, for example) answer `451` to
+  certain IPs. The app detects this when the stream allows CORS and says so.
+- **HLS (`.m3u8`)** plays natively where the browser can (Safari, recent Chrome)
+  and with hls.js elsewhere. hls.js (about 600 KB) is in its own module and is
+  only downloaded the first time it is needed. Without Media Source Extensions,
+  the app says it cannot play the format.
+- **Favourites live in this browser** (`localStorage`). To take them to another
+  one, export and import the M3U or the `.list`; the shortcuts do not travel.
+- **Now playing** needs the backend and a station with ICY metadata. HLS
+  stations give no titles (their metadata is in ID3, and the backend does not
+  read it yet).
+- **More ideas** that need a backend: [`docs/ideas/backend.md`](docs/ideas/backend.md)
+  (in Spanish).
 
-## Créditos
+## License
 
-- Inspirado en [radiolise](https://gitlab.com/radiolise/radiolise.gitlab.io).
-- Datos de emisoras: [Radio Browser](https://www.radio-browser.info/), un proyecto
-  comunitario.
-- Tipografía: [DM Sans](https://github.com/googlefonts/dm-fonts), bajo SIL Open Font
-  License 1.1 (`frontend/resources/public/fonts/OFL.txt`).
+[MIT](LICENSE).
+
+## Credits
+
+- Inspired by [radiolise](https://gitlab.com/radiolise/radiolise.gitlab.io).
+- Station data: [Radio Browser](https://www.radio-browser.info/), a community
+  project.
+- Typeface: [DM Sans](https://github.com/googlefonts/dm-fonts), under the SIL
+  Open Font License 1.1 (`frontend/resources/public/fonts/OFL.txt`).
