@@ -8,8 +8,8 @@
   original when that errors or does not start within `https-attempt-ms`.
   On an https page the original is pointless (the browser blocks or upgrades
   mixed content), so the last resort is the backend's proxy,
-  `/api/stream/<uuid>`. HLS cannot go through it: when its https form fails,
-  the station is reported as http-only.
+  `/api/stream/<uuid>`. HLS cannot go through it, and the static build has
+  none: then, when its https form fails, the station is reported as http-only.
 
   When every URL has failed, the element does not say why, so a `fetch` of the
   last one reads the HTTP status for the message (a 451 means the station
@@ -18,7 +18,8 @@
 
   HLS streams play natively where the browser can (Safari); elsewhere through
   hls.js, loaded on demand from the :hls module."
-  (:require [radiolisp.frontend.stream-url :as stream-url]
+  (:require [radiolisp.frontend.config :as config]
+            [radiolisp.frontend.stream-url :as stream-url]
             [shadow.lazy :as lazy]))
 
 (def https-attempt-ms 8000)
@@ -161,7 +162,7 @@
              (or (:hls @state) (not= "" (.-src audio))))
       ;; Resuming the station already loaded and healthy.
       (play-element! audio)
-      (let [[first-url & fallbacks] (stream-url/candidates url id hls? (https-page?))]
+      (let [[first-url & fallbacks] (stream-url/candidates url id hls? (https-page?) config/backend)]
         (swap! state assoc :url url :id id :hls? (boolean hls?) :fallbacks (vec fallbacks)
                :http-only? (and (stream-url/http? url) (https-page?) (empty? fallbacks)))
         (start-attempt! first-url)))))

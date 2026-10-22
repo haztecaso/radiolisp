@@ -4,12 +4,14 @@
   sends the current subscription whenever it (re)opens. While a station is
   followed, a closed socket retries after 2, 4, 8… up to 60 s; with nothing
   followed it stays closed. Without a backend that is a few failed
-  connections while a station plays, and nothing else.
+  connections while a station plays, and nothing else; the static build
+  (`config/backend` false) does not even try.
 
   Messages from the server are dispatched as actions, but only the ones
   `protocol/server-message?` accepts."
   (:require [clojure.string :as str]
-            [radiolisp.common.protocol :as protocol]))
+            [radiolisp.common.protocol :as protocol]
+            [radiolisp.frontend.config :as config]))
 
 (goog-define backend-origin "")
 ;; Where the backend is. Empty means this page's origin, as in production;
@@ -74,6 +76,7 @@
   [dispatch id]
   (swap! state assoc :dispatch dispatch :id id)
   (cond
+    (not config/backend)     nil
     (open? (:socket @state)) (send! (protocol/subscribe id))
     (nil? (:socket @state))  (when-not (:timer @state) (connect!))
     ;; Still connecting: the open handler sends it.
