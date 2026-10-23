@@ -90,11 +90,6 @@
   (try (js/localStorage.setItem theme-key (name theme))
        (catch :default _ nil)))
 
-(defmethod execute! :storage/persist [_ _]
-  ;; Asks the browser not to evict our storage under pressure.
-  (when-let [^js storage (.-storage js/navigator)]
-    (some-> (.persist storage) (.catch (fn [_] nil)))))
-
 ;; Radio Browser
 
 (defmethod execute! :api/servers [dispatch _]

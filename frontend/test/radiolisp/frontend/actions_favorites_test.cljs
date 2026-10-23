@@ -16,7 +16,7 @@
                                                                           :theme  {:current :dark :chosen? false}}])]
     (is (= :es (:locale state)))
     (is (= {:current :dark :chosen? false} (:theme state)))
-    (is (= [[:dom/lang :es] [:dom/theme :dark] [:audio/volume 1] [:cache/load] [:storage/load] [:storage/persist] [:api/servers]]
+    (is (= [[:dom/lang :es] [:dom/theme :dark] [:audio/volume 1] [:cache/load] [:storage/load] [:api/servers]]
            effects))))
 
 (deftest stations-are-fetched-once-storage-and-servers-are-known
