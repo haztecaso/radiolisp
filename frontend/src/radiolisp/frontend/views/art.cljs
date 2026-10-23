@@ -104,7 +104,7 @@
 (def name-box
   "The share of the tile, in container units (cqi), a name may fill each way
   (`.full-name` in the CSS). Names are fitted to a little less, since the
-  widths below are estimates and italics overhang."
+  widths below are estimates."
   {:css 84 :fit 78})
 (def name-line-height 1.1)
 (def name-sizes
@@ -114,15 +114,16 @@
 (def ^:private wide-re (js/RegExp. "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}]" "u"))
 
 (defn- char-width
-  "Advance of `c` in em in the display face, measured once and rounded up."
+  "Advance of `c` in em in the display face (Roboto Black), measured once and
+  rounded up."
   [c]
   (cond
-    (= " " c)               0.23
+    (= " " c)               0.25
     (.test wide-re c)       1.0
-    (#{"m" "w" "M" "W"} c)  0.83
-    (#{"i" "l" "j" "t" "f" "r" "." "," "'" "!" "|" ":" ";" "-"} c) 0.31
-    (not= c (str/lower-case c)) 0.59
-    :else                   0.52))
+    (#{"m" "w" "M" "W"} c)  0.88
+    (#{"i" "l" "j" "t" "f" "r" "." "," "'" "!" "|" ":" ";" "-" "I"} c) 0.45
+    (not= c (str/lower-case c)) 0.71
+    :else                   0.59))
 
 (defn- word-width [word]
   (reduce + (map char-width (js/Array.from word))))
