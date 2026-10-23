@@ -120,7 +120,6 @@
        (volume-effect (:player state))
        [:cache/load]
        [:storage/load]
-       [:storage/persist]
        [:api/servers]]))
 
 (defmethod handle :api/servers-loaded [state [_ servers]]

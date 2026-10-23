@@ -40,7 +40,9 @@ arranque, de modo que el stream, la imagen y la salud estén siempre al día.
   la `:version` sigue en 1, y uno vacío o que no sea texto se ignora al leer.
 
 - **Dónde:** `localStorage`, clave `radiolisp/favorites`, serializado en EDN. Se
-  escribe tras cada cambio. Al arrancar se pide `navigator.storage.persist()`.
+  escribe tras cada cambio. No se pide `navigator.storage.persist()`: Firefox lo
+  pregunta con un aviso al abrir la página y solo protege si el disco se llena;
+  la copia de seguridad es exportar la lista.
 - **Lectura defensiva:** un valor ilegible o con otra `:version` no rompe la app.
   Se trata como lista vacía y se avisa en la consola.
 - **Al arrancar:** `GET /json/stations/byuuid?uuids=a,b,…` (una sola petición) llena
@@ -238,7 +240,7 @@ Se mantiene el flujo acción → `handle` (puro) → efectos. Lo nuevo:
     `:toast`.
   - `:search` empieza cerrado.
 - **Efectos nuevos:**
-  - `:storage/load`, `:storage/save`, `:storage/persist`, `:cache/load`,
+  - `:storage/load`, `:storage/save`, `:cache/load`,
     `:cache/save`.
   - `:api/stations-by-id`, `:api/click`, `:api/vote`, `:api/lookup-urls`.
   - `:file/download`, `:file/pick`, `:clipboard/write`.
