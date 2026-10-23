@@ -79,7 +79,7 @@
   .mono {
     font: 900 64px/1 var(--display);
     letter-spacing: -0.02em;
-    color: var(--accent-ink);
+    color: var(--ink, var(--accent-ink));
   }
 }
 
@@ -96,7 +96,7 @@
   letter-spacing: -0.01em;
   text-align: center;
   overflow-wrap: anywhere;
-  color: var(--accent-ink);
+  color: var(--ink, var(--accent-ink));
 }
 
 .t0 {
@@ -125,6 +125,7 @@
   background: var(--veil);
   font-family: var(--display);
   font-weight: 700;
+  color: var(--ink, var(--text));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
