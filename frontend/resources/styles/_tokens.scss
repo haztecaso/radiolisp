@@ -1,3 +1,5 @@
+@use "sass:map";
+
 // accent-ladder, hue raspberry (design-taste-frontend, seed 396668359).
 // The full hue only on small marks; its tints carry the areas.
 $accent: #b8336a;
@@ -47,6 +49,21 @@ $dark: (
   scrim: rgba(0, 0, 0, .5),
 );
 
+// Name colours (favs/colors), each a pair: the ink and the field behind a name
+// without artwork, in light and in dark. Hand-tuned per hue after step 11 of
+// Radix Colors (docs/design/prototype-4); every ink keeps 4.5:1 or more on
+// its field, the four tile tints and the band's veil.
+$inks: (
+  "red":    (light: #c8341a, field: #ffebe7, dark: #ff977d, dark-field: #341914),
+  "orange": (light: #b84700, field: #ffece0, dark: #ffa057, dark-field: #321b0b),
+  "ochre":  (light: #946000, field: #faefdc, dark: #ffca16, dark-field: #2d1f05),
+  "green":  (light: #257538, field: #e4f6e6, dark: #71d083, dark-field: #112715),
+  "teal":   (light: #007a69, field: #ddf7f1, dark: #0bd8b6, dark-field: #002822),
+  "blue":   (light: #0d68bd, field: #e6f2ff, dark: #70b8ff, dark-field: #112337),
+  "violet": (light: #6550b9, field: #f1edff, dark: #baa7ff, dark-field: #231d35),
+  "pink":   (light: #b8287f, field: #ffe9f3, dark: #ff8dcc, dark-field: #321825),
+);
+
 $phone: 760px;
 $tablet: 1024px;
 
@@ -85,6 +102,10 @@ $tablet: 1024px;
   --font: "DM Sans", Inter, system-ui, sans-serif;
   --display: Roboto, system-ui, sans-serif; // station names and monograms only
   --ease: cubic-bezier(.2, .7, .2, 1);
+  @each $name, $c in $inks {
+    --ink-#{$name}: #{map.get($c, light)};
+    --field-#{$name}: #{map.get($c, field)};
+  }
 
   @media (max-width: $tablet) { --edge: 20px; }
   @media (max-width: $phone) { --edge: 16px; --pad: 20px; }
@@ -94,5 +115,9 @@ $tablet: 1024px;
 // browser's preference), then kept by the :dom/theme effect.
 :root[data-theme="dark"] {
   @each $name, $value in $dark { --#{$name}: #{$value}; }
+  @each $name, $c in $inks {
+    --ink-#{$name}: #{map.get($c, dark)};
+    --field-#{$name}: #{map.get($c, dark-field)};
+  }
   color-scheme: dark;
 }

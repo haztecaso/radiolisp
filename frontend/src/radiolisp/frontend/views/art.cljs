@@ -169,12 +169,18 @@
   (mod (reduce (fn [h c] (mod (+ (* h 31) (.charCodeAt c 0)) 4294967296)) 7 (or id ""))
        4))
 
+(defn ink-class
+  "The class that gives a name the colour `color` (see `favs/colors`), or nil."
+  [color]
+  (when color (str "ink-" (name color))))
+
 (defn view
   "The artwork of `station` in a box of `class` (\"art\" or \"thumb\"),
   as `mode` says. In :text a tile shows the whole name and a thumbnail its
-  initials. An image sits on the plate (seen through its transparent
-  pixels) unless it is contained on its own edge colour."
-  [state {:keys [id favicon] station-name :name :as station} class]
+  initials, in the station's :color on a field of the same hue when it has
+  one. An image sits on the plate (seen through its transparent pixels)
+  unless it is contained on its own edge colour."
+  [state {:keys [id favicon color] station-name :name :as station} class]
   (let [shown (get-in state [:art id])
         m     (mode state station)
         {:keys [w h]} (when (map? shown) shown)
@@ -182,6 +188,7 @@
         {:keys [edge dark?]} (probe state station)
         edge  (when (and (= :image m) (not= :cover fitted)) edge)]
     [:div {:class [class (str "t" (tint id)) (name m) (when fitted (name fitted))
+                   (ink-class color) (when color "inked")
                    (when (and (not= :text m) (not edge)) "plate")
                    (when (false? dark?) "lit")]
            :style (when edge {:background edge})}

@@ -52,7 +52,7 @@
                                :title         (when station (t :panel/title))
                                :on            {:click [[:panel/toggle]]}}
       (if station
-        (art/view state (assoc station :name station-name :display (:display favorite)) "thumb")
+        (art/view state (assoc station :name station-name :display (:display favorite) :color (:color favorite)) "thumb")
         [:div.thumb])
       [:div.now
        [:b (when station icons/waves)

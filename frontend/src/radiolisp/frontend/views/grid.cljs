@@ -6,17 +6,18 @@
             [radiolisp.frontend.views.art :as art]
             [radiolisp.frontend.views.icons :as icons]))
 
-(defn- tile [{:keys [stations cache favorites player drag menu] :as state} t {:keys [id display] shortcut :key :as favorite}]
+(defn- tile [{:keys [stations cache favorites player drag menu] :as state} t {:keys [id display color] shortcut :key :as favorite}]
   (let [station      (get stations id)
         shown        (or station (get cache id)) ; the cache only draws; playing waits for Radio Browser
         station-name (favs/display-name favorite shown)
-        art-station  {:id id :name station-name :favicon (:favicon shown) :display display}
+        art-station  {:id id :name station-name :favicon (:favicon shown) :display display :color color}
         missing?     (contains? (:missing favorites) id)
         sick?        (false? (:check-ok? station))
         current?     (= id (get-in player [:station :id]))
         anchor       (str "more-" id)]
     [:article.tile {:replicant/key id
-                    :class         [(when current? "playing")
+                    :class         [(art/ink-class color)
+                                    (when current? "playing")
                                     (when (= id (:id drag)) "dragging")
                                     (when (and drag (= id (:over drag)) (not= id (:id drag))) "drop-before")]
                     :draggable     "true"

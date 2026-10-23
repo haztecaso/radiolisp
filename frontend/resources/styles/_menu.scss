@@ -93,6 +93,20 @@
     }
     button + button { border-left: 1px solid var(--control); }
   }
+  // Name colours: each swatch shows its ink on its field, as a tile would.
+  .swatches { display: flex; flex-wrap: wrap; gap: 4px; }
+  .swatch {
+    position: relative; width: 34px; height: 34px; padding: 0; border: 0; cursor: pointer;
+    background: var(--field, var(--raised)); color: var(--ink, var(--accent-ink));
+    font: 900 15px/1 var(--display);
+    &:hover { box-shadow: inset 0 0 0 1px var(--control); }
+    &:focus-visible { outline-offset: 2px; }
+    &[aria-checked="true"] { box-shadow: inset 0 0 0 2px var(--text); }
+    // Automatic: the tile keeps its own tint and the app's ink.
+    &.auto::after {
+      content: ""; position: absolute; left: 6px; right: 6px; bottom: 6px; height: 2px; background: var(--faint);
+    }
+  }
   @media (max-width: $phone) {
     width: 100%; max-width: 100%; margin: auto 0 0; padding: 20px 16px;
     border-width: 1px 0 0;

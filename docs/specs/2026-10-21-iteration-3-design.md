@@ -133,11 +133,28 @@ contenteditable), con sus acciones `:rename/*`.
 - **En la cuadrícula:** un selector de tres botones, «Imagen · Con margen ·
   Texto», con el modo efectivo marcado (el automático si no hay elección
   manual). Ningún texto de ayuda. Sin imagen, el selector no aparece.
+- **Color del nombre** (añadido después, prototipo en `docs/design/prototype-4`):
+  nueve muestras cuadradas «Aa», cada una con su tinta sobre su fondo.
+  La primera, «Automático», es el aspecto de siempre (tinte de la casilla y
+  tinta de la marca) y quita la elección. Las otras ocho son una paleta fija,
+  nunca un selector libre: rojo, naranja, ocre, verde, turquesa, azul,
+  violeta y rosa. Cada una es un par (claro y oscuro) de hex fijos en
+  `_tokens.scss` (`$inks`), ajustados a mano tono a tono al estilo del paso 11
+  de Radix Colors. Todas las tintas llegan a 4,5:1 sobre su fondo, los cuatro
+  tintes y el velo de la banda. La tinta colorea el nombre entero (900), el
+  nombre de la banda sobre la imagen (700) y las iniciales de la miniatura;
+  sin imagen, además, la casilla toma el fondo del mismo tono. El front no
+  hace cuentas de color: la favorita guarda la clave y el CSS elige el par
+  según el tema.
+  Una favorita nueva (añadida o importada) llega ya con color: uno de los
+  menos usados entre las favoritas, elegido por su id (`favs/new-color`,
+  puro), así que parece aleatorio y no se repite mientras quede alguno libre.
 - **Botones:** «Cancelar» y «Guardar». Enter en el campo guarda; Esc o clic
   fuera cancela. Al cerrar, el foco vuelve al ⋯ de la casilla.
 - **Guardar:** el nombre sigue las reglas de la iteración 2 (vacío o igual al
   de Radio Browser quita `:custom-name`). El modo se guarda en `:display` solo
-  si el usuario tocó el selector. Nada se guarda al cancelar.
+  si el usuario tocó el selector; el color, en `:color` (sin clave si es
+  automático). Nada se guarda al cancelar.
 
 ## 5. Barra del reproductor
 
@@ -199,13 +216,13 @@ causa más probable de que se pare. Cambia así:
   los tres modos. `fit` se queda para lo cuadrado y lo pequeño.
 - **Efectos nuevos:** `:art/probe` (la `Image` con CORS y el canvas).
 - **Acciones nuevas:** `:art/probed`, `:customize/open`, `:customize/name`,
-  `:customize/display`, `:customize/use-original`, `:customize/save`,
+  `:customize/display`, `:customize/color`, `:customize/use-original`, `:customize/save`,
   `:customize/cancel`, `:panel/toggle`, `:panel/close`, `:brand/top`,
   `:audio/reconnect`.
-- **Estado:** `:customize` (`{:id :name :display}`, el borrador), `:panel?`,
+- **Estado:** `:customize` (`{:id :name :display :color}`, el borrador), `:panel?`,
   `[:player :retries]`, y `:art` guarda también el resultado de la detección.
-- **`common/favorites.cljc`:** `set-display` y la lectura defensiva de
-  `:display`.
+- **`common/favorites.cljc`:** `set-display`, `colors`, `set-color` y la
+  lectura defensiva de `:display` y `:color`.
 - **i18n**, en los 12 idiomas: claves nuevas para el menú, el modal, el panel y
   la reconexión; salen `:menu/rename`, `:menu/reset-name` y `:rename/label`.
 

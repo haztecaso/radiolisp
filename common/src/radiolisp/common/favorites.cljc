@@ -1,7 +1,8 @@
 (ns radiolisp.common.favorites
   "The list of favourite stations: a vector of `{:id :name :key}` whose order
   is the order of the grid, plus `:custom-name` on the favourites the user
-  renamed and `:display` on those whose look they chose. Pure and shared
+  renamed, `:display` on those whose look they chose and `:color` on those
+  whose name they coloured. Pure and shared
   with the future backend."
   (:refer-clojure :exclude [remove])
   (:require #?(:clj [clojure.edn :as edn] :cljs [cljs.reader :as edn])
@@ -25,12 +26,32 @@
 (defn member? [favorites id]
   (some? (index-of favorites id)))
 
+(def colors
+  "The colours a favourite's name may take, in the order the picker shows
+  them; each is a pair of inks (light and dark theme) in the CSS. Absent
+  means automatic."
+  [:red :orange :ochre :green :teal :blue :violet :pink])
+
+(def ^:private color-set (set colors))
+
+(defn- id-hash [id]
+  (reduce (fn [h c] (mod (+ (* h 31) #?(:clj (int c) :cljs (.charCodeAt c 0))) 4294967296)) 7 (seq (or id ""))))
+
+(defn new-color
+  "The colour a new favourite `id` gets: one of the least used in `favorites`,
+  picked by its id, so it looks random and repeats only once all are taken."
+  [favorites id]
+  (let [uses  (frequencies (keep :color favorites))
+        least (apply min (map #(get uses % 0) colors))
+        free  (filterv #(= least (get uses % 0)) colors)]
+    (nth free (mod (id-hash id) (count free)))))
+
 (defn add
-  "Appends `station` unless it is already a favourite."
+  "Appends `station` unless it is already a favourite, with a `new-color`."
   [favorites {:keys [id] station-name :name}]
   (if (member? favorites id)
     favorites
-    (conj (vec favorites) {:id id :name station-name :key nil})))
+    (conj (vec favorites) {:id id :name station-name :key nil :color (new-color favorites id)})))
 
 (defn display-name
   "The name to show for `favorite`: the one the user gave it, else the one
@@ -72,6 +93,19 @@
               (not= id (:id fav)) fav
               mode                (assoc fav :display mode)
               :else               (dissoc fav :display)))
+          favorites)
+    favorites))
+
+(defn set-color
+  "Gives the name of the favourite `id` the colour `color`; nil (or an unknown
+  colour) makes it automatic again."
+  [favorites id color]
+  (if (or (nil? color) (contains? color-set color))
+    (mapv (fn [fav]
+            (cond
+              (not= id (:id fav)) fav
+              color               (assoc fav :color color)
+              :else               (dissoc fav :color)))
           favorites)
     favorites))
 
@@ -166,7 +200,8 @@
                 (let [custom (when (string? (:custom-name fav)) (clean-name (:custom-name fav)))]
                   (cond-> (select-keys (merge {:key nil} fav) [:id :name :key])
                     custom                                  (assoc :custom-name custom)
-                    (contains? display-modes (:display fav)) (assoc :display (:display fav)))))
+                    (contains? display-modes (:display fav)) (assoc :display (:display fav))
+                    (contains? color-set (:color fav))       (assoc :color (:color fav)))))
               favs)))))
 
 ;; ---------------------------------------------------------------- M3U

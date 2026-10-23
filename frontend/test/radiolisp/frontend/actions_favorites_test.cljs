@@ -347,14 +347,16 @@
 
 (deftest customizing
   (let [{:keys [state effects]} (a/handle ready [:customize/open "j1"])]
-    (is (= {:kind :customize :id "j1" :name "Jazz Radio" :display nil} (:dialog state)))
+    (is (= {:kind :customize :id "j1" :name "Jazz Radio" :display nil :color nil} (:dialog state)))
     (is (= [[:dom/show-dialog "dialog"] [:dom/preview-size] [:dom/select "customize-name"]] effects))
-    (testing "Guardar keeps the typed name and the chosen look"
-      (let [{:keys [state effects]} (run-all state [:customize/name "  Jazz\nclub "] [:customize/display :text] [:customize/save])
+    (testing "Guardar keeps the typed name, the chosen look and colour"
+      (let [{:keys [state effects]} (run-all state [:customize/name "  Jazz\nclub "] [:customize/display :text]
+                                             [:customize/color :ochre] [:customize/save])
             fav (first (get-in state [:favorites :items]))]
         (is (nil? (:dialog state)))
         (is (= "Jazz club" (:custom-name fav)))
         (is (= :text (:display fav)))
+        (is (= :ochre (:color fav)))
         (is (= "Jazz club" (a/favorite-name state "j1")))
         (is (= fav (first (saved effects))))
         (is (some #{[:dom/focus "more-j1"]} effects) "the focus goes back to the tile")
@@ -363,9 +365,15 @@
                 fav (first (get-in state [:favorites :items]))]
             (is (nil? (:custom-name fav)))
             (is (= :text (:display fav)) "an untouched look stays")
+            (is (= :ochre (:color fav)) "an untouched colour stays")
             (is (saved effects))))))
-    (testing "unknown looks are ignored"
-      (is (nil? (get-in (:state (a/handle state [:customize/display :huge])) [:dialog :display]))))
+    (testing "unknown looks and colours are ignored"
+      (is (nil? (get-in (:state (a/handle state [:customize/display :huge])) [:dialog :display])))
+      (is (nil? (get-in (:state (a/handle state [:customize/color :magenta])) [:dialog :color]))))
+    (testing "the automatic colour takes a chosen one away"
+      (let [state (:state (run-all state [:customize/color :red] [:customize/save]))
+            state (:state (run-all state [:customize/open "j1"] [:customize/color nil] [:customize/save]))]
+        (is (not (contains? (first (get-in state [:favorites :items])) :color)))))
     (testing "closing without saving changes nothing"
       (let [{:keys [state effects]} (run-all state [:customize/name "X"] [:dialog/close])]
         (is (nil? (:dialog state)))
