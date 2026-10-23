@@ -443,8 +443,8 @@
       (:name (favs/find-favorite (items state) id))))
 
 (defmethod handle :customize/open [state [_ id]]
-  (if-let [{:keys [display]} (favs/find-favorite (items state) id)]
-    (ok (assoc state :dialog {:kind :customize :id id :name (favorite-name state id) :display display})
+  (if-let [{:keys [display color]} (favs/find-favorite (items state) id)]
+    (ok (assoc state :dialog {:kind :customize :id id :name (favorite-name state id) :display display :color color})
         [[:dom/show-dialog "dialog"] [:dom/preview-size] [:dom/select "customize-name"]])
     (ok state)))
 
@@ -458,6 +458,10 @@
   (ok (cond-> state
         (and (customizing? state) (contains? favs/display-modes mode)) (assoc-in [:dialog :display] mode))))
 
+(defmethod handle :customize/color [state [_ color]]
+  (ok (cond-> state
+        (and (customizing? state) (or (nil? color) (some #{color} favs/colors))) (assoc-in [:dialog :color] color))))
+
 (defmethod handle :customize/use-original [state _]
   (if (customizing? state)
     (ok (assoc-in state [:dialog :name] (original-name state (get-in state [:dialog :id])))
@@ -466,10 +470,11 @@
 
 (defmethod handle :customize/save [state _]
   (if (customizing? state)
-    (let [{:keys [id display] text :name} (:dialog state)]
+    (let [{:keys [id display color] text :name} (:dialog state)]
       (-> (ok (update-in state [:favorites :items]
                          #(-> (favs/rename % id text (original-name state id))
-                              (favs/set-display id display))))
+                              (favs/set-display id display)
+                              (favs/set-color id color))))
           close-dialog
           save))
     (ok state)))

@@ -1,3 +1,5 @@
+@use "tokens" as *;
+
 // Artwork in its three modes (views/art.cljs): the image (covering the box
 // when squarish, whole otherwise), the image with a margin, or the name.
 // Tiles (.art) and thumbnails (.thumb) share the rules.
@@ -9,6 +11,13 @@
   &.small img { height: auto; max-width: 72%; max-height: 72%; }
   &.plate { background: var(--plate); }
 }
+
+// A name coloured by the user (art/ink-class): its ink on the tile, the band
+// and the thumbnail, and its field behind a name without artwork.
+@each $name, $c in $inks {
+  .ink-#{$name} { --ink: var(--ink-#{$name}); --field: var(--field-#{$name}); }
+}
+.art.inked.text, .thumb.inked.text { background: var(--field); }
 
 // In dark, a logo the detection knows is light keeps the dark tint.
 :root[data-theme="dark"] {

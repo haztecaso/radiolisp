@@ -44,16 +44,16 @@
 (defn- customize-body
   "Name and look of a favourite, with a preview of its tile as wide as the
   tiles of the grid (`--tile-w`, set by :dom/preview-size)."
-  [{:keys [stations cache] :as state} t {:keys [id display] text :name}]
+  [{:keys [stations cache] :as state} t {:keys [id display color] text :name}]
   (let [shown    (or (get stations id) (get cache id))
         original (:name shown)
         custom   (favs/clean-name text)
-        preview  {:id id :name (or custom original) :favicon (:favicon shown) :display display}
+        preview  {:id id :name (or custom original) :favicon (:favicon shown) :display display :color color}
         current  (art/mode state preview)]
     [:form {:on {:submit [[:customize/save]]}}
      [:h2#dialog-title (t :customize/title)]
      [:div.customize
-      [:div.tile.preview {:aria-hidden "true"}
+      [:div.tile.preview {:aria-hidden "true" :class (art/ink-class color)}
        (art/view state preview "art")
        (when (not= :text current)
          [:span.name (:name preview)])]
@@ -81,7 +81,20 @@
                        :role          "radio"
                        :aria-checked  (str (= mode current))
                        :on            {:click [[:customize/display mode]]}}
-              (t label)])]])]]
+              (t label)])]])
+       [:div.field
+        [:span#customize-color.field-label (t :customize/color)]
+        [:div.swatches {:role "radiogroup" :aria-labelledby "customize-color"}
+         (for [c (cons nil favs/colors)]
+           [:button {:replicant/key (if c (name c) "auto")
+                     :type          "button"
+                     :role          "radio"
+                     :class         ["swatch" (if c (art/ink-class c) "auto")]
+                     :aria-checked  (str (= c color))
+                     :aria-label    (t (if c (keyword "color" (name c)) :color/auto))
+                     :title         (t (if c (keyword "color" (name c)) :color/auto))
+                     :on            {:click [[:customize/color c]]}}
+            "Aa"])]]]]
      [:div.actions
       [:button.btn {:type "button" :on {:click [[:dialog/close]]}} (t :dialog/cancel)]
       [:button.btn.primary {:type "submit"} (t :customize/save)]]]))

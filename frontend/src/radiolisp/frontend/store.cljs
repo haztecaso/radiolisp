@@ -28,7 +28,7 @@
    :drag         nil                    ; {:id :over} while a tile is dragged
    :file-drag?   false                  ; true while a file is dragged over the page
    :menu         nil                    ; {:kind :station :id :anchor} | {:kind :list :anchor}
-   :dialog       nil                    ; {:kind :remove :id} | {:kind :key :id :pending :message} | {:kind :customize :id :name :display} | …
+   :dialog       nil                    ; {:kind :remove :id} | {:kind :key :id :pending :message} | {:kind :customize :id :name :display :color} | …
    :toast        nil                    ; [[message-key vars] ...]
    :search       {:open?     false
                   :query     ""

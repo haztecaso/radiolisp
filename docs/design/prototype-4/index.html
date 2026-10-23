@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>radiolisp · prototipo 4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Roboto:wght@700..900&display=swap" rel="stylesheet">
+<style>
+/* Iteration 4 prototype: a colour per station, for its name.
+   - The user picks from a fixed palette, never a free picker.
+   - Each palette entry is a pair: one ink for light, one for dark. The tile
+     stores the entry's key, the theme picks the ink.
+   - The colour applies to the whole name on tiles without artwork (900) and
+     to the name on the band over artwork (700).
+   - «Tinta + fondo» also tints the square behind a name without artwork.
+   Four candidate palettes below; the contrast figures are WCAG 2 ratios
+   against every background the ink can land on in that theme.
+   Prototype chrome (the strip at the top, the sheets below) is not part of
+   the design. */
+:root {
+  --accent:#b8336a; --accent-soft:#fdf2f7; --accent-ink:#6b1d3e;
+  --ground:#fbf8f9; --surface:#ffffff; --raised:#f5f1f3;
+  --border:#ebe4e7; --control:#d8cfd3;
+  --text:#181214; --muted:#665a5f; --faint:#72656b;
+  --negative:#c4242a;
+  --tile-2:#f9eef3; --tile-3:#f3ecef; --plate:#ffffff;
+  --veil:rgba(255,255,255,.94);
+  --font:"DM Sans", Inter, system-ui, sans-serif; --display:Roboto, system-ui, sans-serif;
+  color-scheme: light;
+}
+.dark {
+  --accent:#e0679a; --accent-soft:#2a1720; --accent-ink:#f4a8c8;
+  --ground:#141012; --surface:#1c1719; --raised:#262022;
+  --border:#30282c; --control:#4a3f44;
+  --text:#f3eef0; --muted:#b0a3a9; --faint:#998b91;
+  --negative:#f0565b;
+  --tile-2:#2a1b22; --tile-3:#231d20; --plate:#ece6e9;
+  --veil:rgba(20,16,18,.9);
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: #d9d3d6; color: #181214; font: 400 14px/20px var(--font); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; }
+
+/* ---------- prototype chrome ---------- */
+.strip {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center;
+  padding: 10px 16px; background: #181214; color: #f3eef0; font-size: 13px;
+}
+.strip b { font-weight: 600; margin-right: 8px; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 2px; }
+.seg button {
+  height: 30px; padding: 0 10px; border: 0; background: #2d2629; color: #d9cfd4; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: #f3eef0; color: #181214; font-weight: 600; }
+.strip .note { color: #b0a3a9; }
+
+.panes { display: grid; grid-template-columns: 1fr 1fr; }
+@media (max-width: 900px) { .panes { grid-template-columns: 1fr; } }
+.pane { background: var(--ground); color: var(--text); padding: 20px 0 28px; }
+.pane h2 { margin: 0 20px 12px; font-size: 15px; font-weight: 600; }
+.pane h2 small { color: var(--muted); font-weight: 400; margin-left: 8px; font-size: 13px; }
+
+/* ---------- the tiles (as in _grid.scss / _art.scss) ---------- */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(150px, 50%), 1fr)); }
+.tile {
+  position: relative; container-type: inline-size;
+  --name-min: 13px; --name-max: 34px;
+  background: var(--surface); cursor: pointer;
+}
+.tile::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.tile:hover::after { box-shadow: inset 0 0 0 2px var(--control); }
+.tile.sel::after { box-shadow: inset 0 0 0 3px var(--text); }
+.art { position: relative; aspect-ratio: 1; overflow: hidden; display: grid; place-items: center; background: var(--raised); }
+.art.plate { background: var(--plate); }
+.art svg { width: 64%; height: 64%; }
+.t0 { background: var(--accent-soft); } .t1 { background: var(--raised); }
+.t2 { background: var(--tile-2); } .t3 { background: var(--tile-3); }
+.full-name {
+  max-width: 84%; max-height: 84%; overflow: hidden;
+  font-family: var(--display); font-weight: 900; line-height: 1.1; letter-spacing: -0.01em;
+  text-align: center; overflow-wrap: anywhere; color: var(--ink, var(--accent-ink));
+}
+.tile .name {
+  position: absolute; left: 0; bottom: 0; max-width: 100%; padding: 2px 4px;
+  background: var(--veil); font-family: var(--display); font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--ink, var(--text));
+}
+.keycap {
+  position: absolute; top: 0; left: 0; z-index: 2; width: 28px; height: 28px; display: grid; place-items: center;
+  background: var(--text); color: var(--surface); font-size: 13px; font-weight: 700;
+}
+
+/* The picker as it would sit in the station menu */
+.picker { margin: 20px 20px 0; padding: 14px; background: var(--surface); }
+.picker .label { display: block; margin-bottom: 8px; font-weight: 600; }
+.picker .label small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.sw {
+  position: relative; width: 36px; height: 36px; padding: 0; border: 0; cursor: pointer;
+  display: grid; place-items: center; background: var(--raised);
+  font: 900 17px/1 var(--display); color: var(--c);
+}
+.sw[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--text); }
+.sw.auto { color: var(--accent-ink); }
+.sw.auto::after { content: ""; position: absolute; left: 4px; right: 4px; bottom: 4px; height: 2px; background: var(--faint); }
+.picker .hint { margin-top: 8px; color: var(--muted); font-size: 12px; }
+
+/* ---------- sheets ---------- */
+.sheets { background: #fbf8f9; padding: 28px 16px 48px; color: #181214; }
+.sheets > h2 { max-width: 1200px; margin: 0 auto 6px; font-size: 18px; }
+.sheets > p { max-width: 1200px; margin: 0 auto 20px; color: #665a5f; }
+.cards { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(560px, 100%), 1fr)); gap: 16px; }
+.card { background: #fff; padding: 16px; }
+.card.on { box-shadow: inset 0 0 0 2px #181214; }
+.card h3 { margin: 0 0 2px; font-size: 15px; }
+.card p { margin: 0 0 12px; color: #665a5f; font-size: 13px; }
+.card button.use { float: right; height: 28px; padding: 0 10px; border: 0; background: #181214; color: #fff; cursor: pointer; font-size: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { text-align: left; font-weight: 500; color: #72656b; padding: 4px 6px; }
+td { padding: 3px 6px; border-top: 1px solid #f3eef0; font-variant-numeric: tabular-nums; }
+.pair { display: flex; width: 120px; height: 26px; }
+.pair span { flex: 1; display: grid; place-items: center; font: 900 13px/1 var(--display); }
+.pair .l { background: #f5f1f3; } .pair .d { background: #262022; }
+.bad { color: #c4242a; font-weight: 700; }
+.ok { color: #181214; }
+code { font-size: 11px; color: #665a5f; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- Machado et al. 2009, severity 1, applied in linear RGB -->
+  <filter id="protan"><feColorMatrix type="matrix" values="0.152286 1.052583 -0.204868 0 0  0.114503 0.786281 0.099216 0 0  -0.003882 -0.048116 1.051998 0 0  0 0 0 1 0"/></filter>
+  <filter id="deutan"><feColorMatrix type="matrix" values="0.367322 0.860646 -0.227968 0 0  0.280085 0.672501 0.047413 0 0  -0.011820 0.042940 0.968881 0 0  0 0 0 1 0"/></filter>
+  <filter id="tritan"><feColorMatrix type="matrix" values="1.255528 -0.076749 -0.178779 0 0  -0.078411 0.930809 0.147602 0 0  0.004733 0.691367 0.303900 0 0  0 0 0 1 0"/></filter>
+</svg>
+
+<div class="strip">
+  <span><b>Paleta</b><span class="seg" id="pal-seg"></span></span>
+  <span><b>Tratamiento</b><span class="seg" id="mode-seg"></span></span>
+  <span><b>Visión</b><span class="seg" id="vision-seg"></span></span>
+  <span class="note">Pulsa una casilla y elige su color abajo.</span>
+</div>
+
+<main id="view">
+  <div class="panes">
+    <section class="pane" id="pane-light"><h2>Claro</h2><div class="grid"></div><div class="picker"></div></section>
+    <section class="pane dark" id="pane-dark"><h2>Oscuro</h2><div class="grid"></div><div class="picker"></div></section>
+  </div>
+</main>
+
+<section class="sheets">
+  <h2>Las cuatro paletas</h2>
+  <p>Contraste mínimo de cada tinta contra todos los fondos posibles en ese modo: los cuatro tintes de casilla (o el fondo a juego, con «Tinta + fondo») y el velo de la banda. Las letras de nombre bajan a 13–14 px, así que el listón es 4,5 (AA texto normal); en rojo lo que no llega.</p>
+  <div class="cards" id="cards"></div>
+</section>
+
+<script>
+// ---------- palettes ----------
+// Fixed values, worked out once (OKLCH to sRGB hex, WCAG 2 contrast) and
+// written here: the page does no colour maths. contrast: the lowest ratio of
+// the ink against every ground it can land on, [light, dark], for each
+// treatment.
+const PALETTES = [
+  { id: 'tinta', title: "A · Tinta", blurb: "Tintas hondas en claro, pasteles en oscuro. Misma claridad perceptual (OKLCH) en los ocho tonos, así ninguno grita más que otro.",
+    rule: "claro L .44 C .15 · oscuro L .80 C .12", colors: [
+      { name: "rojo", light: '#94221f', dark: '#ffa096', field: { light: '#ffebe8', dark: '#341916' }, contrast: { ink: [7.2, 8.2], field: [7.3, 8.3] } },
+      { name: "naranja", light: '#813c00', dark: '#fba773', field: { light: '#ffece1', dark: '#321b0c' }, contrast: { ink: [7, 8.3], field: [7.1, 8.4] } },
+      { name: "ocre", light: '#6b4c00', dark: '#e4b65c', field: { light: '#faefdc', dark: '#2c1f05' }, contrast: { ink: [6.8, 8.5], field: [6.9, 8.5] } },
+      { name: "verde", light: '#006425', dark: '#86d391', field: { light: '#e4f6e6', dark: '#112715' }, contrast: { ink: [6.3, 8.9], field: [6.5, 8.9] } },
+      { name: "turquesa", light: '#005f5d', dark: '#46d6d1', field: { light: '#dcf7f5', dark: '#002827' }, contrast: { ink: [6.5, 9], field: [6.7, 8.9] } },
+      { name: "azul", light: '#005398', dark: '#8cc2ff', field: { light: '#e6f2ff', dark: '#112337' }, contrast: { ink: [6.7, 8.6], field: [6.9, 8.5] } },
+      { name: "violeta", light: '#5e3999', dark: '#c7adff', field: { light: '#f2edff', dark: '#241d34' }, contrast: { ink: [7.2, 8.3], field: [7.3, 8.3] } },
+      { name: "rosa", light: '#8a235e', dark: '#f89dc9', field: { light: '#ffe9f3', dark: '#321825' }, contrast: { ink: [7.3, 8.1], field: [7.3, 8.2] } },
+    ] },
+  { id: 'viva', title: "B · Viva", blurb: "Más croma, claridad media: se distinguen antes de lejos, a costa de quedar justas de contraste.",
+    rule: "claro L .50 C .20 · oscuro L .74 C .17", colors: [
+      { name: "rojo", light: '#bb0916', dark: '#ff7f73', field: { light: '#ffebe8', dark: '#341916' }, contrast: { ink: [5.7, 6.5], field: [5.8, 6.6] } },
+      { name: "naranja", light: '#9a4900', dark: '#fc8731', field: { light: '#ffece1', dark: '#321b0c' }, contrast: { ink: [5.4, 6.6], field: [5.5, 6.7] } },
+      { name: "ocre", light: '#805c00', dark: '#da9f00', field: { light: '#faefdc', dark: '#2c1f05' }, contrast: { ink: [5.2, 6.8], field: [5.3, 6.8] } },
+      { name: "verde", light: '#00782d', dark: '#50c76a', field: { light: '#e4f6e6', dark: '#112715' }, contrast: { ink: [4.8, 7.4], field: [5, 7.3] } },
+      { name: "turquesa", light: '#007270', dark: '#00c4bf', field: { light: '#dcf7f5', dark: '#002827' }, contrast: { ink: [5, 7.4], field: [5.1, 7.2] } },
+      { name: "azul", light: '#0064b5', dark: '#65afff', field: { light: '#e6f2ff', dark: '#112337' }, contrast: { ink: [5.2, 7], field: [5.3, 6.9] } },
+      { name: "violeta", light: '#743bc3', dark: '#b793ff', field: { light: '#f2edff', dark: '#241d34' }, contrast: { ink: [5.7, 6.6], field: [5.8, 6.6] } },
+      { name: "rosa", light: '#ae1173', dark: '#f779ba', field: { light: '#ffe9f3', dark: '#321825' }, contrast: { ink: [5.8, 6.4], field: [5.8, 6.5] } },
+    ] },
+  { id: 'sorda', title: "C · Sorda", blurb: "Poco croma, tonos de imprenta. Muy legible y tranquila; los vecinos (rojo/naranja, azul/violeta) se confunden más.",
+    rule: "claro L .45 C .075 · oscuro L .82 C .07", colors: [
+      { name: "rojo", light: '#7a443e', dark: '#eeb3ac', field: { light: '#ffebe8', dark: '#341916' }, contrast: { ink: [6.6, 8.9], field: [6.7, 9] } },
+      { name: "naranja", light: '#76492c', dark: '#eab89b', field: { light: '#ffece1', dark: '#321b0c' }, contrast: { ink: [6.5, 9], field: [6.6, 9.1] } },
+      { name: "ocre", light: '#6a511e', dark: '#dbc090', field: { light: '#faefdc', dark: '#2c1f05' }, contrast: { ink: [6.4, 9.1], field: [6.6, 9.2] } },
+      { name: "verde", light: '#36613d', dark: '#a6d1ab', field: { light: '#e4f6e6', dark: '#112715' }, contrast: { ink: [6.2, 9.4], field: [6.3, 9.3] } },
+      { name: "turquesa", light: '#086260', dark: '#8ed3d0', field: { light: '#dcf7f5', dark: '#002827' }, contrast: { ink: [6.2, 9.4], field: [6.4, 9.3] } },
+      { name: "azul", light: '#35577e', dark: '#a4c8f1', field: { light: '#e6f2ff', dark: '#112337' }, contrast: { ink: [6.4, 9.2], field: [6.6, 9.2] } },
+      { name: "violeta", light: '#5a4c7a', dark: '#c9bbec', field: { light: '#f2edff', dark: '#241d34' }, contrast: { ink: [6.6, 9], field: [6.7, 9.1] } },
+      { name: "rosa", light: '#74435b', dark: '#e8b2ca', field: { light: '#ffe9f3', dark: '#321825' }, contrast: { ink: [6.7, 8.9], field: [6.8, 9] } },
+    ] },
+  { id: 'radix', title: "D · Paso 11", blurb: "Ajustada a mano tono a tono, al estilo del paso 11 de Radix Colors (texto de color sobre fondo neutro): la claridad varía por tono, el amarillo puede ser amarillo en oscuro.",
+    rule: "hexadecimales fijos", colors: [
+      { name: "rojo", light: '#c8341a', dark: '#ff977d', field: { light: '#ffebe7', dark: '#341914' }, contrast: { ink: [4.6, 7.6], field: [4.6, 7.7] } },
+      { name: "naranja", light: '#b84700', dark: '#ffa057', field: { light: '#ffece0', dark: '#321b0b' }, contrast: { ink: [4.6, 7.9], field: [4.7, 8] } },
+      { name: "ocre", light: '#946000', dark: '#ffca16', field: { light: '#faefdc', dark: '#2d1f05' }, contrast: { ink: [4.6, 10.5], field: [4.7, 10.5] } },
+      { name: "verde", light: '#257538', dark: '#71d083', field: { light: '#e4f6e6', dark: '#112715' }, contrast: { ink: [4.9, 8.4], field: [5.1, 8.3] } },
+      { name: "turquesa", light: '#007a69', dark: '#0bd8b6', field: { light: '#ddf7f1', dark: '#002822' }, contrast: { ink: [4.5, 8.8], field: [4.7, 8.7] } },
+      { name: "azul", light: '#0d68bd', dark: '#70b8ff', field: { light: '#e6f2ff', dark: '#112337' }, contrast: { ink: [4.8, 7.6], field: [5, 7.6] } },
+      { name: "violeta", light: '#6550b9', dark: '#baa7ff', field: { light: '#f1edff', dark: '#231d35' }, contrast: { ink: [5.3, 7.7], field: [5.4, 7.7] } },
+      { name: "rosa", light: '#b8287f', dark: '#ff8dcc', field: { light: '#ffe9f3', dark: '#321825' }, contrast: { ink: [4.9, 7.6], field: [5, 7.7] } },
+    ] },
+];
+
+// ---------- sample stations ----------
+const ARTS = [
+  (c) => `<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#e3001b"/><text x="32" y="42" font-family="Roboto" font-weight="900" font-size="26" fill="#fff" text-anchor="middle">R3</text></svg>`,
+  (c) => `<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#0a2d5a"/><circle cx="32" cy="32" r="14" fill="#f2b705"/></svg>`,
+  (c) => `<svg viewBox="0 0 64 64"><rect x="4" y="18" width="16" height="28" fill="#111"/><rect x="24" y="18" width="16" height="28" fill="#111"/><rect x="44" y="18" width="16" height="28" fill="#111"/></svg>`,
+  (c) => `<svg viewBox="0 0 64 64"><path d="M4 52 L32 8 L60 52Z" fill="#00a19a"/></svg>`,
+  (c) => `<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#ff5a1f"/><rect x="12" y="12" width="40" height="40" fill="#fff"/><rect x="22" y="22" width="20" height="20" fill="#ff5a1f"/></svg>`,
+];
+const STATIONS = [
+  { name: 'Radio 3', art: 0, key: '1', color: 0 },
+  { name: 'Radio Nacional de España Clásica', color: 5 },
+  { name: 'FIP', color: 3, key: '2' },
+  { name: 'BBC World Service', art: 2, color: 5 },
+  { name: 'NTS Radio', color: 6 },
+  { name: 'KEXP', art: 1, color: 2, key: '3' },
+  { name: 'Catalunya Música', color: 1 },
+  { name: 'SomaFM Groove Salad', color: 3 },
+  { name: 'France Inter', art: 3, color: 4 },
+  { name: '101 SMOOTH JAZZ', color: 7 },
+  { name: 'Radio Paradise', art: 4, color: 1 },
+  { name: 'Cadena SER', color: null },
+];
+
+// name-size from views/art.cljs, with the Roboto Black widths.
+const charW = (c) => c === ' ' ? 0.25 : /[mwMW]/.test(c) ? 0.88 : /[iljtfr.,'!|:;\-I]/.test(c) ? 0.45 : c !== c.toLowerCase() ? 0.71 : 0.59;
+const wordW = (w) => [...w].reduce((s, c) => s + charW(c), 0);
+function lineCount(words, width) {
+  let lines = 1, used = 0;
+  for (const w of words) {
+    const ww = wordW(w), added = used + charW(' ') + ww;
+    if (ww > width) return null;
+    if (used === 0) used = ww; else if (added <= width) used = added; else { lines++; used = ww; }
+  }
+  return lines;
+}
+function nameSize(n) {
+  const words = n.split(/\s+/).filter(Boolean);
+  for (let s = 24; s > 6.5; s -= 0.5) { const l = lineCount(words, 78 / s); if (l && l * s * 1.1 <= 78) return s; }
+  return 7;
+}
+const tintOf = (n) => [...n].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 4294967296, 7) % 4;
+
+// ---------- state + render ----------
+const params = new URLSearchParams(location.search);
+const state = {
+  pal: params.get('p') || 'tinta',
+  mode: params.get('t') || 'ink',
+  vision: 'none',
+  sel: 1,
+};
+const pal = () => PALETTES.find((p) => p.id === state.pal);
+
+function seg(el, items, key) {
+  el.innerHTML = items.map(([v, label]) => `<button type="button" data-v="${v}" aria-pressed="${state[key] === v}">${label}</button>`).join('');
+  el.onclick = (e) => { const b = e.target.closest('button'); if (!b) return; state[key] = b.dataset.v; render(); };
+}
+
+function tileHTML(s, i, theme) {
+  const c = s.color == null ? null : pal().colors[s.color];
+  const ink = c ? `--ink:${c[theme]};` : '';
+  const sel = i === state.sel ? ' sel' : '';
+  const key = s.key ? `<span class="keycap">${s.key}</span>` : '';
+  if (s.art != null) {
+    return `<div class="tile${sel}" data-i="${i}" style="${ink}">${key}<div class="art plate">${ARTS[s.art](c)}</div><span class="name">${s.name}</span></div>`;
+  }
+  const field = c && state.mode === 'field' ? `style="background:${c.field[theme]}"` : '';
+  return `<div class="tile${sel}" data-i="${i}" style="${ink}">${key}<div class="art t${tintOf(s.name)}" ${field}><span class="full-name" style="font-size:clamp(var(--name-min), ${nameSize(s.name)}cqi, var(--name-max))">${s.name}</span></div></div>`;
+}
+
+function pickerHTML(theme) {
+  const s = STATIONS[state.sel];
+  const sws = pal().colors.map((c, i) =>
+    `<button type="button" class="sw" data-c="${i}" style="--c:${c[theme]}" aria-pressed="${s.color === i}" title="${c.name}">Aa</button>`).join('');
+  return `<span class="label">Color del nombre<small>${s.name}</small></span>
+    <div class="swatches"><button type="button" class="sw auto" data-c="" aria-pressed="${s.color == null}" title="Automático">Aa</button>${sws}</div>
+    <div class="hint">El primero es el de siempre (sin color propio). Cada muestra enseña la tinta de este modo; la del otro modo sale sola.</div>`;
+}
+
+function render() {
+  seg(document.getElementById('pal-seg'), PALETTES.map((p) => [p.id, p.title]), 'pal');
+  seg(document.getElementById('mode-seg'), [['ink', 'Solo tinta'], ['field', 'Tinta + fondo']], 'mode');
+  seg(document.getElementById('vision-seg'), [['none', 'Normal'], ['deutan', 'Deuteranopía'], ['protan', 'Protanopía'], ['tritan', 'Tritanopía']], 'vision');
+  for (const theme of ['light', 'dark']) {
+    const pane = document.getElementById('pane-' + theme);
+    pane.querySelector('.grid').innerHTML = STATIONS.map((s, i) => tileHTML(s, i, theme)).join('');
+    pane.querySelector('.picker').innerHTML = pickerHTML(theme);
+  }
+  document.getElementById('view').style.filter = state.vision === 'none' ? '' : `url(#${state.vision})`;
+  document.getElementById('cards').innerHTML = PALETTES.map((p) => {
+    const rows = p.colors.map((c) => {
+      const [l, d] = c.contrast[state.mode];
+      const fmt = (x) => `<span class="${x < 4.5 ? 'bad' : 'ok'}">${x.toFixed(1)}</span>`;
+      return `<tr><td>${c.name}</td><td><div class="pair"><span class="l" style="color:${c.light}">Aa</span><span class="d" style="color:${c.dark}">Aa</span></div></td>
+        <td>${fmt(l)} <code>${c.light}</code></td><td>${fmt(d)} <code>${c.dark}</code></td></tr>`;
+    }).join('');
+    return `<article class="card${p.id === state.pal ? ' on' : ''}"><button class="use" type="button" data-p="${p.id}">Ver arriba</button>
+      <h3>${p.title}</h3><p>${p.blurb} <code>${p.rule}</code></p>
+      <table><thead><tr><th>Color</th><th>Par</th><th>Claro</th><th>Oscuro</th></tr></thead><tbody>${rows}</tbody></table></article>`;
+  }).join('');
+}
+
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('.tile'); if (t) { state.sel = +t.dataset.i; render(); return; }
+  const sw = e.target.closest('.sw'); if (sw) { STATIONS[state.sel].color = sw.dataset.c === '' ? null : +sw.dataset.c; render(); return; }
+  const u = e.target.closest('button.use'); if (u) { state.pal = u.dataset.p; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+});
+render();
+</script>
+</body>
+</html>

@@ -35,7 +35,7 @@
                               :role            "dialog"
                               :aria-labelledby "panel-title"}
         [:div.panel-head
-         (art/view state (assoc station :name station-name :display (:display favorite)) "art")
+         (art/view state (assoc station :name station-name :display (:display favorite) :color (:color favorite)) "art")
          [:div.panel-title
           [:h2#panel-title station-name]
           [:div.panel-playing [:small (t :panel/playing)]

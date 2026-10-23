@@ -125,8 +125,8 @@ https://icecast.radiofrance.fr/franceinfo-midfi.mp3
   - **Sin imagen o rota:** el nombre entero, centrado, sobre un tinte estable
     derivado del id, y sin banda al pie. El tamaño va de 14 a 40 px: es el
     mayor (en `cqi`, el ancho de la casilla) al que el nombre cabe sin partir
-    palabras (`art/name-size`, puro, con anchos de letra medidos para DM Serif
-    Display). Si ni al mínimo cabe, se parte donde haga falta. La miniatura del
+    palabras (`art/name-size`, puro, con anchos de letra medidos para Roboto
+    Black). Si ni al mínimo cabe, se parte donde haga falta. La miniatura del
     reproductor y la paleta siguen con las iniciales.
 - **Esquina superior izquierda:** el cuadradito del atajo. Muestra la tecla
   asignada; si no hay, aparece «+» punteado al pasar el ratón. Al pulsarlo se abre

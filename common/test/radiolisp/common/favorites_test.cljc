@@ -27,10 +27,23 @@
   (is (not (favs/reserved-key? "x")))
   (is (not (favs/reserved-key? "1"))))
 
+(defn- uncolored [favorites]
+  (mapv #(dissoc % :color) favorites))
+
 (deftest add-appends-once
-  (is (= [{:id "j1" :name "Jazz Radio" :key nil}] (favs/add [] jazz)))
+  (is (= [{:id "j1" :name "Jazz Radio" :key nil}] (uncolored (favs/add [] jazz))))
   (is (= ["j1" "b1"] (ids (favs/add (favs/add [] jazz) blues))))
-  (is (= [{:id "j1" :name "Jazz Radio" :key nil}] (favs/add (favs/add [] jazz) jazz))))
+  (is (= (favs/add [] jazz) (favs/add (favs/add [] jazz) jazz))))
+
+(deftest added-favourites-get-a-colour
+  (is (some #{(:color (first (favs/add [] jazz)))} favs/colors))
+  (is (= (favs/add [] jazz) (favs/add [] jazz)) "the same id, the same colour")
+  (let [added (reduce #(favs/add %1 {:id (str "s" %2) :name "S"}) [] (range 16))]
+    (is (= (set favs/colors) (set (map :color (take 8 added)))) "no colour repeats while one is free")
+    (is (every? #(= 2 %) (vals (frequencies (map :color added))))))
+  (testing "a colour the user took counts as used"
+    (let [favs (mapv (fn [c] {:id (name c) :name "S" :key nil :color c}) (remove #{:teal} favs/colors))]
+      (is (= :teal (:color (last (favs/add favs jazz))))))))
 
 (deftest member
   (is (favs/member? three "b1"))
@@ -183,7 +196,8 @@
     (is (= [{:id "j1" :name "Jazz Radio" :key "1" :custom-name "Mine"}
             {:id "b1" :name "Blues FM" :key nil :custom-name "Blues"}
             {:id "f1" :name "France Inter" :key nil}]
-           added))))
+           (uncolored added)))
+    (is (every? :color (rest added)) "imported favourites get a colour too")))
 
 (deftest matching-looks-at-custom-names-too
   (is (= ["j1"] (ids (favs/matching renamed stations "jazz r"))))
@@ -202,6 +216,21 @@
   (is (= [{:id "a" :name "A" :key nil}]
          (favs/deserialize "{:version 1 :favorites [{:id \"a\" :name \"A\" :display :huge}]}"))
       "an unknown mode is dropped"))
+
+(deftest set-color-picks-the-ink-of-a-name
+  (let [favs [{:id "a" :name "A" :key nil} {:id "b" :name "B" :key nil}]]
+    (is (= [{:id "a" :name "A" :key nil :color :blue} {:id "b" :name "B" :key nil}]
+           (favs/set-color favs "a" :blue)))
+    (is (= favs (favs/set-color (favs/set-color favs "a" :red) "a" nil)) "nil removes it")
+    (is (= favs (favs/set-color favs "a" :magenta)) "unknown colours are ignored")
+    (is (= 8 (count favs/colors)))))
+
+(deftest color-travels-in-storage
+  (let [inked [{:id "a" :name "A" :key nil :color :teal}]]
+    (is (= inked (favs/deserialize (favs/serialize inked)))))
+  (is (= [{:id "a" :name "A" :key nil}]
+         (favs/deserialize "{:version 1 :favorites [{:id \"a\" :name \"A\" :color :magenta}]}"))
+      "an unknown colour is dropped"))
 
 (deftest custom-names-travel
   (testing "storage"
