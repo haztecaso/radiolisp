@@ -4,7 +4,7 @@
  :builds
  {:app  {:target        :browser
          :output-dir    "resources/public/js"
-         :asset-path    "/js"
+         :asset-path    "js"           ; relative, so the app works under any path (GitHub Pages)
          :module-loader true
          :modules       {:main {:init-fn radiolisp.frontend.main/init}
                          ;; hls.js only downloads when an HLS station needs it.
@@ -15,6 +15,17 @@
          :dev           {:closure-defines {radiolisp.frontend.socket/backend-origin "http://localhost:8090"}}
          ;; `bb build` puts the release in dist/public, away from the dev output.
          :release       {:output-dir "../dist/public/js"}}
+
+  ;; The same app without a backend: no proxy and no now playing. `bb build:static`
+  ;; puts it in dist/static, the folder GitHub Pages publishes.
+  :static {:target          :browser
+           :output-dir      "../dist/static/js"
+           :asset-path      "js"
+           :module-loader   true
+           :modules         {:main {:init-fn radiolisp.frontend.main/init}
+                             :hls  {:entries    [radiolisp.frontend.hls]
+                                    :depends-on #{:main}}}
+           :closure-defines {radiolisp.frontend.config/backend false}}
 
   :test {:target    :node-test
          :output-to "target/test/node-tests.js"

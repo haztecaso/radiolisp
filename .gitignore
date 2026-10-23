@@ -11,3 +11,4 @@ result
 .superpowers/
 target/
 dist/
+.env

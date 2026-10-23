@@ -5,7 +5,16 @@
                  (def backend {:dir "backend"})
                  ;; Only the source folders that exist, so lint and fmt work from day one.
                  (def clj-dirs (filterv fs/exists? ["common/src" "common/test" "frontend/src" "frontend/test"
-                                                    "backend/src" "backend/test" "scripts"])))
+                                                    "backend/src" "backend/test" "scripts"]))
+                 ;; A release of the web into `dir`: the page, fonts and icons, the
+                 ;; compressed CSS, and the shadow-cljs `build` (:app or :static).
+                 (defn web-release [dir build]
+                   (fs/create-dirs dir)
+                   (fs/copy "frontend/resources/public/index.html" (str dir "/index.html") {:replace-existing true})
+                   (doseq [folder ["fonts" "icons"]]
+                     (fs/copy-tree (str "frontend/resources/public/" folder) (str dir "/" folder) {:replace-existing true}))
+                   (shell frontend (str "sass --no-source-map --style=compressed resources/styles/main.scss ../" dir "/css/main.css"))
+                   (shell frontend (str "npx shadow-cljs release " (name build)))))
 
   setup      {:doc  "Install the npm dependencies of the frontend"
               :task (shell frontend "npm install")}
@@ -19,25 +28,21 @@
   dev:cljs   (shell frontend "npx shadow-cljs watch app")
   dev:css    (shell frontend "sass --watch --no-source-map resources/styles/main.scss:resources/public/css/main.css")
 
-  css        {:doc  "Compile the SCSS once, compressed, into dist/public"
-              :task (shell frontend "sass --no-source-map --style=compressed resources/styles/main.scss ../dist/public/css/main.css")}
-
-  ;; Every build result goes to dist/: the web in public/, the backend jar beside it.
+  ;; Every build result goes to dist/: the web in public/, the backend jar beside it,
+  ;; and the frontend-only web in static/.
   build      {:doc     "Frontend and backend into dist/"
               :depends [build:frontend build:backend]}
 
-  build:frontend {:doc     "Release build of the frontend into dist/public"
-                  :depends [css]
-                  :task    (do (fs/create-dirs "dist/public")
-                               (fs/copy "frontend/resources/public/index.html" "dist/public/index.html" {:replace-existing true})
-                               (fs/copy-tree "frontend/resources/public/fonts" "dist/public/fonts" {:replace-existing true})
-                               (fs/copy-tree "frontend/resources/public/icons" "dist/public/icons" {:replace-existing true})
-                               (shell frontend "npx shadow-cljs release app"))}
+  build:frontend {:doc  "Release build of the frontend that talks to the backend, into dist/public"
+                  :task (web-release "dist/public" :app)}
+
+  build:static {:doc  "Release build of the frontend alone (no backend), into dist/static"
+                :task (web-release "dist/static" :static)}
 
   build:backend {:doc  "Backend jar into dist/radiolisp-backend.jar (it serves dist/public)"
                  :task (shell backend "clojure -T:build uber")}
 
-  deploy     {:doc     "Build and deploy to radio.example.org (DEPLOY_SERVER, DEPLOY_URL)"
+  deploy     {:doc     "Build and deploy to your server (DEPLOY_SERVER, DEPLOY_URL in .env)"
               :depends [build]
               :task    (exec 'deploy/run)}
 

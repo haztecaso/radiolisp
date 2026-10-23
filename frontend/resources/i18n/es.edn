@@ -29,6 +29,7 @@
  :menu/copy-url       "Copiar enlace del stream"
  :menu/radio-browser  "Ver en radio-browser.info"
  :menu/customize      "Personalizar…"
+ :menu/source         "Código fuente"
 
  :customize/title     "Personalizar"
  :customize/name      "Nombre"

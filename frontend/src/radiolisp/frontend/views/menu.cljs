@@ -4,6 +4,7 @@
   as a second page of the same menu. `effects` places it next to its button;
   a transparent scrim behind it closes it on any outside click."
   (:require [radiolisp.common.favorites :as favs]
+            [radiolisp.frontend.config :as config]
             [radiolisp.frontend.i18n :as i18n]
             [radiolisp.frontend.views.icons :as icons]))
 
@@ -60,7 +61,8 @@
      [:button.sub {:role "menuitem" :aria-haspopup "menu" :on {:click [[:menu/page :language]]}}
       icons/globe [:span (t :lang/label)] [:span.meta (t :lang/name)] icons/chevron-right]
      [:hr]
-     (item icons/key-icon (t :help/title) [[:help/open]] [:span.meta "?"]))))
+     (item icons/key-icon (t :help/title) [[:help/open]] [:span.meta "?"])
+     (link icons/code (t :menu/source) config/repository))))
 
 (defn- language-items
   "Each language is listed by its own name, so it can be found from any other."

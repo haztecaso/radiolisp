@@ -1,0 +1,58 @@
+# Integration: lint, formatting, tests and both release builds, inside the
+# same `nix develop` shell used locally. Runs on every pull request to main
+# and on every push to main; main only takes changes through pull requests.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Clojure and npm dependencies
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.deps.clj
+            frontend/node_modules
+          key: deps-${{ runner.os }}-${{ hashFiles('**/deps.edn', 'frontend/package-lock.json', 'flake.lock') }}
+          restore-keys: deps-${{ runner.os }}-
+
+      - name: Install npm dependencies
+        run: nix develop --command bb setup
+
+      - name: Lint
+        run: nix develop --command bb lint
+
+      - name: Formatting
+        run: nix develop --command bb fmt:check
+
+      - name: Tests
+        run: nix develop --command bb test
+
+      - name: Build (frontend with backend)
+        run: nix develop --command bb build
+
+      - name: Build (frontend alone)
+        run: nix develop --command bb build:static
