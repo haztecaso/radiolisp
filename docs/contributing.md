@@ -2,11 +2,11 @@
 
 Issues and pull requests are welcome. This guide covers the development
 environment, the tasks, how the code is organised and how it is tested. For
-building and running your own copy, see [SELFHOSTING.md](SELFHOSTING.md).
+building and running your own copy, see the [self-hosting guide](selfhosting.md).
 
-The design is in [`docs/specs/`](docs/specs/) (written in Spanish); read the
+The design is in [`docs/specs/`](specs/) (written in Spanish); read the
 spec for the part you are changing before changing its behaviour. Ideas that
-need a backend are collected in [`docs/ideas/backend.md`](docs/ideas/backend.md).
+need a backend are collected in [`docs/ideas/backend.md`](ideas/backend.md).
 
 ## Requirements
 

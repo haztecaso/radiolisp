@@ -11,7 +11,7 @@ Clojure.
 **Try it at <https://haztecaso.github.io/radiolisp/>.** That copy is the
 frontend alone, a static website. Almost everything works there; what needs a
 server, *now playing* and the proxy for stations that only stream over
-`http://`, is only available when you [host it yourself](SELFHOSTING.md) with
+`http://`, is only available when you [host it yourself](docs/selfhosting.md) with
 the backend.
 
 ![radiolisp on first start, before any station is added](docs/images/screenshot.png)
@@ -66,14 +66,14 @@ addresses, not even after a redirect.
 
 Radiolisp comes in two flavours: the frontend alone, a static website you can
 serve from anywhere, and the frontend with its backend, a single Java process
-that adds now playing and the proxy. [SELFHOSTING.md](SELFHOSTING.md) explains
-how to build and run both.
+that adds now playing and the proxy. The
+[self-hosting guide](docs/selfhosting.md) explains how to build and run both.
 
 ## Contributing
 
-Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers
-the development environment, the tasks, how the code is organised and how the
-tests work.
+Issues and pull requests are welcome. The
+[contributing guide](docs/contributing.md) covers the development environment,
+the tasks, how the code is organised and how the tests work.
 
 ## License
 
