@@ -84,6 +84,7 @@
 (def pulse (stroke "0 0 16 16" "M1.5 8.5h3l2-4 3 7 2-3h3"))
 (def trash (stroke "0 0 16 16" "M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4"))
 (def download (stroke "0 0 16 16" "M3.5 1.5h6l3 3v10h-9z" "M9.5 1.5v3h3" "M8 7v5M5.5 9.5L8 12l2.5-2.5"))
+(def install (stroke "0 0 16 16" "M8 1.5v8M4.5 6L8 9.5 11.5 6" "M2 10.5v3h12v-3"))
 (def upload (stroke "0 0 16 16" "M3.5 1.5h6l3 3v10h-9z" "M9.5 1.5v3h3" "M8 12V7M5.5 9.5L8 7l2.5 2.5"))
 
 (def key-icon

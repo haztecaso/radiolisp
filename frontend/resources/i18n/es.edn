@@ -30,6 +30,7 @@
  :menu/radio-browser  "Ver en radio-browser.info"
  :menu/customize      "Personalizar…"
  :menu/source         "Código fuente"
+ :menu/install        "Instalar la app"
 
  :customize/title     "Personalizar"
  :customize/name      "Nombre"

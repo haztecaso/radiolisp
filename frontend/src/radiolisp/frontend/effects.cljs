@@ -4,6 +4,7 @@
   (:require [radiolisp.common.favorites :as favs]
             [radiolisp.frontend.api :as api]
             [radiolisp.frontend.audio :as audio]
+            [radiolisp.frontend.config :as config]
             [radiolisp.frontend.socket :as socket]
             [radiolisp.frontend.views.art :as art]))
 
@@ -89,6 +90,26 @@
 (defmethod execute! :theme/save [_ [_ theme]]
   (try (js/localStorage.setItem theme-key (name theme))
        (catch :default _ nil)))
+
+;; the installed app
+
+(defmethod execute! :sw/register [_ _]
+  ;; The shell then opens without network. A failure only means no offline start.
+  (when-let [^js container (and config/service-worker (.-serviceWorker js/navigator))]
+    (-> (.register container "sw.js")
+        (.catch #(js/console.warn "radiolisp: no service worker" %)))))
+
+;; The browser's offer to install (`beforeinstallprompt`, Chrome and Edge only):
+;; kept until the menu's item uses it, which it can do once.
+(defonce ^:private install-offer (atom nil))
+
+(defn keep-install-offer! [^js event]
+  (reset! install-offer event))
+
+(defmethod execute! :install/prompt [_ _]
+  (when-let [^js event @install-offer]
+    (reset! install-offer nil)
+    (.prompt event)))
 
 ;; Radio Browser
 
@@ -244,7 +265,10 @@
   (set! (.-lang js/document.documentElement) (name locale)))
 
 (defmethod execute! :dom/theme [_ [_ theme]]
-  (set! (.. js/document -documentElement -dataset -theme) (name theme)))
+  (set! (.. js/document -documentElement -dataset -theme) (name theme))
+  ;; The browser's bar, and the installed app's title bar, take the page's ground.
+  (when-let [^js tag (js/document.querySelector "meta[name=theme-color]")]
+    (.setAttribute tag "content" (.trim (.getPropertyValue (js/getComputedStyle js/document.documentElement) "--ground")))))
 
 (defmethod execute! :dom/show-dialog [_ [_ id]]
   (let [^js dialog (js/document.getElementById id)]

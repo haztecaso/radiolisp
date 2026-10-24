@@ -51,7 +51,7 @@
      [:button.danger {:role "menuitem" :on {:click [[:menu/close] [:dialog/open-remove id]]}}
       icons/trash [:span (t :fav/remove)]])))
 
-(defn- list-items [{:keys [theme]} t]
+(defn- list-items [{:keys [theme installable?]} t]
   (let [dark? (= :dark (:current theme))]
     (list
      (item icons/download (t :menu/export) [[:dialog/open-export]])
@@ -60,6 +60,8 @@
      (item (if dark? icons/sun icons/moon) (t (if dark? :theme/to-light :theme/to-dark)) [[:theme/toggle]])
      [:button.sub {:role "menuitem" :aria-haspopup "menu" :on {:click [[:menu/page :language]]}}
       icons/globe [:span (t :lang/label)] [:span.meta (t :lang/name)] icons/chevron-right]
+     (when installable?
+       (item icons/install (t :menu/install) [[:install/prompt]]))
      [:hr]
      (item icons/key-icon (t :help/title) [[:help/open]] [:span.meta "?"])
      (link icons/code (t :menu/source) config/repository))))

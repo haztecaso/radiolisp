@@ -21,7 +21,7 @@
 
 (defn- static [{:keys [uri] :as request} public-dir]
   (some-> (response/file-response uri {:root public-dir :index-files? true :allow-symlinks? false})
-          (content-type/content-type-response request)))
+          (content-type/content-type-response request {:mime-types {"webmanifest" "application/manifest+json"}})))
 
 (defn- routes [{:keys [config] :as system}]
   (fn [{:keys [uri request-method] :as request}]

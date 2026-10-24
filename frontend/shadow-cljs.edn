@@ -12,7 +12,8 @@
                                 :depends-on #{:main}}}
          :devtools      {:watch-dir "resources/public"}
          ;; In development the page on :8080 talks to `bb backend` on :8090.
-         :dev           {:closure-defines {radiolisp.frontend.socket/backend-origin "http://localhost:8090"}}
+         :dev           {:closure-defines {radiolisp.frontend.socket/backend-origin "http://localhost:8090"
+                                          radiolisp.frontend.config/service-worker false}}
          ;; `bb build` puts the release in dist/public, away from the dev output.
          :release       {:output-dir "../dist/public/js"}}
 
