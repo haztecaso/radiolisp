@@ -13,7 +13,7 @@ comunitario [Radio Browser](https://www.radio-browser.info/) para buscar emisora
 Dos objetivos, con el mismo peso:
 
 1. Una interfaz más minimalista y agradable que la de radiolise.
-2. Aprender Clojure y ClojureScript, organizando el repositorio a la manera de Penpot.
+2. Aprender Clojure y ClojureScript, organizando el repositorio por módulos (`common` y `frontend`).
 
 ## 2. Alcance
 
@@ -78,7 +78,7 @@ radiolisp/
 ```
 
 - **Namespaces** `radiolisp.*`.
-- **Dependencias**: `deps.edn` y la CLI `clojure`. El `deps.edn` de la raíz solo agrupa `common` y `frontend` con `:local/root`, como en Penpot.
+- **Dependencias**: `deps.edn` y la CLI `clojure`. El `deps.edn` de la raíz solo agrupa `common` y `frontend` con `:local/root`.
 - **ClojureScript**: shadow-cljs (`:deps true`, con lo que lee `frontend/deps.edn`) y un build `:app` con target `:browser`.
 - **UI**: [Replicant](https://github.com/cjohansen/replicant), hiccup puro sin React.
 - **Estilos**: SCSS compilado con **dart-sass** de nixpkgs. `frontend/resources/styles/main.scss` incluye los parciales `_tokens`, `_base`, `_shell`, `_player`, `_search` y `_help`, y la salida va a `resources/public/css/main.css`.
