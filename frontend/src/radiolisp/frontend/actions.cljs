@@ -120,7 +120,8 @@
        (volume-effect (:player state))
        [:cache/load]
        [:storage/load]
-       [:api/servers]]))
+       [:api/servers]
+       [:sw/register]]))
 
 (defmethod handle :api/servers-loaded [state [_ servers]]
   (cond-> (ok (assoc state :api {:servers (vec servers) :current 0}))
@@ -886,6 +887,13 @@
 (defmethod handle :i18n/set [state [_ locale]]
   (let [locale (keyword locale)] ; the language picker sends its value as a string
     (ok (assoc state :locale locale) [[:dom/lang locale]])))
+
+(defmethod handle :install/available [state [_ available?]]
+  (ok (assoc state :installable? available?)))
+
+(defmethod handle :install/prompt [state _]
+  ;; The browser's offer works once; it makes a new one if this one is dismissed.
+  (ok (assoc state :installable? false) [[:install/prompt]]))
 
 (defmethod handle :theme/toggle [state _]
   (let [theme (if (= :dark (get-in state [:theme :current])) :light :dark)]

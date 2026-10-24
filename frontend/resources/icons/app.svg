@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- The installed app's icon: the favicon's mark alone, full bleed. -->
+  <rect width="32" height="32" fill="#b8336a"/>
+  <g fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="square">
+    <path d="M10 6 Q4 16 10 26"/>
+    <path d="M22 6 Q28 16 22 26"/>
+  </g>
+  <rect x="12.5" y="12.5" width="7" height="7" fill="#fff"/>
+</svg>

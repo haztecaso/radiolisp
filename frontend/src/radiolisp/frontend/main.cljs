@@ -96,6 +96,17 @@
   (.addEventListener (js/matchMedia effects/dark-query) "change"
                      (fn [^js e] (dispatch! [:theme/system-changed (if (.-matches e) :dark :light)]))))
 
+(defn- install-offers!
+  "Chrome and Edge offer to install the app; the menu shows it while they do.
+  Turning down their own banner leaves the menu's item as the one way in."
+  []
+  (.addEventListener js/window "beforeinstallprompt"
+                     (fn [^js e]
+                       (.preventDefault e)
+                       (effects/keep-install-offer! e)
+                       (dispatch! [:install/available true])))
+  (.addEventListener js/window "appinstalled" #(dispatch! [:install/available false])))
+
 (defn- dragging-files? [^js e]
   (.includes (js/Array.from (.. e -dataTransfer -types)) "Files"))
 
@@ -137,6 +148,7 @@
   (js/document.addEventListener "keydown" on-keydown)
   (media-keys!)
   (system-theme!)
+  (install-offers!)
   (file-drops!)
   (render! @store/state)
   (dispatch! [:app/init {:locale (i18n/detect-locale

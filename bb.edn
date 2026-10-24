@@ -1,6 +1,7 @@
 {:paths ["scripts"]
  :tasks
- {:requires  ([babashka.fs :as fs])
+ {:requires  ([babashka.fs :as fs]
+              [service-worker])
   :init      (do (def frontend {:dir "frontend"})
                  (def backend {:dir "backend"})
                  ;; Only the source folders that exist, so lint and fmt work from day one.
@@ -10,11 +11,13 @@
                  ;; compressed CSS, and the shadow-cljs `build` (:app or :static).
                  (defn web-release [dir build]
                    (fs/create-dirs dir)
-                   (fs/copy "frontend/resources/public/index.html" (str dir "/index.html") {:replace-existing true})
+                   (doseq [file ["index.html" "manifest.webmanifest"]]
+                     (fs/copy (str "frontend/resources/public/" file) (str dir "/" file) {:replace-existing true}))
                    (doseq [folder ["fonts" "icons"]]
                      (fs/copy-tree (str "frontend/resources/public/" folder) (str dir "/" folder) {:replace-existing true}))
                    (shell frontend (str "sass --no-source-map --style=compressed resources/styles/main.scss ../" dir "/css/main.css"))
-                   (shell frontend (str "npx shadow-cljs release " (name build)))))
+                   (shell frontend (str "npx shadow-cljs release " (name build)))
+                   (service-worker/write! dir)))
 
   setup      {:doc  "Install the npm dependencies of the frontend"
               :task (shell frontend "npm install")}

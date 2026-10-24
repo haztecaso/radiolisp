@@ -41,6 +41,7 @@
 (defn- public-dir []
   (let [dir (.toFile (Files/createTempDirectory "radiolisp-public" (make-array FileAttribute 0)))]
     (spit (io/file dir "index.html") "<!doctype html><title>radiolisp</title>")
+    (spit (io/file dir "manifest.webmanifest") "{\"name\": \"radiolisp\"}")
     (str dir)))
 
 (def test-config
@@ -123,6 +124,8 @@
     (is (= 200 (.statusCode index)))
     (is (str/includes? (.body index) "radiolisp"))
     (is (str/starts-with? (first (.allValues (.headers index) "Content-Type")) "text/html")))
+  (is (= "application/manifest+json"
+         (first (.allValues (.headers (get-text "/manifest.webmanifest")) "Content-Type"))))
   (is (= 404 (.statusCode (get-text "/nope.js"))))
   (is (#{400 404} (.statusCode (get-text "/../deps.edn"))) "nothing outside the public dir")
   (is (= 404 (.statusCode (get-text "/api/other"))))

@@ -22,6 +22,7 @@
    :cache        {}                     ; id → {:name :favicon}: favourites as last seen, drawn until :stations has them
    :art          {}                     ; id → {:w :h} (natural size) or :broken
    :probes       {}                     ; id → {:src :alpha? :dark? :edge}: what the artwork detection found
+   :installable? false                  ; the browser offers to install the app (Chrome, Edge)
    :panel?       false                  ; the «sonando ahora» panel is open
    :filter       ""
    :filter-open? false                  ; the filter field shows only while in use

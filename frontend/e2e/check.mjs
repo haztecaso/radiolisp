@@ -110,6 +110,8 @@ async function newApp(browser, { width, height, mobile = false, seed = null, noN
   const page = await browser.newPage({ width, height, mobile });
   await page.send('Network.enable');
   await page.send('Network.setBlockedURLs', { urls: ['*/json/url/*', '*/json/vote/*'] });
+  // The page's blocks do not reach a service worker's own requests: keep it out.
+  await page.send('Network.setBypassServiceWorker', { bypass: true });
   await page.send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 radiolisp-e2e', acceptLanguage: 'es-ES,es' });
   await page.send('Page.addScriptToEvaluateOnNewDocument', { source: initScript({ noNativeHls }) });
   page.requests = [];
