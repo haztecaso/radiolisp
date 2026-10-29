@@ -159,9 +159,13 @@
   (let [audio (element)]
     (if (and (= url (:url @state))
              (nil? (.-error audio))
-             (or (:hls @state) (not= "" (.-src audio))))
-      ;; Resuming the station already loaded and healthy.
-      (play-element! audio)
+             (:current @state))
+      ;; Resuming the station already loaded: reconnect to the live edge on the
+      ;; candidate that was playing, instead of a bare .play() on the stale
+      ;; buffer. A pause in the background makes iOS/Android tear the live
+      ;; stream's connection down, so resuming the old buffer stalls (fires
+      ;; "waiting", never "playing"); reloading the source reconnects.
+      (start-attempt! (:current @state))
       (let [[first-url & fallbacks] (stream-url/candidates url id hls? (https-page?) config/backend)]
         (swap! state assoc :url url :id id :hls? (boolean hls?) :fallbacks (vec fallbacks)
                :http-only? (and (stream-url/http? url) (https-page?) (empty? fallbacks)))
