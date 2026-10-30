@@ -11,6 +11,7 @@
 (def storage-key "radiolisp/favorites")
 (def cache-key "radiolisp/station-cache")
 (def theme-key "radiolisp/theme") ; also read by the script in index.html
+(def last-station-key "radiolisp/last-station")
 
 (def dark-query "(prefers-color-scheme: dark)")
 
@@ -85,6 +86,27 @@
 
 (defmethod execute! :cache/save [_ [_ cache]]
   (try (js/localStorage.setItem cache-key (js/JSON.stringify (clj->js cache)))
+       (catch :default _ nil)))
+
+(defn- stored-station
+  "The station back from JSON, when it still has what the player needs."
+  [data]
+  (when (map? data)
+    (let [{:keys [id url] :as station} (update-keys data keyword)]
+      (when (and (string? id) (string? url))
+        (-> station
+            (update :tags #(if (sequential? %) (vec %) []))
+            (update :hls? true?))))))
+
+(defmethod execute! :last-station/load [dispatch _]
+  ;; Only a convenience: anything unreadable is simply no station.
+  (let [raw     (try (js/localStorage.getItem last-station-key) (catch :default _ nil))
+        station (stored-station (try (js->clj (js/JSON.parse raw)) (catch :default _ nil)))]
+    (when station
+      (dispatch [:player/restore station]))))
+
+(defmethod execute! :last-station/save [_ [_ station]]
+  (try (js/localStorage.setItem last-station-key (js/JSON.stringify (clj->js station)))
        (catch :default _ nil)))
 
 (defmethod execute! :theme/save [_ [_ theme]]

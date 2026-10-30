@@ -178,3 +178,29 @@
     (is (true? (:help? state)))
     (is (= [[:dom/show-dialog "help"]] effects))
     (is (false? (:help? (:state (a/handle state [:help/close])))))))
+
+(deftest the-last-station-is-remembered-once-it-plays
+  (let [{:keys [effects]} (run-all ready [:favorites/play "j1"] [:audio/playing])]
+    (is (= [:last-station/save jazz] (f/find-effect effects :last-station/save))))
+  (testing "not again when it resumes or reconnects"
+    (is (nil? (f/find-effect (:effects (a/handle (assoc-in playing-jazz [:player :status] :connecting)
+                                                 [:audio/playing]))
+                             :last-station/save)))))
+
+(deftest the-last-station-comes-back-ready-but-silent
+  (let [{:keys [state effects]} (a/handle ready [:player/restore blues])]
+    (is (= blues (get-in state [:player :station])))
+    (is (= :stopped (get-in state [:player :status])))
+    (is (= [] effects))
+    (testing "and plays with the toggle"
+      (is (= [:audio/play "http://blues.example/stream" false "b1"]
+             (first (:effects (a/handle state [:player/toggle])))))))
+  (testing "a station already in the player wins"
+    (is (= jazz (get-in (:state (a/handle playing-jazz [:player/restore blues])) [:player :station])))))
+
+(deftest a-restored-station-takes-the-fresh-data
+  (let [old   (assoc blues :url "http://blues.example/old")
+        state (:state (run-all (assoc ready :stations {})
+                               [:player/restore old]
+                               [:stations/loaded [blues]]))]
+    (is (= blues (get-in state [:player :station])))))
