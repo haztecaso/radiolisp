@@ -120,6 +120,7 @@
        (volume-effect (:player state))
        [:cache/load]
        [:storage/load]
+       [:last-station/load]
        [:api/servers]
        [:sw/register]]))
 
@@ -158,6 +159,15 @@
 (defn- by-id [stations]
   (zipmap (map :id stations) stations))
 
+(defn- refresh-restored
+  "A station restored from the last session and not started yet takes what
+  Radio Browser says now (the stream may have moved)."
+  [state]
+  (let [{:keys [station status]} (:player state)]
+    (if-let [fresh (and (= :stopped status) (station-by-id state (:id station)))]
+      (assoc-in state [:player :station] fresh)
+      state)))
+
 (defmethod handle :stations/loaded [state [_ stations]]
   (let [found (by-id stations)
         state (-> state
@@ -167,7 +177,7 @@
                           :retried? false
                           :missing (set (remove found (map :id (items state))))))]
     ;; The answer wins over the cache: what Radio Browser no longer knows goes.
-    (update-cache (ok state) (station-cache (assoc state :cache {})))))
+    (update-cache (ok (refresh-restored state)) (station-cache (assoc state :cache {})))))
 
 (defmethod handle :stations/failed [state _]
   (if (can-retry? state (get-in state [:favorites :retried?]))
@@ -249,6 +259,13 @@
                                        :artist "radiolisp"
                                        :artwork (:favicon station)}])))))
 
+(defmethod handle :player/restore [state [_ station]]
+  ;; The station played last time, ready in the player but not playing:
+  ;; browsers do not let a page start sound on its own.
+  (if (get-in state [:player :station])
+    (ok state)
+    (ok (update state :player assoc :station station :status :stopped))))
+
 (defmethod handle :player/volume [state [_ volume]]
   (let [player (assoc (:player state)
                       :volume (clamp 0 100 (js/Math.round volume))
@@ -268,10 +285,13 @@
   (contains? statuses (get-in state [:player :status])))
 
 (defmethod handle :audio/playing [state _]
-  (let [{:keys [station now-playing]} (:player state)
+  (let [{:keys [station now-playing played?]} (:player state)
         id (:id station)]
     (cond-> (ok (update state :player assoc :status :playing :error nil :played? true :retries 0)
                 [[:timer/cancel :connect]])
+      ;; Remembered for the next visit once it really plays.
+      (and station (not played?))
+      (add-effects [:last-station/save station])
       ;; Titles come from the backend, which reads ICY streams, not HLS.
       (and id (not (:hls? station)) (not= id (:id now-playing)))
       (-> (assoc-in [:state :player :now-playing] {:id id :title nil})
