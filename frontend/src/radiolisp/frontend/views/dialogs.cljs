@@ -1,6 +1,5 @@
 (ns radiolisp.frontend.views.dialogs
-  "The one native <dialog>: removing a favourite, choosing its key,
-  customizing it, exporting the list and importing a dropped file. It always
+  "The one native <dialog>: removing a favourite, customizing it, exporting the list and importing a dropped file. It always
   exists; `effects` opens and closes it and its content follows `:dialog` in
   the state."
   (:require [radiolisp.common.favorites :as favs]
@@ -11,32 +10,13 @@
     (assoc stored :name (favs/display-name stored (get stations id)))))
 
 (defn- remove-body [state t id]
-  (let [{station-name :name shortcut :key} (favorite state id)]
+  (let [{station-name :name} (favorite state id)]
     (list
      [:h2#dialog-title (t :remove/title)]
-     [:p (t :remove/body {:name station-name})
-      (when shortcut (str " " (t :remove/key {:key shortcut})))]
+     [:p (t :remove/body {:name station-name})]
      [:div.actions
       [:button.btn {:autofocus true :on {:click [[:dialog/close]]}} (t :dialog/cancel)]
       [:button.btn.danger {:on {:click [[:favorites/remove id]]}} (t :remove/confirm)]])))
-
-(defn- key-body [state t {:keys [id pending message]}]
-  (let [{station-name :name shortcut :key} (favorite state id)
-        shown (or pending shortcut)
-        [message-key vars] message]
-    (list
-     [:h2#dialog-title (t :key/title {:name station-name})]
-     [:p (t :key/hint)]
-     [:div.keyprev {:class (when shown "set")} (or shown "…")]
-     [:div.keymsg {:class     (when (#{:key/invalid :key/reserved} message-key) "err")
-                   :aria-live "polite"}
-      (when message-key (t message-key vars))]
-     [:div.actions
-      (when shortcut
-        [:button.btn.left {:on {:click [[:key-dialog/clear]]}} (t :key/clear)])
-      [:button.btn {:autofocus true :on {:click [[:dialog/close]]}} (t :dialog/cancel)]
-      [:button.btn.primary {:disabled (nil? pending) :on {:click [[:key-dialog/save]]}}
-       (t :key/save)]])))
 
 (def ^:private display-labels
   [[:image :customize/image] [:pad :customize/pad] [:text :customize/text]])
@@ -148,7 +128,6 @@
                    :on              {:close [[:dialog/close]]}}
    (case (:kind dialog)
      :remove    (remove-body state t (:id dialog))
-     :key       (key-body state t dialog)
      :customize (customize-body state t dialog)
      :export    (export-body t dialog)
      :import    (import-body t dialog)

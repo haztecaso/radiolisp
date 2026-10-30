@@ -29,17 +29,14 @@
        check-ok?            (t :health/ok {:date (date last-check-at)})
        :else                (t :health/failed {:date (date last-check-at) :ok (date last-ok-at)}))]))
 
-(defn- station-items [{:keys [stations favorites locale] :as state} t id]
-  (let [station  (get stations id)
-        {shortcut :key} (favs/find-favorite (:items favorites) id)]
+(defn- station-items [{:keys [stations locale] :as state} t id]
+  (let [station (get stations id)]
     (list
      (when-let [homepage (:homepage station)]
        (link icons/globe (t :menu/homepage) homepage))
      (when station
        (item icons/thumb (t :menu/vote) [[:station/vote id]]
              [:span.meta.num (i18n/format-number locale (:votes station))]))
-     (item icons/key-icon (t (if shortcut :menu/change-key :tile/assign-key)) [[:dialog/open-key id]]
-           (when shortcut [:span.meta shortcut]))
      (item icons/sliders (t :menu/customize) [[:customize/open id]])
      (item icons/up (t :menu/move-to-front) [[:favorites/move-to-front id]])
      (when (:url station)

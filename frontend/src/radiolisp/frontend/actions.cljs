@@ -38,8 +38,27 @@
   [{:keys [favorites stations] text :filter}]
   (favs/matching (:items favorites) stations text))
 
+(defn grid-cells
+  "What the grid shows, in order: favourite ids, and :add for the tile that
+  adds one (only without a filter)."
+  [{:keys [favorites] text :filter :as state}]
+  (let [shown (filtered-favorites state)]
+    (if (or (= :idle (:status favorites)) (empty? shown))
+      []
+      (cond-> (mapv :id shown)
+        (str/blank? text) (conj :add)))))
+
+(defn tile-dom-id
+  "The id of the button that is a tile of the grid: the one that takes the focus."
+  [id]
+  (str "tile-" (if (= :add id) "add" id)))
+
 (defn- clamp [lo hi n]
   (max lo (min hi n)))
+
+(defn- index-of [coll x]
+  (let [i (.indexOf (vec coll) x)]
+    (when-not (neg? i) i)))
 
 (defmulti handle (fn [_state [action-type]] action-type))
 
@@ -396,11 +415,6 @@
 (defmethod handle :favorites/play [state [_ id]]
   (play-station state (station-by-id state id)))
 
-(defmethod handle :favorites/play-key [state [_ k]]
-  (if-let [id (favs/key-owner (items state) k)]
-    (handle state [:favorites/play id])
-    (ok state)))
-
 (defmethod handle :favorites/play-next [state [_ delta]]
   (let [ids     (filterv #(station-by-id state %) (map :id (items state)))
         current (get-in state [:player :station :id])
@@ -410,6 +424,77 @@
     (if (or (nil? next-id) (= next-id current))
       (ok state)
       (handle state [:favorites/play next-id]))))
+
+;; ---------------------------------------------------------------- grid: keyboard selection
+
+;; The selected tile is the one with the focus, so Tab walks the grid too;
+;; the keymap tells which one it is.
+
+(defn- neighbor
+  "Index of the cell next to `i` towards `dir`, in a grid of `columns`, or
+  nil at an edge. Down from the row above an incomplete last row goes to the
+  last cell."
+  [n i dir columns]
+  (let [cols (max 1 (or columns 1))
+        row  #(quot % cols)
+        end  (dec n)]
+    (case dir
+      :left  (when (and (pos? i) (= (row (dec i)) (row i))) (dec i))
+      :right (when (and (< i end) (= (row (inc i)) (row i))) (inc i))
+      :up    (when (>= i cols) (- i cols))
+      :down  (cond
+               (<= (+ i cols) end)     (+ i cols)
+               (> (row end) (row i)) end
+               :else                   nil))))
+
+(defn- select-tile [result id]
+  (add-effects result [:dom/focus (tile-dom-id id)]))
+
+(defmethod handle :grid/move [state [_ from dir columns]]
+  (let [cells (grid-cells state)
+        i     (when (some? from) (index-of cells from))
+        to    (cond
+                (empty? cells) nil
+                (= :first dir) 0
+                (nil? i)       (or (index-of cells (get-in state [:player :station :id])) 0)
+                :else          (neighbor (count cells) i dir columns))]
+    (cond-> (ok state)
+      to (select-tile (get cells to)))))
+
+(defmethod handle :grid/shift [state [_ id dir columns]]
+  ;; Moving right or down puts the tile after its neighbour; left or up, before.
+  (let [cells  (grid-cells state)
+        i      (index-of cells id)
+        j      (when i (neighbor (count cells) i dir columns))
+        target (when j (get cells j))
+        ids    (mapv :id (items state))
+        before (cond
+                 (#{:left :up} dir) target
+                 (= :add target)    nil
+                 :else              (get ids (inc (index-of ids target))))]
+    (if target
+      (-> (ok (update-in state [:favorites :items] favs/move-before id before))
+          save
+          (select-tile id))
+      (ok state))))
+
+(defmethod handle :grid/options [state [_ id]]
+  (handle state [:menu/open {:kind :station :id id :anchor (str "more-" id)}]))
+
+(defmethod handle :grid/random [state [_ from play?]]
+  ;; Picking is random, so an effect does it and dispatches the action.
+  (let [current    (get-in state [:player :station :id])
+        candidates (if play?
+                     (filterv #(and (station-by-id state %) (not= current %)) (map :id (filtered-favorites state)))
+                     (filterv #(not= from %) (map :id (filtered-favorites state))))]
+    (ok state (when (seq candidates)
+                [[:random/dispatch candidates (if play? :grid/play :grid/select)]]))))
+
+(defmethod handle :grid/select [state [_ id]]
+  (select-tile (ok state) id))
+
+(defmethod handle :grid/play [state [_ id]]
+  (select-tile (handle state [:favorites/play id]) id))
 
 ;; ---------------------------------------------------------------- favourites: editing
 
@@ -428,14 +513,14 @@
       (ok state))))
 
 (defn- close-dialog
-  "Closes the dialog. After «Personalizar», the focus goes back to the menu
-  button of the tile, since the menu item that opened it is gone."
+  "Closes the dialog. After «Personalizar», the focus goes back to its tile,
+  since the menu item that opened it is gone."
   [result]
   (if-let [{:keys [kind id]} (get-in result [:state :dialog])]
     (cond-> (-> result
                 (assoc-in [:state :dialog] nil)
                 (add-effects [:dom/close-dialog "dialog"]))
-      (= :customize kind) (add-effects [:dom/focus (str "more-" id)]))
+      (= :customize kind) (add-effects [:dom/focus (tile-dom-id id)]))
     result))
 
 (defmethod handle :favorites/remove [state [_ id]]
@@ -660,8 +745,9 @@
     (ok (assoc state :menu menu) [[:dom/place-menu (:anchor menu)]])))
 
 (defmethod handle :menu/close [state _]
-  (if-let [{:keys [anchor]} (:menu state)]
-    (ok (assoc state :menu nil) [[:dom/focus anchor]])
+  ;; A station menu gives the focus back to its tile: its button takes none.
+  (if-let [{:keys [kind id anchor]} (:menu state)]
+    (ok (assoc state :menu nil) [[:dom/focus (if (= :station kind) (tile-dom-id id) anchor)]])
     (ok state)))
 
 (defmethod handle :menu/page [state [_ page]]
@@ -677,46 +763,8 @@
 (defmethod handle :dialog/open-remove [state [_ id]]
   (ok (assoc state :dialog {:kind :remove :id id}) [[:dom/show-dialog "dialog"]]))
 
-(defmethod handle :dialog/open-key [state [_ id]]
-  (ok (assoc state :dialog {:kind :key :id id :pending nil :message nil})
-      [[:dom/show-dialog "dialog"]]))
-
 (defmethod handle :dialog/close [state _]
   (close-dialog (ok state)))
-
-(defn- key-label [k]
-  (if (= " " k) "␣" k))
-
-(defmethod handle :key-dialog/pressed [state [_ k]]
-  (let [{:keys [id]} (:dialog state)
-        owner        (favs/key-owner (items state) k)]
-    (ok (update state :dialog merge
-                (cond
-                  (not= 1 (count k))
-                  {:message [:key/invalid {}]}
-
-                  (favs/reserved-key? k)
-                  {:message [:key/reserved {:key (key-label k)}]}
-
-                  :else
-                  {:pending k
-                   :message (when (and owner (not= owner id))
-                              [:key/taken {:name (favorite-name state owner)}])})))))
-
-(defmethod handle :key-dialog/save [state _]
-  (let [{:keys [id pending]} (:dialog state)]
-    (if pending
-      (-> (ok (update-in state [:favorites :items] favs/assign-key id pending))
-          close-dialog
-          save
-          (toast [:toast/key-saved {:key pending :name (favorite-name state id)}]))
-      (ok state))))
-
-(defmethod handle :key-dialog/clear [state _]
-  (let [{:keys [id]} (:dialog state)]
-    (-> (ok (update-in state [:favorites :items] favs/clear-key id))
-        close-dialog
-        save)))
 
 ;; ---------------------------------------------------------------- station menu
 

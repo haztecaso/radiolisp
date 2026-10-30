@@ -33,6 +33,18 @@
     box-shadow: inset 0 0 0 3px var(--accent);
   }
 
+  // Selected with the keyboard (main marks the page): a border in the ink,
+  // unlike the accent of the tile that plays; on that one, it goes outside
+  // the accent. Above the menu button, so it is never cut.
+  [data-input="keys"] &:has(> .play:focus)::after {
+    z-index: 3;
+    box-shadow: inset 0 0 0 3px var(--text);
+  }
+
+  [data-input="keys"] &.playing:has(> .play:focus)::after {
+    box-shadow: inset 0 0 0 3px var(--text), inset 0 0 0 6px var(--accent);
+  }
+
   &.dragging {
     opacity: .35;
   }
@@ -63,7 +75,7 @@
   }
 
   &:focus-visible {
-    outline-offset: -4px;
+    outline: none;
   }
 }
 
@@ -131,8 +143,7 @@
   text-overflow: ellipsis;
 }
 
-// The key square (top left) and the menu button (top right), flush in the corners.
-.keycap,
+// The menu button, flush in the top right corner.
 .more {
   position: absolute;
   top: 0;
@@ -141,8 +152,11 @@
   display: grid;
   place-items: center;
   border: 0;
+  right: 0;
+  width: 28px;
   background: var(--surface);
   cursor: pointer;
+  opacity: 0;
 
   &:hover {
     background: var(--active);
@@ -151,36 +165,6 @@
   &:focus-visible {
     outline-offset: -2px;
   }
-}
-
-.keycap {
-  left: 0;
-  min-width: 28px;
-  padding: 0 3px;
-  font-weight: 600;
-  font-size: 13px;
-
-  &.empty {
-    opacity: 0;
-    color: var(--muted);
-    font-weight: 400;
-  }
-
-  &.empty:focus-visible {
-    opacity: 1;
-  }
-
-  @media (max-width: $phone) {
-    &.empty {
-      display: none;
-    }
-  }
-}
-
-.more {
-  right: 0;
-  width: 28px;
-  opacity: 0;
 
   svg {
     width: 16px;
@@ -201,7 +185,6 @@
 .tile:hover,
 .tile:focus-within {
 
-  .keycap.empty,
   .more {
     opacity: 1;
   }
@@ -271,6 +254,18 @@
 
   &:hover {
     color: var(--text);
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
+
+  [data-input="keys"] &:focus {
+    color: var(--text);
+  }
+
+  [data-input="keys"] &:focus::after {
+    box-shadow: inset 0 0 0 3px var(--text);
   }
 
   &:hover::after {

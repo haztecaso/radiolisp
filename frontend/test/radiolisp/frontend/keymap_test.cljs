@@ -6,8 +6,8 @@
   {:help?     false
    :dialog    nil
    :menu      nil
-   :favorites {:items [{:id "j1" :name "Jazz Radio" :key "1"}
-                       {:id "b1" :name "Blues FM" :key "x"}]}
+   :favorites {:items [{:id "j1" :name "Jazz Radio"}
+                       {:id "b1" :name "Blues FM"}]}
    :search    {:open? false :mode :insert}
    :keys      {:last-g 0}})
 
@@ -25,21 +25,55 @@
   (is (= [:filter/focus] (press grid "/")))
   (is (= [:search/open] (press grid "a")))
   (is (= [:player/toggle] (press grid " ")))
-  (is (= [:player/volume-step -5] (press grid "h")))
-  (is (= [:player/volume-step 5] (press grid "l")))
-  (is (= [:player/mute] (press grid "m")))
+  (is (= [:player/volume-step -5] (press grid "-")))
+  (is (= [:player/volume-step 5] (press grid "+")))
+  (is (= [:player/volume-step 5] (press grid "=")))
+  (is (= [:panel/toggle] (press grid "i")))
+  (is (= [:grid/random nil false] (press grid "r")))
+  (is (= [:grid/random nil true] (press grid "R" {:shift? true})))
   (is (= [:help/open] (press grid "?")))
   (testing "space on a focused button is left to the browser"
     (is (nil? (press grid " " {:target :button}))))
-  (testing "assigned keys play their favourite"
-    (is (= [:favorites/play-key "1"] (press grid "1")))
-    (is (= [:favorites/play-key "x"] (press grid "x")))
-    (is (nil? (press grid "q")))))
+  (testing "no more keys for favourites, nor for mute"
+    (is (nil? (press grid "1")))
+    (is (nil? (press grid "m")))))
+
+(deftest moving-around-the-grid
+  (let [on-j1 {:target :tile :tile "j1" :columns 4}]
+    (testing "arrows and hjkl move the selection"
+      (is (= [:grid/move "j1" :left 4] (press grid "h" on-j1)))
+      (is (= [:grid/move "j1" :down 4] (press grid "j" on-j1)))
+      (is (= [:grid/move "j1" :up 4] (press grid "k" on-j1)))
+      (is (= [:grid/move "j1" :right 4] (press grid "l" on-j1)))
+      (is (= [:grid/move "j1" :left 4] (press grid "ArrowLeft" on-j1)))
+      (is (= [:grid/move "j1" :down 4] (press grid "ArrowDown" on-j1)))
+      (is (= [:grid/move "j1" :up 4] (press grid "ArrowUp" on-j1)))
+      (is (= [:grid/move "j1" :right 4] (press grid "ArrowRight" on-j1))))
+    (testing "with nothing selected they start the selection"
+      (is (= [:grid/move nil :down 4] (press grid "j" {:columns 4})))
+      (is (= [:grid/move nil :right 4] (press grid "ArrowRight" {:target :button :columns 4}))))
+    (testing "shift moves the tile"
+      (is (= [:grid/shift "j1" :left 4] (press grid "H" (assoc on-j1 :shift? true))))
+      (is (= [:grid/shift "j1" :down 4] (press grid "J" (assoc on-j1 :shift? true))))
+      (is (= [:grid/shift "j1" :right 4] (press grid "ArrowRight" (assoc on-j1 :shift? true))))
+      (is (nil? (press grid "L" {:shift? true})) "nothing selected, nothing to move")
+      (is (nil? (press grid "H" {:target :tile :tile :add :shift? true})) "the add tile stays last"))
+    (testing "enter and space click the tile"
+      (is (nil? (press grid "Enter" on-j1)))
+      (is (nil? (press grid " " on-j1))))
+    (testing "s opens its options"
+      (is (= [:grid/options "j1"] (press grid "s" on-j1)))
+      (is (nil? (press grid "s" {:target :tile :tile :add}))))
+    (testing "r picks another one at random"
+      (is (= [:grid/random "j1" false] (press grid "r" on-j1))))
+    (testing "global keys still work on a tile"
+      (is (= [:search/open] (press grid "a" on-j1))))))
 
 (deftest the-filter-input
   (let [in-filter {:target :filter-input}]
     (is (= [:filter/play-first] (press grid "Enter" in-filter)))
     (is (= [:filter/clear] (press grid "Escape" in-filter)))
+    (is (= [:grid/move nil :first nil] (press grid "ArrowDown" in-filter)))
     (testing "everything else is typed"
       (is (nil? (press grid "a" in-filter)))
       (is (nil? (press grid "1" in-filter)))
@@ -74,23 +108,15 @@
   (is (= [:search/close] (press browsing "Escape")))
   (testing "player keys still work"
     (is (= [:player/toggle] (press browsing " ")))
-    (is (= [:player/mute] (press browsing "m")))))
+    (is (= [:player/volume-step 5] (press browsing "+"))))
+  (testing "but not the grid"
+    (is (nil? (press browsing "h")))
+    (is (nil? (press browsing "r")))))
 
 (deftest gg-needs-two-presses-within-half-a-second
   (is (= [:keys/g 10000] (press browsing "g")))
   (is (= [:search/edge :first] (press (assoc-in browsing [:keys :last-g] 9700) "g")))
   (is (= [:keys/g 10000] (press (assoc-in browsing [:keys :last-g] 9000) "g"))))
-
-(deftest the-key-dialog-captures-keys
-  (let [dialog (assoc grid :dialog {:kind :key :id "j1" :pending nil})]
-    (is (= [:key-dialog/pressed "q"] (press dialog "q")))
-    (is (= [:key-dialog/pressed "/"] (press dialog "/")))
-    (is (= [:key-dialog/pressed "F2"] (press dialog "F2")))
-    (is (nil? (press dialog "Escape")) "the native dialog cancels")
-    (is (nil? (press dialog "Tab")))
-    (is (nil? (press dialog "Shift")))
-    (is (nil? (press dialog "Enter")) "nothing to save yet")
-    (is (= [:key-dialog/save] (press (assoc-in dialog [:dialog :pending] "q") "Enter")))))
 
 (deftest other-dialogs-and-menus
   (is (nil? (press (assoc grid :dialog {:kind :remove :id "j1"}) "1")))

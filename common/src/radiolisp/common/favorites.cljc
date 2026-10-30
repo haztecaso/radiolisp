@@ -1,5 +1,5 @@
 (ns radiolisp.common.favorites
-  "The list of favourite stations: a vector of `{:id :name :key}` whose order
+  "The list of favourite stations: a vector of `{:id :name}` whose order
   is the order of the grid, plus `:custom-name` on the favourites the user
   renamed, `:display` on those whose look they chose and `:color` on those
   whose name they coloured. Pure and shared
@@ -9,13 +9,6 @@
             [clojure.string :as str]))
 
 (def version 1)
-
-(def reserved-keys
-  "Keys the app uses for itself; they can never play a favourite."
-  #{"/" "?" "a" "h" "j" "k" "l" "m" "g" "i" "G" "f" " " "Enter" "Escape" "Tab"})
-
-(defn reserved-key? [k]
-  (contains? reserved-keys k))
 
 (defn- index-of [favorites id]
   (first (keep-indexed (fn [i fav] (when (= id (:id fav)) i)) favorites)))
@@ -51,7 +44,7 @@
   [favorites {:keys [id] station-name :name}]
   (if (member? favorites id)
     favorites
-    (conj (vec favorites) {:id id :name station-name :key nil :color (new-color favorites id)})))
+    (conj (vec favorites) {:id id :name station-name :color (new-color favorites id)})))
 
 (defn display-name
   "The name to show for `favorite`: the one the user gave it, else the one
@@ -142,28 +135,6 @@
     (move-before favorites id first-id)
     favorites))
 
-(defn key-owner
-  "Id of the favourite that `k` plays, or nil."
-  [favorites k]
-  (when k
-    (:id (first (filter #(= k (:key %)) favorites)))))
-
-(defn assign-key
-  "Gives `k` to the favourite `id`, taking it from any other favourite.
-  Reserved keys are refused."
-  [favorites id k]
-  (if (reserved-key? k)
-    favorites
-    (mapv (fn [fav]
-            (cond
-              (= id (:id fav)) (assoc fav :key k)
-              (= k (:key fav)) (assoc fav :key nil)
-              :else            fav))
-          favorites)))
-
-(defn clear-key [favorites id]
-  (mapv #(if (= id (:id %)) (assoc % :key nil) %) favorites))
-
 (defn matching
   "Favourites whose name, custom name or tags contain `query`, ignoring case.
   `stations` maps ids to normalized stations; unknown ids use the stored name."
@@ -198,7 +169,7 @@
                  (every? valid-favorite? favs))
         (mapv (fn [fav]
                 (let [custom (when (string? (:custom-name fav)) (clean-name (:custom-name fav)))]
-                  (cond-> (select-keys (merge {:key nil} fav) [:id :name :key])
+                  (cond-> (select-keys fav [:id :name])
                     custom                                  (assoc :custom-name custom)
                     (contains? display-modes (:display fav)) (assoc :display (:display fav))
                     (contains? color-set (:color fav))       (assoc :color (:color fav)))))
@@ -214,7 +185,7 @@
 
 (defn ->m3u
   "Extended M3U with the favourites whose stream is known, each titled with
-  the name the grid shows. Keys are personal and are not exported."
+  the name the grid shows."
   [favorites stations]
   (apply str "#EXTM3U\n"
          (keep #(m3u-entry % (get stations (:id %))) favorites)))

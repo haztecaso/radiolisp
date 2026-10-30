@@ -6,7 +6,7 @@
             [radiolisp.frontend.views.art :as art]
             [radiolisp.frontend.views.icons :as icons]))
 
-(defn- tile [{:keys [stations cache favorites player drag menu] :as state} t {:keys [id display color] shortcut :key :as favorite}]
+(defn- tile [{:keys [stations cache favorites player drag menu] :as state} t {:keys [id display color] :as favorite}]
   (let [station      (get stations id)
         shown        (or station (get cache id)) ; the cache only draws; playing waits for Radio Browser
         station-name (favs/display-name favorite shown)
@@ -25,7 +25,9 @@
                                     :dragover  [[:drag/over id]]
                                     :drop      [[:drag/drop id]]
                                     :dragend   [[:drag/end]]}}
-     [:button.play {:aria-label (t (if (and current? (#{:playing :connecting} (:status player)))
+     [:button.play {:id         (actions/tile-dom-id id)
+                    :data-tile  id
+                    :aria-label (t (if (and current? (#{:playing :connecting} (:status player)))
                                      :player/pause
                                      :player/play)
                                    {:name station-name})
@@ -34,12 +36,9 @@
       (art/view state art-station "art")
       (when (not= :text (art/mode state art-station))
         [:span.name {:title station-name} station-name])]
-     [:button.keycap {:class      (when-not shortcut "empty")
-                      :aria-label (if shortcut (t :tile/key {:key shortcut}) (t :tile/assign-key))
-                      :title      (if shortcut (t :menu/change-key) (t :tile/assign-key))
-                      :on         {:click [[:dialog/open-key id]]}}
-      (or shortcut "+")]
+     ;; Out of the tab order: the tile takes the focus, and «s» opens this.
      [:button.more {:id            anchor
+                    :tabindex      "-1"
                     :aria-label    (t :tile/options {:name station-name})
                     :aria-haspopup "menu"
                     :aria-expanded (str (= anchor (:anchor menu)))
@@ -51,6 +50,8 @@
 
 (defn- add-tile [{:keys [drag]} t]
   [:button.tile.add-tile {:replicant/key "add"
+                          :id            (actions/tile-dom-id :add)
+                          :data-tile     "add"
                           :class         (when (= :end (:over drag)) "drop-before")
                           :on            {:click    [[:search/open]]
                                           :dragover [[:drag/over :end]]

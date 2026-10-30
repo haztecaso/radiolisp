@@ -116,16 +116,6 @@
   }
 }
 
-.keyprev {
-  display: grid; place-items: center; height: 88px; margin-top: 20px;
-  border: 1px dashed var(--control); font-size: 32px; font-weight: 700; color: var(--faint);
-  &.set { border-style: solid; border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
-}
-.keymsg {
-  min-height: 20px; margin-top: 10px; color: var(--muted); font-size: 13px;
-  &.err { color: var(--negative-ink); }
-}
-
 .toast {
   position: fixed; right: var(--edge); bottom: calc(var(--bar) + 16px); z-index: 30;
   max-width: calc(100vw - 2 * var(--edge)); padding: 10px 14px;

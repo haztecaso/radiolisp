@@ -52,6 +52,9 @@
 (defmethod execute! :timer/cancel [_ [_ id]]
   (cancel-timer! id))
 
+(defmethod execute! :random/dispatch [dispatch [_ choices action-type]]
+  (dispatch [action-type (rand-nth choices)]))
+
 ;; storage. localStorage can throw (private modes, quota), so every access is guarded.
 
 (defmethod execute! :storage/load [dispatch _]
