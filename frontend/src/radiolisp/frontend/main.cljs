@@ -53,21 +53,37 @@
 
 (defn- target-kind [^js el]
   (cond
+    (some? (.. el -dataset -tile))                           :tile
     (= "search-input" (.-id el))                             :search-input
     (= "filter-input" (.-id el))                             :filter-input
     (and (= "INPUT" (.-tagName el)) (= "range" (.-type el))) :slider
     (= "BUTTON" (.-tagName el))                              :button
     :else                                                    :other))
 
+(defn- selected-tile
+  "The favourite id of the tile with the focus, :add for the tile that adds
+  one, or nil."
+  [^js el]
+  (when-let [tile (some-> el .-dataset .-tile)]
+    (if (= "add" tile) :add tile)))
+
+(defn- grid-columns
+  "How many columns the grid has at the current width."
+  []
+  (when-let [grid (js/document.querySelector ".grid")]
+    (count (.split (.trim (.-gridTemplateColumns (js/getComputedStyle grid))) #"\s+"))))
+
 (defn- on-keydown [^js e]
   (when-let [action (keymap/key->action @store/state
-                                        {:key    (.-key e)
-                                         :shift? (.-shiftKey e)
-                                         :ctrl?  (.-ctrlKey e)
-                                         :alt?   (.-altKey e)
-                                         :meta?  (.-metaKey e)
-                                         :target (target-kind (.-target e))
-                                         :now    (js/Date.now)})]
+                                        {:key     (.-key e)
+                                         :shift?  (.-shiftKey e)
+                                         :ctrl?   (.-ctrlKey e)
+                                         :alt?    (.-altKey e)
+                                         :meta?   (.-metaKey e)
+                                         :target  (target-kind (.-target e))
+                                         :tile    (selected-tile (.-target e))
+                                         :columns (grid-columns)
+                                         :now     (js/Date.now)})]
     (.preventDefault e)
     (dispatch! action)))
 
@@ -137,6 +153,15 @@
                              (dispatch! [:import/offer nil (.-name file)])))))
                      true))
 
+(defn- input-modality!
+  "Marks the page while it is used from the keyboard, so the selected tile
+  shows its border; browsers disagree on :focus-visible after a focus moved
+  by script."
+  []
+  (let [mark! #(set! (.. js/document -documentElement -dataset -input) %)]
+    (js/document.addEventListener "keydown" #(mark! "keys") true)
+    (js/document.addEventListener "pointerdown" #(mark! "pointer") true)))
+
 (defn ^:dev/after-load reload []
   (render! @store/state))
 
@@ -146,6 +171,7 @@
   (add-watch store/state ::render (fn [_ _ _ state] (render! state)))
   (audio/init! dispatch!)
   (js/document.addEventListener "keydown" on-keydown)
+  (input-modality!)
   (media-keys!)
   (system-theme!)
   (install-offers!)
