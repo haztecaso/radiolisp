@@ -15,13 +15,23 @@
     (shortcut t ["/"] :help/k-filter)
     (shortcut t ["a"] :help/k-add)
     (shortcut t ["space"] :help/k-toggle)
-    (shortcut t ["h" "l"] :help/k-volume)
-    (shortcut t ["m"] :help/k-mute)
-    (shortcut t ["?"] :help/k-help)
-    (shortcut t [(t :help/your-keys)] :help/k-assigned)]
+    (shortcut t ["-" "+"] :help/k-volume)
+    (shortcut t ["i"] :help/k-panel)
+    (shortcut t ["R"] :help/k-random-play)
+    (shortcut t ["?"] :help/k-help)]
+   [:h3 (t :help/grid)]
+   [:dl
+    (shortcut t ["←" "↓" "↑" "→"] :help/k-select)
+    (shortcut t ["h" "j" "k" "l"] :help/k-select)
+    (shortcut t ["tab"] :help/k-next)
+    (shortcut t ["enter" "space"] :help/k-play)
+    (shortcut t ["s"] :help/k-options)
+    (shortcut t ["shift ←↓↑→" "shift hjkl"] :help/k-reorder)
+    (shortcut t ["r"] :help/k-random)]
    [:h3 (t :help/filter)]
    [:dl
     (shortcut t ["enter"] :help/k-play-first)
+    (shortcut t ["↓"] :help/k-to-grid)
     (shortcut t ["esc"] :help/k-clear-filter)]
    [:h3 (t :help/typing)]
    [:dl

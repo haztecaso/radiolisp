@@ -20,7 +20,7 @@
            effects))))
 
 (deftest stations-are-fetched-once-storage-and-servers-are-known
-  (let [favorites [{:id "j1" :name "Jazz Radio" :key nil} {:id "zz" :name "Gone FM" :key nil}]]
+  (let [favorites [{:id "j1" :name "Jazz Radio"} {:id "zz" :name "Gone FM"}]]
     (testing "storage first, servers later"
       (let [{:keys [state effects]} (run-all store/initial-state
                                              [:favorites/loaded favorites]
@@ -50,7 +50,7 @@
 
 (deftest failed-station-request-retries-then-tells
   (let [loading (:state (run-all store/initial-state
-                                 [:favorites/loaded [{:id "j1" :name "Jazz Radio" :key nil}]]
+                                 [:favorites/loaded [{:id "j1" :name "Jazz Radio"}]]
                                  [:api/servers-loaded ["s1" "s2"]]))
         {:keys [state effects]} (a/handle loading [:stations/failed])]
     (is (= [[:api/stations-by-id {:server "s2" :ids ["j1"]}]] effects))
@@ -79,7 +79,7 @@
       (let [{:keys [state effects]} (a/handle state [:favorites/remove "j1"])]
         (is (= ["b1"] (ids state)))
         (is (nil? (:dialog state)))
-        (is (= [{:id "b1" :name "Blues FM" :key nil}] (saved effects)))
+        (is (= [{:id "b1" :name "Blues FM"}] (saved effects)))
         (is (= [[:toast/removed {:name "Jazz Radio"}]] (:toast state)))))))
 
 (deftest reordering
@@ -96,36 +96,6 @@
       (is (= ["b1" "j1"] (ids (:state (a/handle state [:drag/drop "j1"]))))))
     (is (nil? (:drag (:state (run-all ready [:drag/start "b1"] [:drag/end])))))
     (is (= ready (:state (a/handle ready [:drag/drop "j1"]))) "a drop without a drag is ignored")))
-
-(deftest the-key-dialog
-  (let [open (:state (a/handle ready [:dialog/open-key "b1"]))]
-    (is (= {:kind :key :id "b1" :pending nil :message nil} (:dialog open)))
-    (testing "a free key is proposed"
-      (let [{:keys [state]} (a/handle open [:key-dialog/pressed "x"])]
-        (is (= "x" (get-in state [:dialog :pending])))
-        (is (nil? (get-in state [:dialog :message])))))
-    (testing "reserved and non-character keys are refused"
-      (let [state (:state (a/handle open [:key-dialog/pressed "j"]))]
-        (is (nil? (get-in state [:dialog :pending])))
-        (is (= [:key/reserved {:key "j"}] (get-in state [:dialog :message]))))
-      (is (= [:key/reserved {:key "␣"}]
-             (get-in (:state (a/handle open [:key-dialog/pressed " "])) [:dialog :message])))
-      (is (= [:key/invalid {}]
-             (get-in (:state (a/handle open [:key-dialog/pressed "F1"])) [:dialog :message]))))
-    (testing "a key of another favourite warns that it moves"
-      (is (= [:key/taken {:name "Jazz Radio"}]
-             (get-in (:state (a/handle open [:key-dialog/pressed "1"])) [:dialog :message]))))
-    (testing "saving assigns it"
-      (let [{:keys [state effects]} (run-all open [:key-dialog/pressed "1"] [:key-dialog/save])]
-        (is (= [nil "1"] (map :key (get-in state [:favorites :items]))))
-        (is (nil? (:dialog state)))
-        (is (saved effects))
-        (is (= [[:toast/key-saved {:key "1" :name "Blues FM"}]] (:toast state)))))
-    (testing "saving without a key does nothing"
-      (is (= open (:state (a/handle open [:key-dialog/save])))))
-    (testing "clearing"
-      (let [{:keys [state]} (run-all ready [:dialog/open-key "j1"] [:key-dialog/clear])]
-        (is (= [nil nil] (map :key (get-in state [:favorites :items]))))))))
 
 (deftest filtering
   (is (= "blu" (:filter (:state (a/handle ready [:filter/changed "blu"])))))
@@ -155,7 +125,7 @@
       (is (nil? (:menu (:state (a/handle state [:menu/open menu]))))))
     (let [{:keys [state effects]} (a/handle state [:menu/close])]
       (is (nil? (:menu state)))
-      (is (= [[:dom/focus "more-j1"]] effects)))
+      (is (= [[:dom/focus "tile-j1"]] effects)))
     (is (= [[:dom/focus-step "menu" 1]] (:effects (a/handle state [:menu/move 1]))))
     (is (= {:state ready :effects []} (a/handle ready [:menu/page :language]))))
   (testing "the list menu opens its language page in place"
@@ -310,8 +280,8 @@
   (let [cache {"j1" {:name "Jazz Radio (old)" :favicon "https://jazz.example/old.png"}}
         {:keys [state effects]} (run-all store/initial-state
                                          [:cache/loaded cache]
-                                         [:favorites/loaded [{:id "j1" :name "Jazz Radio" :key nil}
-                                                             {:id "zz" :name "Gone FM" :key nil}]]
+                                         [:favorites/loaded [{:id "j1" :name "Jazz Radio"}
+                                                             {:id "zz" :name "Gone FM"}]]
                                          [:api/servers-loaded ["s1"]]
                                          [:stations/loaded [jazz]])]
     (testing "the answer replaces the cache and drops what Radio Browser no longer knows"
@@ -324,7 +294,7 @@
   (let [cache {"j1" {:name "Jazz Radio" :favicon "https://jazz.example/logo.png"}}
         {:keys [effects]} (run-all store/initial-state
                                    [:cache/loaded cache]
-                                   [:favorites/loaded [{:id "j1" :name "Jazz Radio" :key nil}]]
+                                   [:favorites/loaded [{:id "j1" :name "Jazz Radio"}]]
                                    [:api/servers-loaded ["s1"]]
                                    [:stations/loaded [jazz]])]
     (is (nil? (cached effects)))))
@@ -359,7 +329,7 @@
         (is (= :ochre (:color fav)))
         (is (= "Jazz club" (a/favorite-name state "j1")))
         (is (= fav (first (saved effects))))
-        (is (some #{[:dom/focus "more-j1"]} effects) "the focus goes back to the tile")
+        (is (some #{[:dom/focus "tile-j1"]} effects) "the focus goes back to the tile")
         (testing "the original name comes back from the dialog"
           (let [{:keys [state effects]} (run-all state [:customize/open "j1"] [:customize/use-original] [:customize/save])
                 fav (first (get-in state [:favorites :items]))]
@@ -379,7 +349,7 @@
         (is (nil? (:dialog state)))
         (is (= "Jazz Radio" (a/favorite-name state "j1")))
         (is (nil? (saved effects)))
-        (is (some #{[:dom/focus "more-j1"]} effects)))))
+        (is (some #{[:dom/focus "tile-j1"]} effects)))))
   (is (nil? (:dialog (:state (a/handle ready [:customize/open "zz"])))) "only favourites")
   (is (= [] (:effects (a/handle ready [:customize/save]))) "nothing to save without the dialog"))
 

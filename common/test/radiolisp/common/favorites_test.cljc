@@ -13,25 +13,17 @@
 (def stations {"j1" jazz "b1" blues "f1" inter})
 
 (def three
-  [{:id "j1" :name "Jazz Radio" :key "1"}
-   {:id "b1" :name "Blues FM" :key nil}
-   {:id "f1" :name "France Inter" :key "x"}])
+  [{:id "j1" :name "Jazz Radio"}
+   {:id "b1" :name "Blues FM"}
+   {:id "f1" :name "France Inter"}])
 
 (defn- ids [favorites] (mapv :id favorites))
-
-(deftest reserved-keys
-  (is (favs/reserved-key? "/"))
-  (is (favs/reserved-key? " "))
-  (is (favs/reserved-key? "Escape"))
-  (is (favs/reserved-key? "G"))
-  (is (not (favs/reserved-key? "x")))
-  (is (not (favs/reserved-key? "1"))))
 
 (defn- uncolored [favorites]
   (mapv #(dissoc % :color) favorites))
 
 (deftest add-appends-once
-  (is (= [{:id "j1" :name "Jazz Radio" :key nil}] (uncolored (favs/add [] jazz))))
+  (is (= [{:id "j1" :name "Jazz Radio"}] (uncolored (favs/add [] jazz))))
   (is (= ["j1" "b1"] (ids (favs/add (favs/add [] jazz) blues))))
   (is (= (favs/add [] jazz) (favs/add (favs/add [] jazz) jazz))))
 
@@ -42,7 +34,7 @@
     (is (= (set favs/colors) (set (map :color (take 8 added)))) "no colour repeats while one is free")
     (is (every? #(= 2 %) (vals (frequencies (map :color added))))))
   (testing "a colour the user took counts as used"
-    (let [favs (mapv (fn [c] {:id (name c) :name "S" :key nil :color c}) (remove #{:teal} favs/colors))]
+    (let [favs (mapv (fn [c] {:id (name c) :name "S" :color c}) (remove #{:teal} favs/colors))]
       (is (= :teal (:color (last (favs/add favs jazz))))))))
 
 (deftest member
@@ -68,17 +60,6 @@
   (is (= ["f1" "j1" "b1"] (ids (favs/move-to-front three "f1"))))
   (is (= three (favs/move-to-front three "j1"))))
 
-(deftest keys-are-unique
-  (testing "assigning takes the key from its previous owner"
-    (let [result (favs/assign-key three "b1" "x")]
-      (is (= [["j1" "1"] ["b1" "x"] ["f1" nil]] (map (juxt :id :key) result)))))
-  (testing "reserved keys are refused"
-    (is (= three (favs/assign-key three "b1" "j"))))
-  (is (= "f1" (favs/key-owner three "x")))
-  (is (nil? (favs/key-owner three "q")))
-  (is (nil? (favs/key-owner three nil)))
-  (is (= [nil nil "x"] (map :key (favs/clear-key three "j1")))))
-
 (deftest matching-filters-by-name-or-tag
   (is (= three (favs/matching three stations "")))
   (is (= three (favs/matching three stations "  ")))
@@ -100,9 +81,9 @@
   (is (nil? (favs/deserialize "{:version 2 :favorites []}")) "another version")
   (is (nil? (favs/deserialize "[1 2 3]")))
   (is (nil? (favs/deserialize "{:version 1 :favorites [{:name \"no id\"}]}")))
-  (testing "a missing key becomes nil"
-    (is (= [{:id "a" :name "A" :key nil}]
-           (favs/deserialize "{:version 1 :favorites [{:id \"a\" :name \"A\"}]}")))))
+  (testing "keys assigned by older versions are dropped"
+    (is (= [{:id "a" :name "A"}]
+           (favs/deserialize "{:version 1 :favorites [{:id \"a\" :name \"A\" :key \"1\"}]}")))))
 
 (deftest m3u-export
   (is (= (str "#EXTM3U\n"
@@ -112,7 +93,7 @@
               "http://blues.example/stream\n")
          (favs/->m3u (take 2 three) stations)))
   (testing "stations without a known stream are left out"
-    (is (= "#EXTM3U\n" (favs/->m3u [{:id "zz" :name "Gone" :key nil}] stations)))))
+    (is (= "#EXTM3U\n" (favs/->m3u [{:id "zz" :name "Gone"}] stations)))))
 
 (deftest m3u-round-trip
   (is (= [{:id "j1" :name "Jazz Radio" :url "https://jazz.example/stream"}
@@ -141,7 +122,7 @@
 (deftest list-export
   (is (= "j1\nb1\nf1\n" (favs/->list three)))
   (testing "stations without a known stream are kept: only the uuid travels"
-    (is (= "zz\n" (favs/->list [{:id "zz" :name "Gone" :key nil}]))))
+    (is (= "zz\n" (favs/->list [{:id "zz" :name "Gone"}]))))
   (is (= "" (favs/->list []))))
 
 (deftest list-import
@@ -165,8 +146,8 @@
 ;; ---------------------------------------------------------------- custom names
 
 (def renamed
-  [{:id "j1" :name "Jazz Radio" :key "1" :custom-name "Jazz"}
-   {:id "b1" :name "Blues FM" :key nil}])
+  [{:id "j1" :name "Jazz Radio" :custom-name "Jazz"}
+   {:id "b1" :name "Blues FM"}])
 
 (deftest display-name-prefers-the-custom-one
   (is (= "Jazz" (favs/display-name (first renamed) jazz)))
@@ -190,55 +171,55 @@
   (is (= three (favs/rename three "zz" "X" "Y")) "unknown id"))
 
 (deftest add-imported-keeps-names-that-differ
-  (let [added (favs/add-imported [{:id "j1" :name "Jazz Radio" :key "1" :custom-name "Mine"}]
+  (let [added (favs/add-imported [{:id "j1" :name "Jazz Radio" :custom-name "Mine"}]
                                  [jazz blues inter]
                                  {"j1" "From file" "b1" "Blues" "f1" "France Inter"})]
-    (is (= [{:id "j1" :name "Jazz Radio" :key "1" :custom-name "Mine"}
-            {:id "b1" :name "Blues FM" :key nil :custom-name "Blues"}
-            {:id "f1" :name "France Inter" :key nil}]
+    (is (= [{:id "j1" :name "Jazz Radio" :custom-name "Mine"}
+            {:id "b1" :name "Blues FM" :custom-name "Blues"}
+            {:id "f1" :name "France Inter"}]
            (uncolored added)))
     (is (every? :color (rest added)) "imported favourites get a colour too")))
 
 (deftest matching-looks-at-custom-names-too
   (is (= ["j1"] (ids (favs/matching renamed stations "jazz r"))))
-  (is (= ["b1"] (ids (favs/matching [{:id "b1" :name "Blues FM" :key nil :custom-name "Delta"}] stations "delta")))))
+  (is (= ["b1"] (ids (favs/matching [{:id "b1" :name "Blues FM" :custom-name "Delta"}] stations "delta")))))
 
 (deftest set-display-chooses-how-a-tile-looks
-  (let [favs [{:id "a" :name "A" :key nil} {:id "b" :name "B" :key nil}]]
-    (is (= [{:id "a" :name "A" :key nil :display :pad} {:id "b" :name "B" :key nil}]
+  (let [favs [{:id "a" :name "A"} {:id "b" :name "B"}]]
+    (is (= [{:id "a" :name "A" :display :pad} {:id "b" :name "B"}]
            (favs/set-display favs "a" :pad)))
     (is (= favs (favs/set-display (favs/set-display favs "a" :text) "a" nil)) "nil removes it")
     (is (= favs (favs/set-display favs "a" :weird)) "unknown modes are ignored")))
 
 (deftest display-travels-in-storage
-  (let [shown [{:id "a" :name "A" :key nil :display :text}]]
+  (let [shown [{:id "a" :name "A" :display :text}]]
     (is (= shown (favs/deserialize (favs/serialize shown)))))
-  (is (= [{:id "a" :name "A" :key nil}]
+  (is (= [{:id "a" :name "A"}]
          (favs/deserialize "{:version 1 :favorites [{:id \"a\" :name \"A\" :display :huge}]}"))
       "an unknown mode is dropped"))
 
 (deftest set-color-picks-the-ink-of-a-name
-  (let [favs [{:id "a" :name "A" :key nil} {:id "b" :name "B" :key nil}]]
-    (is (= [{:id "a" :name "A" :key nil :color :blue} {:id "b" :name "B" :key nil}]
+  (let [favs [{:id "a" :name "A"} {:id "b" :name "B"}]]
+    (is (= [{:id "a" :name "A" :color :blue} {:id "b" :name "B"}]
            (favs/set-color favs "a" :blue)))
     (is (= favs (favs/set-color (favs/set-color favs "a" :red) "a" nil)) "nil removes it")
     (is (= favs (favs/set-color favs "a" :magenta)) "unknown colours are ignored")
     (is (= 8 (count favs/colors)))))
 
 (deftest color-travels-in-storage
-  (let [inked [{:id "a" :name "A" :key nil :color :teal}]]
+  (let [inked [{:id "a" :name "A" :color :teal}]]
     (is (= inked (favs/deserialize (favs/serialize inked)))))
-  (is (= [{:id "a" :name "A" :key nil}]
+  (is (= [{:id "a" :name "A"}]
          (favs/deserialize "{:version 1 :favorites [{:id \"a\" :name \"A\" :color :magenta}]}"))
       "an unknown colour is dropped"))
 
 (deftest custom-names-travel
   (testing "storage"
     (is (= renamed (favs/deserialize (favs/serialize renamed))))
-    (is (= [{:id "a" :name "A" :key nil}]
+    (is (= [{:id "a" :name "A"}]
            (favs/deserialize "{:version 1 :favorites [{:id \"a\" :name \"A\" :custom-name \"  \"}]}"))
         "a blank custom name is dropped")
-    (is (= [{:id "a" :name "A" :key nil}]
+    (is (= [{:id "a" :name "A"}]
            (favs/deserialize "{:version 1 :favorites [{:id \"a\" :name \"A\" :custom-name 3}]}"))))
   (testing "M3U titles each station with the name the grid shows"
     (is (= [{:id "j1" :name "Jazz" :url "https://jazz.example/stream"}

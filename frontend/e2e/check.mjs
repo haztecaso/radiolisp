@@ -36,6 +36,8 @@ const KEYS = {
   Enter: { code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' },
   ArrowDown: { code: 'ArrowDown', windowsVirtualKeyCode: 40 },
   ArrowUp: { code: 'ArrowUp', windowsVirtualKeyCode: 38 },
+  ArrowLeft: { code: 'ArrowLeft', windowsVirtualKeyCode: 37 },
+  ArrowRight: { code: 'ArrowRight', windowsVirtualKeyCode: 39 },
   Backspace: { code: 'Backspace', windowsVirtualKeyCode: 8 },
   ' ': { code: 'Space', windowsVirtualKeyCode: 32, text: ' ' },
   '/': { code: 'Slash', windowsVirtualKeyCode: 191, text: '/' },
@@ -177,7 +179,8 @@ try {
   const flags = await grid.eval(`[...document.querySelectorAll('.flag')].map(e => e.textContent)`);
   check('failing station flagged', flags.includes('Sin señal'), JSON.stringify(flags));
   check('vanished station flagged', flags.includes('Ya no está en Radio Browser'));
-  check('assigned key shown on its tile', (await text(grid, '.tile:nth-child(1) .keycap')) === '1');
+  check('tiles have no key square', !(await exists(grid, '.keycap')));
+  check('the tile menu button is out of the tab order', await grid.eval(`[...document.querySelectorAll('.tile .more')].every(b => b.tabIndex === -1)`));
   await grid.screenshot({ path: `${OUT}/3-grid-desktop.jpg` });
 
   // theme: the browser's preference first, the list menu overrides and remembers it
@@ -223,23 +226,28 @@ try {
     console.log(`SKIP  what is playing: no backend at ${URL}`);
   }
 
-  // keys: assign with the dialog, then play with it
-  await click(grid, '.tile:nth-child(2) .keycap');
-  check('key dialog opens', await dialogOpen(grid));
-  await press(grid, 'j');
-  check('reserved key refused', /la usa radiolisp/.test((await text(grid, '.keymsg')) || ''), await text(grid, '.keymsg'));
-  await press(grid, '1');
-  check('taken key warns it moves', /Ahora es de/.test((await text(grid, '.keymsg')) || ''), await text(grid, '.keymsg'));
-  await press(grid, 'q');
-  check('free key previewed', (await text(grid, '.keyprev')) === 'q');
-  await grid.screenshot({ path: `${OUT}/5-key-dialog-desktop.jpg` });
+  // keyboard: the selection walks the grid, enter and space play, s opens the options
+  const tileId = (station) => `tile-${station.id}`;
+  await grid.eval(`document.activeElement.blur()`);
+  await press(grid, 'l');
+  check('a key selects the tile that plays', (await activeId(grid)) === tileId(STATIONS.bbc), await activeId(grid));
+  await press(grid, 'ArrowRight');
+  check('arrows move the selection', (await activeId(grid)) === tileId(STATIONS.jazz), await activeId(grid));
+  await grid.screenshot({ path: `${OUT}/5-selected-desktop.jpg` });
   await press(grid, 'Enter');
-  check('enter saves the key', !(await dialogOpen(grid)) && (await text(grid, '.tile:nth-child(2) .keycap')) === 'q');
-  check('key persisted', /:key "q"/.test(await stored(grid)));
-  await press(grid, 'q');
-  check('the assigned key plays its favourite', (await barName(grid)) === '101 SMOOTH JAZZ', await barName(grid));
-  await press(grid, '1');
-  check('another key switches station', (await barName(grid)) === 'BBC World Service', await barName(grid));
+  check('enter plays the selected tile', (await barName(grid)) === '101 SMOOTH JAZZ', await barName(grid));
+  await press(grid, 's');
+  check('s opens its options', await exists(grid, '#menu'));
+  await press(grid, 'Escape');
+  check('esc gives the focus back to the tile', !(await exists(grid, '#menu')) && (await activeId(grid)) === tileId(STATIONS.jazz), await activeId(grid));
+  await press(grid, 'h');
+  await press(grid, ' ');
+  check('space plays the selected tile', (await barName(grid)) === 'BBC World Service', await barName(grid));
+  await press(grid, 'L', { shift: true });
+  check('shift moves the selected tile', (await tileNames(grid))[1] === 'BBC World Service' && (await activeId(grid)) === tileId(STATIONS.bbc), JSON.stringify(await tileNames(grid)));
+  check('keys from older versions are dropped', !/:key/.test(await stored(grid)), await stored(grid));
+  await press(grid, 'H', { shift: true });
+  check('and back', (await storedIds(grid))[0] === STATIONS.bbc.id, JSON.stringify(await tileNames(grid)));
 
   // the station menu
   await click(grid, '.tile:nth-child(3) .more');
@@ -287,7 +295,7 @@ try {
   check('enter saves the new name', (await tileNames(grid))[2] === 'Jazz suave', JSON.stringify(await tileNames(grid)));
   check('the name and the look are stored', /:custom-name "Jazz suave"/.test(await stored(grid)) && /:display :text/.test(await stored(grid)), await stored(grid));
   check('the tile shows its name', await exists(grid, '.tile:nth-child(3) .art .full-name'));
-  check('the focus goes back to the tile', (await activeId(grid)) === (await grid.eval(`document.querySelector('.tile:nth-child(3) .more').id`)));
+  check('the focus goes back to the tile', (await activeId(grid)) === (await grid.eval(`document.querySelector('.tile:nth-child(3) .play').id`)), await activeId(grid));
   await grid.goto(URL, { settleMs: 500 });
   await waitFor(grid, `document.querySelectorAll('.tile .art img, .tile .art .full-name').length >= 4`);
   check('the new name survives a reload', (await tileNames(grid))[2] === 'Jazz suave', JSON.stringify(await tileNames(grid)));
