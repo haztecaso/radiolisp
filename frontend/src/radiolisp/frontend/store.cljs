@@ -40,7 +40,8 @@
                   :results   []
                   :top       []
                   :highlight 0
-                  :error     nil}       ; [:error/network {:at ms}]
+                  :error     nil        ; [:error/network {:at ms}]
+                  :replacing nil}       ; id of the missing favourite the palette is finding a replacement for
    :api          {:servers [] :current 0}
    :keys         {:last-g 0}})
 

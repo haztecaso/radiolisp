@@ -445,6 +445,43 @@
         save
         (toast [:toast/removed {:name station-name}]))))
 
+(defn- close-search
+  "The search map, closed. Leaving a replacement drops its query and results,
+  which were about the old station, and any search still in flight."
+  [{:keys [replacing top] :as search}]
+  (cond-> (assoc search :open? false :mode :insert :replacing nil)
+    replacing (-> (assoc :query "" :results top :highlight 0 :error nil
+                         :status (if (seq top) :done :idle))
+                  (update :seq inc))))
+
+(defn- replacement-query
+  "What to search for the missing favourite `id`: the name Radio Browser last
+  gave it, else the stored one, else the user's own (which may be a nickname)."
+  [state id]
+  (let [favorite (favs/find-favorite (items state) id)]
+    (or (get-in state [:cache id :name]) (:name favorite) (:custom-name favorite) "")))
+
+(defmethod handle :favorites/find-replacement [state [_ id]]
+  (if (contains? (get-in state [:favorites :missing]) id)
+    (-> (handle (assoc state :menu nil) [:search/open (replacement-query state id)])
+        (assoc-in [:state :search :replacing] id))
+    (ok state)))
+
+(defmethod handle :favorites/replace [state [_ old-id new-id]]
+  (let [station (station-by-id state new-id)
+        before  (items state)
+        after   (when station (favs/replace before old-id station))]
+    (if (or (nil? station) (= before after))
+      (ok state)
+      (let [old-name (favorite-name state old-id)]
+        (-> (ok (-> state
+                    (assoc-in [:favorites :items] after)
+                    (update-in [:favorites :missing] disj old-id)
+                    (update :search close-search)))
+            (add-effects [:timer/cancel :search])
+            save
+            (toast [:toast/replaced {:old old-name :new (:name station)}]))))))
+
 (defmethod handle :favorites/move-before [state [_ id target-id]]
   (-> (ok (update-in state [:favorites :items] favs/move-before id target-id))
       save))
@@ -548,7 +585,7 @@
                  :seq    request}]))
 
 (defmethod handle :search/open [state [_ query]]
-  (let [opened (ok (update state :search assoc :open? true :mode :insert)
+  (let [opened (ok (update state :search assoc :open? true :mode :insert :replacing nil)
                    [[:dom/focus :search-input]])]
     (cond
       (some? query)                                (then opened [:search/typed query])
@@ -556,7 +593,7 @@
       :else                                        opened)))
 
 (defmethod handle :search/close [state _]
-  (ok (update state :search assoc :open? false :mode :insert)
+  (ok (update state :search close-search)
       [[:timer/cancel :search]]))
 
 (defmethod handle :search/mode [state [_ mode]]
@@ -622,11 +659,16 @@
     (get (visible-stations search) (or index highlight))))
 
 (defmethod handle :search/choose [state [_ index]]
-  (let [state (cond-> state index (assoc-in [:search :highlight] index))]
-    (play-station state (chosen state index))))
+  (let [state   (cond-> state index (assoc-in [:search :highlight] index))
+        station (chosen state index)
+        old-id  (get-in state [:search :replacing])]
+    (cond
+      (nil? old-id)                                                  (play-station state station)
+      (or (nil? station) (favs/member? (items state) (:id station))) (ok state)
+      :else                                                          (handle state [:favorites/replace old-id (:id station)]))))
 
 (defmethod handle :search/toggle-favorite [state [_ index]]
-  (if-let [station (chosen state index)]
+  (if-let [station (and (nil? (get-in state [:search :replacing])) (chosen state index))]
     (handle state [:favorites/toggle (:id station)])
     (ok state)))
 
