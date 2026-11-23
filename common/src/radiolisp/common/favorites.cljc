@@ -4,7 +4,7 @@
   renamed, `:display` on those whose look they chose and `:color` on those
   whose name they coloured. Pure and shared
   with the future backend."
-  (:refer-clojure :exclude [remove])
+  (:refer-clojure :exclude [remove replace])
   (:require #?(:clj [clojure.edn :as edn] :cljs [cljs.reader :as edn])
             [clojure.string :as str]))
 
@@ -124,6 +124,16 @@
 
 (defn remove [favorites id]
   (filterv #(not= id (:id %)) favorites))
+
+(defn replace
+  "Swaps the favourite `old-id` for `station` where it stands, keeping its key,
+  colour, look and custom name. Unchanged when `old-id` is not a favourite or
+  `station` already is."
+  [favorites old-id {:keys [id] station-name :name}]
+  (if (or (not (member? favorites old-id)) (member? favorites id))
+    favorites
+    (mapv (fn [fav] (if (= old-id (:id fav)) (assoc fav :id id :name station-name) fav))
+          favorites)))
 
 (defn move-before
   "Moves the favourite `id` just before `target-id`, or to the end when

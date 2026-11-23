@@ -54,6 +54,21 @@
   (is (= three (favs/remove three "zz")))
   (is (vector? (favs/remove three "b1"))))
 
+(deftest replace-swaps-the-station-in-place
+  (let [dressed [{:id "j1" :name "Jazz Radio" :key "1"}
+                 {:id "b1" :name "Blues FM" :key "7" :color :teal :display :pad :custom-name "Mine"}
+                 {:id "f1" :name "France Inter" :key nil}]
+        swapped (favs/replace dressed "b1" {:id "n1" :name "New FM"})]
+    (is (= ["j1" "n1" "f1"] (ids swapped)) "same position")
+    (is (= {:id "n1" :name "New FM" :key "7" :color :teal :display :pad :custom-name "Mine"}
+           (second swapped))
+        "key, colour, look and custom name stay")
+    (is (vector? swapped)))
+  (testing "an unknown id changes nothing"
+    (is (= three (favs/replace three "zz" {:id "n1" :name "New FM"}))))
+  (testing "a station that is already a favourite changes nothing"
+    (is (= three (favs/replace three "b1" jazz)))))
+
 (deftest move-before-reorders
   (is (= ["f1" "j1" "b1"] (ids (favs/move-before three "f1" "j1"))))
   (is (= ["b1" "j1" "f1"] (ids (favs/move-before three "j1" "f1"))))

@@ -31,8 +31,11 @@
 
 (defn- station-items [{:keys [stations favorites locale] :as state} t id]
   (let [station  (get stations id)
+        missing? (contains? (:missing favorites) id)
         {shortcut :key} (favs/find-favorite (:items favorites) id)]
     (list
+     (when missing?
+       (item icons/search (t :menu/find-replacement) [[:favorites/find-replacement id]]))
      (when-let [homepage (:homepage station)]
        (link icons/globe (t :menu/homepage) homepage))
      (when station

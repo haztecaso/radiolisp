@@ -46,7 +46,10 @@
                     :on            {:click [[:menu/open {:kind :station :id id :anchor anchor}]]}}
       icons/dots]
      (cond
-       missing? [:span.flag (t :tile/gone)]
+       missing? [:button.flag {:aria-label (str (t :tile/gone) ". " (t :menu/find-replacement))
+                               :title      (t :menu/find-replacement)
+                               :on         {:click [[:favorites/find-replacement id]]}}
+                 (t :tile/gone)]
        sick?    [:span.flag (t :tile/no-signal)])]))
 
 (defn- add-tile [{:keys [drag]} t]

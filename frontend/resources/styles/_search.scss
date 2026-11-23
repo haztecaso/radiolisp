@@ -56,6 +56,17 @@
 }
 .palette.normal .row.hl { border-left-color: var(--accent); }
 
+// Finding a replacement: a banner, and rows that are already favourites cannot be picked.
+.replacing {
+  flex: none; padding: 10px 20px; border-bottom: 1px solid var(--rule);
+  background: var(--raised); color: var(--muted); font-size: 13px;
+}
+.row.taken {
+  cursor: default; opacity: .5;
+  &:hover { background: none; }
+}
+.row .tag { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
 .skel { display: block; height: 12px; margin: 4px 0; background: var(--raised); }
 
 .note {

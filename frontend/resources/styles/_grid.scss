@@ -242,6 +242,16 @@
   bottom: 0;
 }
 
+// The flag of a missing station is a button: it starts the search for a replacement.
+button.flag {
+  border: 0;
+  pointer-events: auto;
+  cursor: pointer;
+
+  &:hover { text-decoration: underline; }
+  &:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+}
+
 .add-tile {
   aspect-ratio: 1;
   width: 100%;
