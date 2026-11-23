@@ -12,7 +12,8 @@ Ideas that need a backend are collected in `docs/ideas/backend.md`.
 
 ## Hard rules
 
-- Never `git push` or touch remotes. The user pushes. Never run `bb deploy`.
+- Just `git push` when the user explicitly asks. Never run `bb deploy` unless
+  explicilty told to
 - Run `bb lint`, `bb fmt:check` and `bb test` before you call a change done.
 - GitHub flow: work in a branch (`feat/…`, `fix/…`, `docs/…`, `ci/…`), never commit
   to `main`; changes reach it through a pull request that passes CI
