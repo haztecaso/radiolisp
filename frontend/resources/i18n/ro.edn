@@ -29,6 +29,9 @@
  :menu/copy-url       "Copiază linkul streamului"
  :menu/radio-browser  "Vezi pe radio-browser.info"
  :menu/customize      "Personalizează…"
+ :menu/find-replacement "Găsește un înlocuitor"
+ :menu/source "Cod sursă"
+ :menu/install "Instalează aplicația"
 
  :customize/title     "Personalizează"
  :customize/name      "Nume"
@@ -38,6 +41,16 @@
  :customize/image     "Imagine"
  :customize/pad       "Cu margine"
  :customize/text      "Text"
+ :customize/color "Culoarea numelui"
+ :color/auto "Automată"
+ :color/red "Roșu"
+ :color/orange "Portocaliu"
+ :color/ochre "Ocru"
+ :color/green "Verde"
+ :color/teal "Turcoaz"
+ :color/blue "Albastru"
+ :color/violet "Violet"
+ :color/pink "Roz"
  :customize/save      "Salvează"
 
  :health/ok           "Verificat la {date} · OK"
@@ -77,6 +90,8 @@
  :search/mode-normal  "navigare"
  :search/loading      "Se caută…"
  :search/empty        "Niciun post nu se numește „{query}”. Încearcă cu o parte din nume."
+ :search/replacing "Se înlocuiește „{name}”"
+ :search/already-favorite "Deja în favorite"
 
  :error/network       "Nu s-a putut contacta Radio Browser la ora {time}."
  :error/stations      "Nu s-au putut încărca datele favoritelor tale."
@@ -119,6 +134,7 @@
 
  :toast/added         "„{name}” adăugat la favorite"
  :toast/removed       "„{name}” scos din favorite"
+ :toast/replaced "„{old}” înlocuit cu „{new}”"
  :toast/moved         "„{name}” mutat la început"
  :toast/key-saved     "„{key}” redă {name}"
  :toast/voted         "Vot trimis pentru {name}"

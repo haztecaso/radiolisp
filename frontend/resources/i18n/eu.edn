@@ -29,6 +29,9 @@
  :menu/copy-url       "Kopiatu stream-aren esteka"
  :menu/radio-browser  "Ikusi radio-browser.info webgunean"
  :menu/customize      "Pertsonalizatu…"
+ :menu/find-replacement "Ordezkoa bilatu"
+ :menu/source "Iturburu-kodea"
+ :menu/install "Aplikazioa instalatu"
 
  :customize/title     "Pertsonalizatu"
  :customize/name      "Izena"
@@ -38,6 +41,16 @@
  :customize/image     "Irudia"
  :customize/pad       "Marjinarekin"
  :customize/text      "Testua"
+ :customize/color "Izenaren kolorea"
+ :color/auto "Automatikoa"
+ :color/red "Gorria"
+ :color/orange "Laranja"
+ :color/ochre "Okrea"
+ :color/green "Berdea"
+ :color/teal "Berde urdinxka"
+ :color/blue "Urdina"
+ :color/violet "More"
+ :color/pink "Arrosa"
  :customize/save      "Gorde"
 
  :health/ok           "Egiaztatua: {date} · OK"
@@ -77,6 +90,8 @@
  :search/mode-normal  "nabigatzen"
  :search/loading      "Bilatzen…"
  :search/empty        "Ez dago «{query}» izeneko irrati-katerik. Saiatu izenaren zati batekin."
+ :search/replacing "«{name}» ordezkatzen"
+ :search/already-favorite "Gogokoa da dagoeneko"
 
  :error/network       "Ezin izan da Radio Browser-ekin konektatu (ordua: {time})."
  :error/stations      "Ezin izan dira zure gogokoen datuak kargatu."
@@ -118,6 +133,7 @@
 
  :toast/added         "«{name}» gogokoei gehitu da"
  :toast/removed       "«{name}» gogokoetatik kendu da"
+ :toast/replaced "«{old}» «{new}» bidez ordezkatu da"
  :toast/moved         "«{name}» hasierara eraman da"
  :toast/key-saved     "«{key}» teklak {name} erreproduzitzen du"
  :toast/voted         "Botoa bidali da: {name}"

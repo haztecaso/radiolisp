@@ -29,6 +29,9 @@
  :menu/copy-url       "Copiar ligazón do stream"
  :menu/radio-browser  "Ver en radio-browser.info"
  :menu/customize      "Personalizar…"
+ :menu/find-replacement "Buscar substituta"
+ :menu/source "Código fonte"
+ :menu/install "Instalar a aplicación"
 
  :customize/title     "Personalizar"
  :customize/name      "Nome"
@@ -38,6 +41,16 @@
  :customize/image     "Imaxe"
  :customize/pad       "Con marxe"
  :customize/text      "Texto"
+ :customize/color "Cor do nome"
+ :color/auto "Automática"
+ :color/red "Vermello"
+ :color/orange "Laranxa"
+ :color/ochre "Ocre"
+ :color/green "Verde"
+ :color/teal "Verde azulado"
+ :color/blue "Azul"
+ :color/violet "Violeta"
+ :color/pink "Rosa"
  :customize/save      "Gardar"
 
  :health/ok           "Comprobada o {date} · OK"
@@ -77,6 +90,8 @@
  :search/mode-normal  "navegando"
  :search/loading      "Buscando…"
  :search/empty        "Ningunha emisora se chama «{query}». Proba cunha parte do nome."
+ :search/replacing "Substituíndo «{name}»"
+ :search/already-favorite "Xa é favorita"
 
  :error/network       "Non se puido conectar con Radio Browser ás {time}."
  :error/stations      "Non se puideron cargar os datos das túas favoritas."
@@ -118,6 +133,7 @@
 
  :toast/added         "«{name}» engadida a favoritas"
  :toast/removed       "«{name}» quitada de favoritas"
+ :toast/replaced "«{old}» substituída por «{new}»"
  :toast/moved         "«{name}» movida ao principio"
  :toast/key-saved     "«{key}» pon {name}"
  :toast/voted         "Voto enviado a {name}"
