@@ -6,8 +6,10 @@ Clojure. The design specs are `docs/specs/2026-10-20-mvp-design.md`,
 layout), `docs/specs/2026-10-21-iteration-3-design.md` (artwork modes,
 «Personalizar», the player bar and its panel) and
 `docs/specs/2026-10-20-backend-design.md` (the backend: http proxy and now
-playing) and `docs/specs/2026-10-24-pwa-design.md` (manifest, service worker,
-install); read them before changing behaviour.
+playing), `docs/specs/2026-10-24-pwa-design.md` (manifest, service worker,
+install) and `docs/specs/2026-11-23-replace-missing-station-design.md` (finding
+a replacement for a favourite Radio Browser dropped); read them before changing
+behaviour.
 Ideas that need a backend are collected in `docs/ideas/backend.md`.
 
 ## Hard rules
