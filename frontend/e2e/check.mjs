@@ -163,6 +163,30 @@ try {
   check('esc closes the palette', !(await exists(page, '.palette')));
   check('grid shows both favourites and the add tile', (await tileNames(page)).length === 2 && (await exists(page, '.add-tile')), JSON.stringify(await tileNames(page)));
 
+  // ---------------------------------------------------------------- replacing a station Radio Browser dropped
+  const GONE = '00000000-dead-beef-0000-000000000000';
+  const rep = await newApp(browser, { width: 1440, height: 900, seed: edn([{ id: GONE, name: 'Gone FM', key: '7' }, STATIONS.jazz]) });
+  await waitFor(rep, `!!document.querySelector('.flag')`);
+  await click(rep, '.tile:nth-child(1) button.flag');
+  check('the flag opens the palette in replace mode', (await exists(rep, '.palette .replacing')) && (await rep.eval(`document.getElementById('search-input').value`)) === 'Gone FM', await text(rep, '.replacing'));
+  await rep.eval(`document.getElementById('search-input').select()`);
+  await type(rep, 'SMOOTH JAZZ');
+  await waitFor(rep, `!!document.querySelector('#search-list .row.taken')`);
+  check('a station that is already a favourite is dimmed', await exists(rep, '#search-list .row.taken[aria-disabled=true]'));
+  await click(rep, '#search-list .row.taken');
+  check('picking it does nothing', (await exists(rep, '.palette .replacing')) && (await storedIds(rep))[0] === GONE);
+  await rep.eval(`document.getElementById('search-input').select()`);
+  await type(rep, 'France Inter');
+  await waitFor(rep, `[...document.querySelectorAll('#search-list .row b')].some(b => /France Inter/.test(b.textContent))`);
+  await rep.eval(`[...document.querySelectorAll('#search-list .row:not(.taken)')][0].click()`);
+  await sleep(300);
+  check('picking another station closes the palette', !(await exists(rep, '.palette')));
+  const swapped = await storedIds(rep);
+  check('the new station took the place of the old one', swapped.length === 2 && swapped[0] !== GONE && swapped[1] === STATIONS.jazz.id, JSON.stringify(swapped));
+  check('it kept the key', (await text(rep, '.tile:nth-child(1) .keycap')) === '7');
+  check('the toast says so', /reemplazada/.test((await toast(rep)) || ''), await toast(rep));
+  check('nothing is flagged any more', !(await exists(rep, 'button.flag')));
+
   // ---------------------------------------------------------------- reload: one request for every favourite
   const seed = edn([
     { ...STATIONS.bbc, key: '1' }, STATIONS.jazz, STATIONS.sky,
