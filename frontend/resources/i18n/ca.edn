@@ -29,6 +29,9 @@
  :menu/copy-url       "Copia l'enllaç del stream"
  :menu/radio-browser  "Mostra a radio-browser.info"
  :menu/customize      "Personalitza…"
+ :menu/find-replacement "Cerca una substituta"
+ :menu/source "Codi font"
+ :menu/install "Instal·la l’aplicació"
 
  :customize/title     "Personalitza"
  :customize/name      "Nom"
@@ -38,6 +41,16 @@
  :customize/image     "Imatge"
  :customize/pad       "Amb marge"
  :customize/text      "Text"
+ :customize/color "Color del nom"
+ :color/auto "Automàtic"
+ :color/red "Vermell"
+ :color/orange "Taronja"
+ :color/ochre "Ocre"
+ :color/green "Verd"
+ :color/teal "Verd blavós"
+ :color/blue "Blau"
+ :color/violet "Violeta"
+ :color/pink "Rosa"
  :customize/save      "Desa"
 
  :health/ok           "Comprovada el {date} · OK"
@@ -77,6 +90,8 @@
  :search/mode-normal  "navegant"
  :search/loading      "S'està cercant…"
  :search/empty        "Cap emissora no es diu «{query}». Prova amb una part del nom."
+ :search/replacing "Substituint «{name}»"
+ :search/already-favorite "Ja és preferida"
 
  :error/network       "No s'ha pogut connectar amb Radio Browser a les {time}."
  :error/stations      "No s'han pogut carregar les dades de les teves preferides."
@@ -118,6 +133,7 @@
 
  :toast/added         "«{name}» afegida a preferides"
  :toast/removed       "«{name}» treta de preferides"
+ :toast/replaced "«{old}» substituïda per «{new}»"
  :toast/moved         "«{name}» moguda al principi"
  :toast/key-saved     "«{key}» posa {name}"
  :toast/voted         "Vot enviat a {name}"

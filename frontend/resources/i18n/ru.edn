@@ -29,6 +29,9 @@
  :menu/copy-url       "Копировать ссылку на поток"
  :menu/radio-browser  "Открыть на radio-browser.info"
  :menu/customize      "Настроить…"
+ :menu/find-replacement "Найти замену"
+ :menu/source "Исходный код"
+ :menu/install "Установить приложение"
 
  :customize/title     "Настроить"
  :customize/name      "Название"
@@ -38,6 +41,16 @@
  :customize/image     "Картинка"
  :customize/pad       "С полями"
  :customize/text      "Текст"
+ :customize/color "Цвет названия"
+ :color/auto "Автоматически"
+ :color/red "Красный"
+ :color/orange "Оранжевый"
+ :color/ochre "Охра"
+ :color/green "Зелёный"
+ :color/teal "Бирюзовый"
+ :color/blue "Синий"
+ :color/violet "Фиолетовый"
+ :color/pink "Розовый"
  :customize/save      "Сохранить"
 
  :health/ok           "Проверена {date} · OK"
@@ -77,6 +90,8 @@
  :search/mode-normal  "навигация"
  :search/loading      "Поиск…"
  :search/empty        "Нет станций с названием «{query}». Попробуй ввести часть названия."
+ :search/replacing "Замена «{name}»"
+ :search/already-favorite "Уже в избранном"
 
  :error/network       "Не удалось связаться с Radio Browser в {time}."
  :error/stations      "Не удалось загрузить данные избранных станций."
@@ -120,6 +135,7 @@
 
  :toast/added         "«{name}» — в избранном"
  :toast/removed       "«{name}» больше не в избранном"
+ :toast/replaced "«{old}» заменена на «{new}»"
  :toast/moved         "«{name}» — теперь в начале"
  :toast/key-saved     "Клавиша «{key}» — {name}"
  :toast/voted         "Голос отправлен: {name}"

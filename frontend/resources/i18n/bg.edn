@@ -29,6 +29,9 @@
  :menu/copy-url       "Копирай връзката към потока"
  :menu/radio-browser  "Виж в radio-browser.info"
  :menu/customize      "Персонализиране…"
+ :menu/find-replacement "Намиране на заместник"
+ :menu/source "Изходен код"
+ :menu/install "Инсталиране на приложението"
 
  :customize/title     "Персонализиране"
  :customize/name      "Име"
@@ -38,6 +41,16 @@
  :customize/image     "Изображение"
  :customize/pad       "С поле"
  :customize/text      "Текст"
+ :customize/color "Цвят на името"
+ :color/auto "Автоматичен"
+ :color/red "Червен"
+ :color/orange "Оранжев"
+ :color/ochre "Охра"
+ :color/green "Зелен"
+ :color/teal "Синьозелен"
+ :color/blue "Син"
+ :color/violet "Виолетов"
+ :color/pink "Розов"
  :customize/save      "Запази"
 
  :health/ok           "Проверена на {date} · OK"
@@ -77,6 +90,8 @@
  :search/mode-normal  "разглеждане"
  :search/loading      "Търсене…"
  :search/empty        "Няма станция с име „{query}“. Опитай с част от името."
+ :search/replacing "Замяна на „{name}“"
+ :search/already-favorite "Вече е в любими"
 
  :error/network       "Няма връзка с Radio Browser в {time}."
  :error/stations      "Данните за любимите ти не можаха да се заредят."
@@ -118,6 +133,7 @@
 
  :toast/added         "„{name}“ е добавена в любими"
  :toast/removed       "„{name}“ е премахната от любими"
+ :toast/replaced "„{old}“ е заменена с „{new}“"
  :toast/moved         "„{name}“ е преместена най-отпред"
  :toast/key-saved     "„{key}“ пуска {name}"
  :toast/voted         "Гласът за {name} е изпратен"

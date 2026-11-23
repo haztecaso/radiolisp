@@ -29,6 +29,9 @@
  :menu/copy-url       "复制流地址"
  :menu/radio-browser  "在 radio-browser.info 上查看"
  :menu/customize      "自定义…"
+ :menu/find-replacement "查找替代电台"
+ :menu/source "源代码"
+ :menu/install "安装应用"
 
  :customize/title     "自定义"
  :customize/name      "名称"
@@ -38,6 +41,16 @@
  :customize/image     "图片"
  :customize/pad       "留边"
  :customize/text      "文字"
+ :customize/color "名称颜色"
+ :color/auto "自动"
+ :color/red "红色"
+ :color/orange "橙色"
+ :color/ochre "赭色"
+ :color/green "绿色"
+ :color/teal "青色"
+ :color/blue "蓝色"
+ :color/violet "紫色"
+ :color/pink "粉色"
  :customize/save      "保存"
 
  :health/ok           "{date} 已检测 · 正常"
@@ -77,6 +90,8 @@
  :search/mode-normal  "浏览中"
  :search/loading      "正在搜索…"
  :search/empty        "没有名为“{query}”的电台。试试输入名称的一部分。"
+ :search/replacing "正在替换“{name}”"
+ :search/already-favorite "已在收藏中"
 
  :error/network       "{time} 无法连接 Radio Browser。"
  :error/stations      "无法加载收藏电台的信息。"
@@ -117,6 +132,7 @@
 
  :toast/added         "已将“{name}”加入收藏"
  :toast/removed       "已将“{name}”移出收藏"
+ :toast/replaced "已将“{old}”替换为“{new}”"
  :toast/moved         "已将“{name}”移到最前"
  :toast/key-saved     "“{key}”键播放 {name}"
  :toast/voted         "已为 {name} 投票"

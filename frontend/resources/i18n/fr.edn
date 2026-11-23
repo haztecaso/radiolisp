@@ -29,6 +29,9 @@
  :menu/copy-url       "Copier le lien du flux"
  :menu/radio-browser  "Voir sur radio-browser.info"
  :menu/customize      "Personnaliser…"
+ :menu/find-replacement "Trouver un remplacement"
+ :menu/source "Code source"
+ :menu/install "Installer l’application"
 
  :customize/title     "Personnaliser"
  :customize/name      "Nom"
@@ -38,6 +41,16 @@
  :customize/image     "Image"
  :customize/pad       "Avec marge"
  :customize/text      "Texte"
+ :customize/color "Couleur du nom"
+ :color/auto "Automatique"
+ :color/red "Rouge"
+ :color/orange "Orange"
+ :color/ochre "Ocre"
+ :color/green "Vert"
+ :color/teal "Bleu canard"
+ :color/blue "Bleu"
+ :color/violet "Violet"
+ :color/pink "Rose"
  :customize/save      "Enregistrer"
 
  :health/ok           "Vérifiée le {date} · OK"
@@ -77,6 +90,8 @@
  :search/mode-normal  "navigation"
  :search/loading      "Recherche…"
  :search/empty        "Aucune station ne s’appelle « {query} ». Essayez avec une partie du nom."
+ :search/replacing "Remplacement de « {name} »"
+ :search/already-favorite "Déjà dans les favoris"
 
  :error/network       "Impossible de joindre Radio Browser à {time}."
  :error/stations      "Impossible de charger les données de vos favoris."
@@ -118,6 +133,7 @@
 
  :toast/added         "« {name} » ajoutée aux favoris"
  :toast/removed       "« {name} » retirée des favoris"
+ :toast/replaced "« {old} » remplacée par « {new} »"
  :toast/moved         "« {name} » placée en premier"
  :toast/key-saved     "« {key} » lance {name}"
  :toast/voted         "Vote envoyé pour {name}"
