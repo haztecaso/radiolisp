@@ -31,8 +31,7 @@
 
 (defn- station-items [{:keys [stations favorites locale] :as state} t id]
   (let [station  (get stations id)
-        missing? (contains? (:missing favorites) id)
-        {shortcut :key} (favs/find-favorite (:items favorites) id)]
+        missing? (contains? (:missing favorites) id)]
     (list
      (when missing?
        (item icons/search (t :menu/find-replacement) [[:favorites/find-replacement id]]))
@@ -41,8 +40,6 @@
      (when station
        (item icons/thumb (t :menu/vote) [[:station/vote id]]
              [:span.meta.num (i18n/format-number locale (:votes station))]))
-     (item icons/key-icon (t (if shortcut :menu/change-key :tile/assign-key)) [[:dialog/open-key id]]
-           (when shortcut [:span.meta shortcut]))
      (item icons/sliders (t :menu/customize) [[:customize/open id]])
      (item icons/up (t :menu/move-to-front) [[:favorites/move-to-front id]])
      (when (:url station)

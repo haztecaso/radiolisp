@@ -2,7 +2,7 @@
 
 Radiolisp is a small, fast radio player for the browser: search the whole
 [Radio Browser](https://radio-browser.info) directory, keep your favourite
-stations in a grid, and give each one its own key. No account, no tracking,
+stations in a grid, and play them from the keyboard. No account, no tracking,
 nothing to install, though you can install it as an app if you like.
 
 Inspired by [radiolise](https://radiolise.com), and born as a way to learn
@@ -23,13 +23,13 @@ the backend.
 
 ## Features
 
-- **Favourites in a grid.** Reorder them by dragging, filter them with `/`, and
-  give each station its own key to start it.
+- **Favourites in a grid.** Reorder them by dragging or from the keyboard, and
+  filter them with `/`.
 - **The whole directory a key away.** Press `a` to search all of Radio Browser;
   with no query it shows what is most played today.
 - **Plays almost anything:** MP3, AAC, Ogg and HLS, with the system media keys.
-- **Keyboard first.** Arrow keys or vim-style shortcuts everywhere; press `?`
-  for the list.
+- **Keyboard first.** Walk the grid with the arrow keys, `hjkl` or Tab, play
+  with Enter, and more vim-style shortcuts everywhere; press `?` for the list.
 - **Your list is yours.** Export it as M3U or as a list of station ids, import
   those files or a radiolise export, by menu or by dropping the file on the page.
 - **Installable**, with an offline shell, and light and dark themes.
@@ -40,7 +40,7 @@ the backend.
 
 ## Privacy
 
-Everything radiolisp remembers (your favourites, their keys, the theme) stays in
+Everything radiolisp remembers (your favourites, the theme) stays in
 your browser's `localStorage`; there are no accounts and no analytics. The app talks to
 Radio Browser to search and to the stations to play them; when you play or
 vote for a station, Radio Browser counts it, as every client of the directory
@@ -58,7 +58,7 @@ addresses, not even after a redirect.
 - **Region blocks.** Some stations refuse listeners from certain countries or
   VPNs. When the station allows it, radiolisp tells you that is what happened.
 - **Favourites live in one browser.** To take them to another one, export and
-  import them; the keys you assigned do not travel.
+  import them.
 - **Now playing** needs the backend and a station that broadcasts titles. HLS
   stations do not show them yet.
 

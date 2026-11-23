@@ -38,10 +38,6 @@
                                     [:favorites/play "h1"])]
     (is (= [:audio/play "https://hls.example/live.m3u8" true "h1"] (first effects)))))
 
-(deftest assigned-keys-play-their-favourite
-  (is (= jazz (get-in (:state (a/handle ready [:favorites/play-key "1"])) [:player :station])))
-  (is (= ready (:state (a/handle ready [:favorites/play-key "9"])))))
-
 (deftest next-and-previous-cycle-through-the-favourites
   (is (= blues (get-in (:state (a/handle playing-jazz [:favorites/play-next 1])) [:player :station])))
   (is (= blues (get-in (:state (a/handle playing-jazz [:favorites/play-next -1])) [:player :station])))

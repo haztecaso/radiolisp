@@ -17,8 +17,8 @@
   (-> store/initial-state
       (assoc :api {:servers ["s1" "s2"] :current 0})
       (assoc :stations stations)
-      (assoc :favorites {:items    [{:id "j1" :name "Jazz Radio" :key "1"}
-                                    {:id "b1" :name "Blues FM" :key nil}]
+      (assoc :favorites {:items    [{:id "j1" :name "Jazz Radio"}
+                                    {:id "b1" :name "Blues FM"}]
                          :status   :done
                          :retried? false
                          :missing  #{}})))
