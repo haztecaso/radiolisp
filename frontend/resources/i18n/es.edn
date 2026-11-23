@@ -29,6 +29,7 @@
  :menu/copy-url       "Copiar enlace del stream"
  :menu/radio-browser  "Ver en radio-browser.info"
  :menu/customize      "Personalizar…"
+ :menu/find-replacement "Buscar reemplazo"
  :menu/source         "Código fuente"
  :menu/install        "Instalar la app"
 
@@ -89,6 +90,8 @@
  :search/mode-normal  "navegando"
  :search/loading      "Buscando…"
  :search/empty        "Ninguna emisora se llama «{query}». Prueba con una parte del nombre."
+ :search/replacing    "Reemplazando «{name}»"
+ :search/already-favorite "Ya es favorita"
 
  :error/network       "No se pudo conectar con Radio Browser a las {time}."
  :error/stations      "No se pudieron cargar los datos de tus favoritas."
@@ -130,6 +133,7 @@
 
  :toast/added         "«{name}» añadida a favoritas"
  :toast/removed       "«{name}» quitada de favoritas"
+ :toast/replaced      "«{old}» reemplazada por «{new}»"
  :toast/moved         "«{name}» movida al principio"
  :toast/key-saved     "«{key}» pone {name}"
  :toast/voted         "Voto enviado a {name}"

@@ -29,6 +29,7 @@
  :menu/copy-url       "Copy stream link"
  :menu/radio-browser  "View on radio-browser.info"
  :menu/customize      "Customize…"
+ :menu/find-replacement "Find replacement"
  :menu/source         "Source code"
  :menu/install        "Install the app"
 
@@ -89,6 +90,8 @@
  :search/mode-normal  "browsing"
  :search/loading      "Searching…"
  :search/empty        "No station is called “{query}”. Try part of the name."
+ :search/replacing    "Replacing “{name}”"
+ :search/already-favorite "Already a favourite"
 
  :error/network       "Could not reach Radio Browser at {time}."
  :error/stations      "Could not load the details of your favourites."
@@ -130,6 +133,7 @@
 
  :toast/added         "“{name}” added to favourites"
  :toast/removed       "“{name}” removed from favourites"
+ :toast/replaced      "“{old}” replaced by “{new}”"
  :toast/moved         "“{name}” moved to the front"
  :toast/key-saved     "“{key}” plays {name}"
  :toast/voted         "Vote sent to {name}"
