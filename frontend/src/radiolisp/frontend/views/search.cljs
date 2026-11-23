@@ -17,28 +17,34 @@
   (let [highlight? (= index (get-in state [:search :highlight]))
         current?   (= id (get-in player [:station :id]))
         active?    (and current? (#{:playing :connecting} (:status player)))
-        favorite?  (favs/member? (:items favorites) id)]
+        favorite?  (favs/member? (:items favorites) id)
+        replacing? (some? (get-in state [:search :replacing]))
+        taken?     (and replacing? favorite?)]
     [:li.row {:id            (str "st-" index)
               :replicant/key id
               :role          "option"
               :aria-selected (str highlight?)
-              :class         [(when highlight? "hl") (when current? "playing")]
+              :aria-disabled (str taken?)
+              :class         [(when highlight? "hl") (when current? "playing") (when taken? "taken")]
               :on            {:click [[:search/choose index]]}}
      (art/view state station "thumb")
      [:div.info
       [:b {:title station-name} station-name]
       [:div.meta-line (sv/quality station) [:span.tags (sv/tags-line station true)]]]
-     [:div.acts
-      [:button.icon-btn {:tabindex   "-1"
-                         :aria-label (t (if active? :player/pause :player/play) {:name station-name})
-                         :on         {:click [[:search/choose index]]}}
-       (if active? icons/pause icons/play)]
-      [:button.icon-btn.fav {:tabindex     "-1"
-                             :class        (when favorite? "on")
-                             :aria-pressed (str favorite?)
-                             :aria-label   (t (if favorite? :fav/remove :fav/add))
-                             :on           {:click [[:search/toggle-favorite index]]}}
-       (if favorite? icons/heart-on icons/heart)]]]))
+     (cond
+       taken?     [:span.tag (t :search/already-favorite)]
+       replacing? nil
+       :else      [:div.acts
+                   [:button.icon-btn {:tabindex   "-1"
+                                      :aria-label (t (if active? :player/pause :player/play) {:name station-name})
+                                      :on         {:click [[:search/choose index]]}}
+                    (if active? icons/pause icons/play)]
+                   [:button.icon-btn.fav {:tabindex     "-1"
+                                          :class        (when favorite? "on")
+                                          :aria-pressed (str favorite?)
+                                          :aria-label   (t (if favorite? :fav/remove :fav/add))
+                                          :on           {:click [[:search/toggle-favorite index]]}}
+                    (if favorite? icons/heart-on icons/heart)]])]))
 
 (defn- skeleton-rows []
   [:ul.results
@@ -95,4 +101,6 @@
        [:button.icon-btn.close {:aria-label (t :search/close)
                                 :on         {:click [[:search/close]]}}
         icons/close]]
+      (when-let [old (:replacing search)]
+        [:div.replacing (t :search/replacing {:name (actions/favorite-name state old)})])
       (body state t)]]))
